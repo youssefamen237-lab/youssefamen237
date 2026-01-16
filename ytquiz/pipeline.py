@@ -56,7 +56,7 @@ def run_pipeline(cfg: Config) -> None:
 
     countries = load_countries(cfg.datasets_dir, log)
 
-    _update_metrics(cfg=cfg, state=state, analytics=analytics, log=log)
+    _update_metrics(cfg=cfg, state=state, youtube=youtube, analytics=analytics, log=log)
 
     planner = Planner(cfg=cfg, state=state, log=log)
     day = now_utc()
@@ -76,7 +76,7 @@ def run_pipeline(cfg: Config) -> None:
         _produce_and_upload_long(cfg=cfg, state=state, youtube=youtube, plan=plans.long, countries=countries, log=log)
 
 
-def _update_metrics(*, cfg: Config, state: StateDB, analytics, log: Log) -> None:
+def _update_metrics(*, cfg: Config, state: StateDB, youtube, analytics, log: Log) -> None:
     rows = state.list_videos_needing_metrics(
         min_age_hours=24,
         max_days=45,
@@ -87,16 +87,19 @@ def _update_metrics(*, cfg: Config, state: StateDB, analytics, log: Log) -> None
         log.info("No videos need analytics update.")
         return
 
+    now = now_utc()
+
     for r in rows:
         video_id = str(r["video_id"])
         publish_s = str(r["published_at"])
         try:
             publish_dt = datetime.fromisoformat(publish_s)
         except Exception:
-            publish_dt = now_utc() - timedelta(days=2)
+            publish_dt = now - timedelta(days=2)
 
         metrics = fetch_video_metrics(
             analytics=analytics,
+            youtube=youtube,
             channel_id=cfg.channel_id,
             video_id=video_id,
             publish_dt=publish_dt,
@@ -105,6 +108,12 @@ def _update_metrics(*, cfg: Config, state: StateDB, analytics, log: Log) -> None
         )
         if not metrics:
             continue
+
+        try:
+            age_hours = max(0.1, (now - publish_dt).total_seconds() / 3600.0)
+        except Exception:
+            age_hours = 24.0
+        metrics["ageHours"] = float(age_hours)
 
         vlen = float(r["video_length_seconds"] or 0.0)
         score = compute_score(metrics, vlen)
@@ -137,6 +146,8 @@ def _produce_and_upload_short(*, cfg: Config, state: StateDB, youtube, plan, cou
     voice_wav = out_dir / f"voice_{item.question_hash[:10]}.wav"
     synthesize_voice(cfg=cfg, voice_gender=plan.voice_gender, text=voice_text, out_wav=voice_wav, rng=rng, log=log)
 
+    # Trim silence (ffmpeg cannot write output to the same input path)
+    trimmed_wav = out_dir / f"voice_{item.question_hash[:10]}_trim.wav"
     run_cmd(
         [
             "ffmpeg",
@@ -145,18 +156,25 @@ def _produce_and_upload_short(*, cfg: Config, state: StateDB, youtube, plan, cou
             str(voice_wav),
             "-af",
             "silenceremove=start_periods=1:start_duration=0.08:start_threshold=-40dB:stop_periods=1:stop_duration=0.08:stop_threshold=-40dB",
-            str(voice_wav),
+            str(trimmed_wav),
         ],
         timeout=120,
         retries=1,
         retry_sleep=1.0,
     )
+    try:
+        trimmed_wav.replace(voice_wav)
+    except Exception:
+        voice_wav = trimmed_wav
 
     voice_dur = ffprobe_duration_seconds(voice_wav)
+
     countdown = int(item.countdown_seconds)
     min_cd = int(math.ceil(max(0.0, voice_dur))) + 1
     countdown = max(countdown, min_cd)
-    countdown = min(countdown, 15)
+
+    # allow up to 20s to avoid cutting voice in rare long questions
+    countdown = min(countdown, 20)
 
     bg_image, bg_source = pick_background(
         rng=rng,
@@ -220,6 +238,7 @@ def _produce_and_upload_short(*, cfg: Config, state: StateDB, youtube, plan, cou
             bg_source=bg_source,
             features={
                 "slot_id": plan.slot_id,
+                "cd_bucket": plan.cd_bucket,
                 "publish_immediately": bool(plan.publish_immediately),
                 "cta_variant": "cta_v1",
             },
@@ -262,6 +281,7 @@ def _produce_and_upload_short(*, cfg: Config, state: StateDB, youtube, plan, cou
         bg_source=bg_source,
         features={
             "slot_id": plan.slot_id,
+            "cd_bucket": plan.cd_bucket,
             "publish_immediately": bool(plan.publish_immediately),
             "cta_variant": "cta_v1",
         },
