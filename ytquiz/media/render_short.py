@@ -40,7 +40,7 @@ def render_short(
     read_s_s = f"{read_s:.3f}"
     total_s = f"{total:.3f}"
 
-    # timer counts down only AFTER the voice finishes reading
+    # Timer counts down only after the voice finishes reading.
     timer_expr = f"%{{eif\\:max(0\\,ceil({answer_start_s}-t))\\:d}}"
     draw_timer = (
         "drawtext="
@@ -74,15 +74,13 @@ def render_short(
         inputs += ["-stream_loop", "-1", "-i", str(music_path)]
         music_in = voice_in + 1
 
+    # ---------------- VIDEO ----------------
     v_parts: list[str] = []
     v_parts.append(f"[0:v]scale={vw}:{vh},setsar=1,boxblur=20:1,format=rgba[bg]")
-
-    # question visible from start until answer reveal
     v_parts.append(f"[bg][1:v]overlay=(W-w)/2:(H-h)/2:enable='between(t,0,{answer_start_s})'[v1]")
     v_parts.append(f"[v1]{draw_timer}[v2]")
 
     v_cur = "v2"
-
     if hint_enabled:
         hint_in = 2
         hint_start = read_s + max(0.2, float(cd) * 0.45)
@@ -92,41 +90,38 @@ def render_short(
         )
         v_cur = "v3"
 
-    # answer reveal at the end
-    v_parts.append(
-        f"[{v_cur}][{answer_in}:v]overlay=(W-w)/2:(H-h)/2:enable='between(t,{answer_start_s},{total_s})'[vout]"
-    )
+    v_parts.append(f"[{v_cur}][{answer_in}:v]overlay=(W-w)/2:(H-h)/2:enable='between(t,{answer_start_s},{total_s})'[vout]")
 
-    # AUDIO: always pad voice to full duration + optional background music
+    # ---------------- AUDIO (FIXED) ----------------
+    # Always create a padded voice track of exact duration, then (optionally) add music.
     a_parts: list[str] = []
 
+    # v0 = padded voice (exact length)
     a_parts.append(
         f"[{voice_in}:a]"
         "aresample=44100,volume=1.1,"
         "apad,"
-        f"atrim=duration={total_s},"
-        "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=mono"
-        "[voicefull]"
+        f"atrim=duration={total_s}"
+        "[v0]"
     )
 
     if not music_enabled:
-        a_parts.append("[voicefull]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=mono[aout]")
+        a_parts.append("[v0]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=mono[aout]")
     else:
+        # m0 = music bed (real file if exists, else fallback tone)
         if music_in is None:
-            # fallback ambient bed (copyright-safe) if user didn't add music files
-            a_parts.append("sine=frequency=220:sample_rate=44100,volume=-34dB[music]")
+            a_parts.append("sine=frequency=220:sample_rate=44100,volume=-34dB[m0]")
         else:
-            # real music file
-            a_parts.append(f"[{music_in}:a]aresample=44100,volume=-24dB[music]")
+            a_parts.append(f"[{music_in}:a]aresample=44100,volume=-24dB[m0]")
 
-        a_parts.append("[music][voicefull]sidechaincompress=threshold=0.06:ratio=10:attack=25:release=200[ducked]")
-        a_parts.append(
-            f"[ducked][voicefull]"
-            "amix=inputs=2:duration=longest:dropout_transition=0,"
-            f"atrim=duration={total_s}"
-            "[mix]"
-        )
-        a_parts.append("[mix]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[aout]")
+        # duck music under voice
+        a_parts.append("[m0][v0]sidechaincompress=threshold=0.06:ratio=10:attack=25:release=200[md]")
+
+        # mix ducked music + voice (voice dominant)
+        a_parts.append("[md][v0]amix=inputs=2:duration=longest:dropout_transition=0[mx]")
+
+        # ensure exact duration and output format
+        a_parts.append(f"[mx]atrim=duration={total_s},aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[aout]")
 
     filter_complex = ";".join(v_parts + a_parts)
 
