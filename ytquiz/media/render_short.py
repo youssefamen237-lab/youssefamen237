@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
 from ytquiz.config import Config
@@ -25,11 +24,24 @@ def render_short(
     total = max(total, 6.0)
 
     vw, vh = cfg.video_size
-
     font = str(cfg.ffmpeg_font_file)
 
     timer_fontsize = int(max(56, min(vw, vh) * 0.12))
     timer_y = 0.82 if vh >= vw else 0.78
+
+    # IMPORTANT:
+    # Escape commas inside the drawtext expression: max(0\,ceil(...))
+    timer_expr = f"%{{eif\\:max(0\\,ceil({countdown_seconds}-t))\\:d}}"
+    draw_timer = (
+        "drawtext="
+        f"fontfile={font}:"
+        f"text='{timer_expr}':"
+        "x=(w-text_w)/2:"
+        f"y=h*{timer_y}:"
+        f"fontsize={timer_fontsize}:"
+        "fontcolor=white:borderw=6:bordercolor=black:"
+        f"enable='between(t,0,{countdown_seconds})'"
+    )
 
     inputs: list[str] = []
     inputs += ["-loop", "1", "-t", f"{total:.3f}", "-i", str(bg_image)]
@@ -51,17 +63,6 @@ def render_short(
     if music_path is not None:
         inputs += ["-stream_loop", "-1", "-i", str(music_path)]
         music_in = voice_in + 1
-
-    draw_timer = (
-        "drawtext="
-        f"fontfile={font}:"
-        f"text=%{{eif\\:max(0,ceil({countdown_seconds}-t))\\:d}}:"
-        f"x=(w-text_w)/2:"
-        f"y=h*{timer_y}:"
-        f"fontsize={timer_fontsize}:"
-        "fontcolor=white:borderw=6:bordercolor=black:"
-        f"enable='between(t,0,{countdown_seconds})'"
-    )
 
     v_parts: list[str] = []
     v_parts.append(f"[0:v]scale={vw}:{vh},setsar=1,boxblur=20:1,format=rgba[bg]")
