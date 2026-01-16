@@ -29,8 +29,6 @@ def render_short(
     timer_fontsize = int(max(56, min(vw, vh) * 0.12))
     timer_y = 0.82 if vh >= vw else 0.78
 
-    # IMPORTANT:
-    # Escape commas inside the drawtext expression: max(0\,ceil(...))
     timer_expr = f"%{{eif\\:max(0\\,ceil({countdown_seconds}-t))\\:d}}"
     draw_timer = (
         "drawtext="
