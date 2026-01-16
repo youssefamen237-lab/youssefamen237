@@ -79,6 +79,7 @@ def load_json(path: Path) -> Any:
 
 def run_cmd(cmd: list[str], timeout: int | None = None, retries: int = 0, retry_sleep: float = 1.0) -> str:
     last_err: Exception | None = None
+    last_stderr: str = ""
     for attempt in range(retries + 1):
         try:
             p = subprocess.run(
@@ -90,12 +91,24 @@ def run_cmd(cmd: list[str], timeout: int | None = None, retries: int = 0, retry_
                 text=True,
             )
             return p.stdout
+        except subprocess.CalledProcessError as e:
+            last_err = e
+            if e.stderr:
+                last_stderr = e.stderr
+            if attempt >= retries:
+                break
+            time.sleep(retry_sleep * (1.5 ** attempt))
         except Exception as e:
             last_err = e
             if attempt >= retries:
                 break
             time.sleep(retry_sleep * (1.5 ** attempt))
-    raise RuntimeError(f"Command failed: {shlex.join(cmd)} :: {last_err}")
+
+    msg = f"Command failed: {shlex.join(cmd)}"
+    if last_stderr:
+        tail = last_stderr[-4000:]
+        msg += f"\n--- STDERR (last 4000 chars) ---\n{tail}\n"
+    raise RuntimeError(msg) from last_err
 
 
 def ffprobe_duration_seconds(path: Path) -> float:
