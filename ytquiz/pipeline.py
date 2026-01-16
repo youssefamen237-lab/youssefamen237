@@ -28,10 +28,10 @@ from ytquiz.youtube.uploader import set_thumbnail, upload_video
 
 
 _CTA_VARIANTS = [
-    "If you know the answer before the timer ends, comment below!",
-    "Beat the clock and drop your answer in the comments!",
-    "No Googling. Comment your answer before time runs out!",
-    "Type your answer in the comments before the countdown hits zero!",
+    "Comment your answer!",
+    "Drop your answer below!",
+    "No Googling—comment fast!",
+    "Type it in the comments!",
 ]
 
 _HASHTAGS = ["#quiz", "#trivia", "#shorts", "#generalknowledge", "#challenge"]
@@ -136,6 +136,7 @@ def _produce_and_upload_short(*, cfg: Config, state: StateDB, youtube, plan, cou
         answer_cooldown_days=cfg.answer_cooldown_days,
     )
 
+    # voice reads the FULL question (and a very short CTA)
     cta = rng.choice(_CTA_VARIANTS)
     voice_text = f"{item.question_text} {cta}"
 
@@ -146,7 +147,7 @@ def _produce_and_upload_short(*, cfg: Config, state: StateDB, youtube, plan, cou
     voice_wav = out_dir / f"voice_{item.question_hash[:10]}.wav"
     synthesize_voice(cfg=cfg, voice_gender=plan.voice_gender, text=voice_text, out_wav=voice_wav, rng=rng, log=log)
 
-    # Trim silence (ffmpeg cannot write output to the same input path)
+    # SAFE trim: trims ONLY leading/trailing silence without cutting pauses inside speech
     trimmed_wav = out_dir / f"voice_{item.question_hash[:10]}_trim.wav"
     run_cmd(
         [
@@ -155,26 +156,26 @@ def _produce_and_upload_short(*, cfg: Config, state: StateDB, youtube, plan, cou
             "-i",
             str(voice_wav),
             "-af",
-            "silenceremove=start_periods=1:start_duration=0.08:start_threshold=-40dB:stop_periods=1:stop_duration=0.08:stop_threshold=-40dB",
+            "silenceremove=start_periods=1:start_duration=0.08:start_threshold=-45dB,"
+            "areverse,"
+            "silenceremove=start_periods=1:start_duration=0.08:start_threshold=-45dB,"
+            "areverse",
             str(trimmed_wav),
         ],
-        timeout=120,
+        timeout=180,
         retries=1,
         retry_sleep=1.0,
     )
-    try:
-        trimmed_wav.replace(voice_wav)
-    except Exception:
-        voice_wav = trimmed_wav
+    voice_wav = trimmed_wav
 
     voice_dur = ffprobe_duration_seconds(voice_wav)
+    read_seconds = max(1.0, float(voice_dur))
 
-    countdown = int(item.countdown_seconds)
-    min_cd = int(math.ceil(max(0.0, voice_dur))) + 1
-    countdown = max(countdown, min_cd)
-
-    # allow up to 20s to avoid cutting voice in rare long questions
-    countdown = min(countdown, 20)
+    # NEW pacing:
+    # After voice finishes, show a short timer (3–5s) then answer immediately
+    base_cd = 3 + int(round(2.0 * float(item.difficulty)))
+    jitter = rng.choice([-1, 0, 0, 0, 1])
+    countdown = max(3, min(5, base_cd + jitter))
 
     bg_image, bg_source = pick_background(
         rng=rng,
@@ -184,9 +185,8 @@ def _produce_and_upload_short(*, cfg: Config, state: StateDB, youtube, plan, cou
         height=cfg.video_size[1],
     )
 
-    music_path = pick_music_track(rng, cfg.music_dir) if plan.music_mode == "on" else None
-    if plan.music_mode == "on" and music_path is None:
-        plan.music_mode = "off"
+    music_enabled = plan.music_mode == "on"
+    music_path = pick_music_track(rng, cfg.music_dir) if music_enabled else None
 
     overlays = make_short_overlays(
         out_dir=out_dir,
@@ -206,7 +206,9 @@ def _produce_and_upload_short(*, cfg: Config, state: StateDB, youtube, plan, cou
         bg_image=bg_image,
         overlays=overlays,
         voice_wav=voice_wav,
+        music_enabled=music_enabled,
         music_path=music_path,
+        read_seconds=read_seconds,
         countdown_seconds=countdown,
         out_mp4=out_mp4,
         log=log,
@@ -288,7 +290,6 @@ def _produce_and_upload_short(*, cfg: Config, state: StateDB, youtube, plan, cou
     )
 
     time.sleep(rng.uniform(4.0, 12.0))
-
     return video_id
 
 
@@ -301,9 +302,9 @@ def _produce_and_upload_long(*, cfg: Config, state: StateDB, youtube, plan, coun
     questions: list[QuizItem] = []
     for r in compilation_rows:
         try:
-            cd = int(r["countdown_seconds"] or 10)
+            cd = int(r["countdown_seconds"] or 4)
         except Exception:
-            cd = 10
+            cd = 4
         questions.append(
             QuizItem(
                 topic_id=str(r["topic_id"]),
@@ -313,7 +314,7 @@ def _produce_and_upload_long(*, cfg: Config, state: StateDB, youtube, plan, coun
                 correct_option_index=None,
                 hint_text=None,
                 difficulty=0.6,
-                countdown_seconds=max(6, min(12, cd)),
+                countdown_seconds=max(3, min(6, cd)),
                 question_hash=str(r["question_hash"] or ""),
             )
         )
@@ -336,9 +337,8 @@ def _produce_and_upload_long(*, cfg: Config, state: StateDB, youtube, plan, coun
         height=cfg_long.video_size[1],
     )
 
-    music_path = pick_music_track(rng, cfg.music_dir) if plan.music_mode == "on" else None
-    if plan.music_mode == "on" and music_path is None:
-        plan.music_mode = "off"
+    music_enabled = plan.music_mode == "on"
+    music_path = pick_music_track(rng, cfg.music_dir) if music_enabled else None
 
     out_mp4 = out_dir / f"long_{day_slug}.mp4"
     video_len = render_long_episode(
@@ -451,7 +451,6 @@ def _produce_and_upload_long(*, cfg: Config, state: StateDB, youtube, plan, coun
     )
 
     time.sleep(rng.uniform(6.0, 15.0))
-
     return video_id
 
 
@@ -461,37 +460,37 @@ def _short_metadata(*, item: QuizItem, countdown: int, rng: random.Random) -> di
 
     title_templates = {
         "capitals": [
-            "Can you guess the capital in {n}s? {e}",
-            "Capital Quiz: Beat the timer! {e}",
-            "Guess the capital fast! {e}",
+            "Can you guess it in {n}s? {e}",
+            "Capital Quiz: {n}s only! {e}",
+            "Guess it fast! {e}",
         ],
         "continents": [
-            "Which continent is it? {n}s challenge {e}",
-            "Continent Quiz: can you beat {n}s? {e}",
+            "Which continent is it? {n}s {e}",
+            "Continent Quiz: {n}s only {e}",
         ],
         "currencies": [
-            "Currency Quiz: {n}s to guess! {e}",
-            "Guess the currency! {e}",
+            "Currency Quiz: {n}s only! {e}",
+            "Guess the currency country! {e}",
         ],
         "elements": [
-            "Science Quiz: Symbol or Element? {e}",
-            "Can you name it in {n}s? {e}",
+            "Science Quiz: {n}s only {e}",
+            "Symbol Challenge: {n}s {e}",
         ],
         "science": [
             "Quick Science Question ({n}s) {e}",
             "Science Trivia Sprint {e}",
         ],
         "math": [
-            "Mental Math Challenge ({n}s) {e}",
-            "Fast Math: can you solve it? {e}",
+            "Mental Math ({n}s) {e}",
+            "Fast Math Challenge {e}",
         ],
         "truefalse": [
             "True or False? {n}s only {e}",
-            "Is this fact true? {e}",
+            "Is this true? {n}s {e}",
         ],
     }
 
-    templates = title_templates.get(topic, ["Quick Quiz Challenge ({n}s) {e}"])
+    templates = title_templates.get(topic, ["Quick Quiz ({n}s) {e}"])
     title = rng.choice(templates).format(n=countdown, e=emoji)
 
     base_desc = [
