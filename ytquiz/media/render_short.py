@@ -29,6 +29,7 @@ def render_short(
     timer_fontsize = int(max(56, min(vw, vh) * 0.12))
     timer_y = 0.82 if vh >= vw else 0.78
 
+    # Escape comma inside drawtext expression: max(0\,ceil(...))
     timer_expr = f"%{{eif\\:max(0\\,ceil({countdown_seconds}-t))\\:d}}"
     draw_timer = (
         "drawtext="
@@ -73,21 +74,38 @@ def render_short(
         hint_in = 2
         hint_start = max(1.0, float(countdown_seconds) * 0.45)
         hint_end = float(countdown_seconds)
-        v_parts.append(f"[{v_cur}][{hint_in}:v]overlay=(W-w)/2:(H-h)/2:enable='between(t,{hint_start:.3f},{hint_end:.3f})'[v3]")
+        v_parts.append(
+            f"[{v_cur}][{hint_in}:v]overlay=(W-w)/2:(H-h)/2:enable='between(t,{hint_start:.3f},{hint_end:.3f})'[v3]"
+        )
         v_cur = "v3"
 
     v_parts.append(
         f"[{v_cur}][{answer_in}:v]overlay=(W-w)/2:(H-h)/2:enable='between(t,{countdown_seconds},{total})'[vout]"
     )
 
+    # AUDIO:
+    # Fix: Always pad audio to full video duration so the video doesn't end early (and loop fast).
     a_parts: list[str] = []
-    a_parts.append(f"[{voice_in}:a]aresample=44100,volume=1.1[voice]")
     if music_in is None:
-        a_parts.append("[voice]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=mono[aout]")
+        a_parts.append(
+            f"[{voice_in}:a]"
+            "aresample=44100,volume=1.1,"
+            "apad,"
+            f"atrim=duration={total:.3f},"
+            "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=mono"
+            "[aout]"
+        )
     else:
+        a_parts.append(f"[{voice_in}:a]aresample=44100,volume=1.1[voice]")
         a_parts.append(f"[{music_in}:a]aresample=44100,volume=-30dB[music]")
         a_parts.append("[music][voice]sidechaincompress=threshold=0.06:ratio=10:attack=25:release=200[ducked]")
-        a_parts.append("[voice][ducked]amix=inputs=2:duration=first:dropout_transition=0[aout]")
+        a_parts.append(
+            f"[ducked][voice]"
+            "amix=inputs=2:duration=longest:dropout_transition=0,"
+            f"atrim=duration={total:.3f}"
+            "[mix]"
+        )
+        a_parts.append("[mix]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[aout]")
 
     filter_complex = ";".join(v_parts + a_parts)
 
@@ -118,7 +136,6 @@ def render_short(
         "128k",
         "-movflags",
         "+faststart",
-        "-shortest",
         str(out_mp4),
     ]
 
