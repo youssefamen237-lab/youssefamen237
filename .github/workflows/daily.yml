@@ -33,10 +33,21 @@ jobs:
           DRY_RUN: ${{ secrets.DRY_RUN }}
           DAILY_UPLOAD_CAP: ${{ secrets.DAILY_UPLOAD_CAP }}
 
+          # Prefer numbered OAuth vars (supports multi-account). Also export legacy names for compatibility.
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+          YT_CLIENT_ID_1: ${{ secrets.YT_CLIENT_ID_1 }}
+          YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
+          YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
+          YT_CLIENT_ID_2: ${{ secrets.YT_CLIENT_ID_2 }}
+          YT_CLIENT_SECRET_2: ${{ secrets.YT_CLIENT_SECRET_2 }}
+          YT_REFRESH_TOKEN_2: ${{ secrets.YT_REFRESH_TOKEN_2 }}
+          # Legacy (non-numbered) fallbacks
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID_1 }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET_1 }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN_1 }}
+
+          # Optional API key (some endpoints may use it)
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
 
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
