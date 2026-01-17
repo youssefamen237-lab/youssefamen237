@@ -149,6 +149,17 @@ class DB:
         )
         return list(cur.fetchall())
 
+    def list_pending_between(self, start_utc_iso: str, end_utc_iso: str) -> list[sqlite3.Row]:
+        """List planned/rendered videos scheduled within [start_utc_iso, end_utc_iso).
+
+        NOTE: publish_at_utc is stored in UTC ISO-8601 format, so lexicographic range queries are safe.
+        """
+        cur = self._conn.execute(
+            "SELECT * FROM videos WHERE publish_at_utc >= ? AND publish_at_utc < ? AND status IN ('planned','rendered') ORDER BY publish_at_utc",
+            (start_utc_iso, end_utc_iso),
+        )
+        return list(cur.fetchall())
+
     def count_for_dateprefix(self, kind: str, date_utc_prefix: str) -> int:
         cur = self._conn.execute(
             "SELECT COUNT(1) AS c FROM videos WHERE kind=? AND publish_at_utc LIKE ?",

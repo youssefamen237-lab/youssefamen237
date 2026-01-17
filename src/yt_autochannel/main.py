@@ -51,18 +51,42 @@ def main() -> int:
         ensure_backgrounds(bg_dir)
         ensure_music(music_dir)
 
-        # Plan today's content if not already planned
-        now = datetime.now(tz=pytz.UTC)
-        date_prefix = now.date().isoformat()
-        if db.get_state(f"planned:{date_prefix}") != "1":
-            planned = plan_today(settings, db)
-            report.add("info", "planned", {"count": len(planned), "date_utc": date_prefix})
-            db.set_state(f"planned:{date_prefix}", "1")
-        else:
-            report.add("info", "planning_skipped", {"date_utc": date_prefix})
+        # Plan today's content (by LOCAL day) if not already planned.
+        tz = pytz.timezone(settings.timezone)
+        local_now = datetime.now(tz=tz)
+        local_date = local_now.date().isoformat()
 
-        rows = db.list_unuploaded(date_prefix)
-        report.add("info", "pending_rows", {"count": len(rows)})
+        planned_key = f"planned_local:{local_date}"
+        if db.get_state(planned_key) != "1":
+            planned = plan_today(settings, db)
+            report.add("info", "planned", {"count": len(planned), "local_date": local_date})
+            db.set_state(planned_key, "1")
+        else:
+            report.add("info", "planning_skipped", {"local_date": local_date})
+
+        # Select pending items within the local-day window.
+        local_day_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        local_day_end = local_day_start + timedelta(days=1)
+        window_start_utc = local_day_start.astimezone(pytz.UTC).isoformat()
+        window_end_utc = local_day_end.astimezone(pytz.UTC).isoformat()
+        report.add(
+            "info",
+            "selection_window",
+            {"local_date": local_date, "window_start_utc": window_start_utc, "window_end_utc": window_end_utc},
+        )
+
+        rows = db.list_pending_between(window_start_utc, window_end_utc)
+
+        # Fallback window (covers edge cases if timezone math or jitter causes date-prefix mismatch)
+        if not rows:
+            now_utc = datetime.now(tz=pytz.UTC)
+            w2_start = (now_utc - timedelta(hours=2)).isoformat()
+            w2_end = (now_utc + timedelta(hours=36)).isoformat()
+            rows = db.list_pending_between(w2_start, w2_end)
+            report.add("warn", "fallback_window_used", {"window_start_utc": w2_start, "window_end_utc": w2_end, "count": len(rows)})
+
+        pending_count = len(rows)
+        report.add("info", "pending_rows", {"count": pending_count})
 
         # Build providers
         tts_chain = TTSChain([EdgeTTS(), EspeakTTS()])
@@ -77,6 +101,7 @@ def main() -> int:
             )
 
         uploaded_today = 0
+        uploaded_video_ids: list[str] = []
         first_run_done = (db.get_state("first_run_done") == "1")
 
         for row in rows:
@@ -216,6 +241,7 @@ def main() -> int:
                 video_id = upload_res.video_id
                 db.update_video(row_id, status="uploaded", video_id=video_id, uploaded_at_utc=utc_now_iso())
                 uploaded_today += 1
+                uploaded_video_ids.append(video_id)
 
                 report.add(
                     "info",
@@ -253,6 +279,20 @@ def main() -> int:
 
         report.add("info", "run_end", {"uploaded_today": uploaded_today})
         report.write()
+
+        # Emit a compact summary to stdout so you can debug without downloading artifacts.
+        print(
+            "RUN_SUMMARY_JSON="
+            + json.dumps(
+                {
+                    "dry_run": settings.dry_run,
+                    "pending_rows": pending_count,
+                    "uploaded_today": uploaded_today,
+                    "uploaded_video_ids": uploaded_video_ids,
+                    "artifacts_dir": str(repo_root / settings.artifacts_dir),
+                }
+            )
+        )
         return 0
 
     finally:
