@@ -11,6 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Reset runtime folders
+        run: |
+          rm -rf artifacts logs output
+          mkdir -p artifacts logs output
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -58,6 +63,16 @@ jobs:
           ALLOW_PAID_PROVIDERS: "false"
         run: |
           python -m yt_autochannel.main
+
+      - name: Show run report (first 200 lines)
+        if: always()
+        run: |
+          if [ -f artifacts/run_report.md ]; then
+            echo "----- artifacts/run_report.md -----"
+            sed -n '1,200p' artifacts/run_report.md
+          else
+            echo "No run_report.md found."
+          fi
 
       - name: Upload artifacts (logs and reports)
         if: always()
