@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import re
+
 from yt_auto.utils import env_bool, env_int, env_str
 
 
@@ -62,6 +64,35 @@ class Config:
     youtube_channel_id: str
 
     github_token: str
+
+    # Long videos (humanized)
+    long_min_minutes: int
+    long_max_minutes: int
+    long_lookback_days: int
+    long_countdown_choices: list[int]
+
+
+_INT_RE = re.compile(r"-?\d+")
+
+
+def _parse_int_list(raw: str, default: list[int]) -> list[int]:
+    raw = (raw or "").strip()
+    if not raw:
+        return default
+    nums: list[int] = []
+    for m in _INT_RE.finditer(raw):
+        try:
+            nums.append(int(m.group(0)))
+        except Exception:
+            continue
+    out: list[int] = []
+    seen = set()
+    for n in nums:
+        if n in seen:
+            continue
+        seen.add(n)
+        out.append(n)
+    return out or default
 
 
 def load_config() -> Config:
@@ -131,6 +162,22 @@ def load_config() -> Config:
 
     github_token = env_str("GITHUB_TOKEN", "").strip()
 
+    # Long videos (humanized)
+    long_min_minutes = env_int("LONG_MIN_MINUTES", 6)
+    long_max_minutes = env_int("LONG_MAX_MINUTES", 12)
+    if long_min_minutes < 1:
+        long_min_minutes = 1
+    if long_max_minutes < long_min_minutes:
+        long_max_minutes = long_min_minutes
+
+    long_lookback_days = env_int("LONG_LOOKBACK_DAYS", 10)
+    if long_lookback_days < 1:
+        long_lookback_days = 1
+
+    long_countdown_choices = _parse_int_list(env_str("LONG_COUNTDOWN_CHOICES", "8,9,10,11"), [8, 9, 10, 11])
+    # keep sane values
+    long_countdown_choices = [c for c in long_countdown_choices if 3 <= c <= 20] or [8, 9, 10, 11]
+
     return Config(
         project_root=root,
         out_dir=out_dir,
@@ -169,4 +216,9 @@ def load_config() -> Config:
         youtube_oauths=oauths,
         youtube_channel_id=youtube_channel_id,
         github_token=github_token,
+
+        long_min_minutes=long_min_minutes,
+        long_max_minutes=long_max_minutes,
+        long_lookback_days=long_lookback_days,
+        long_countdown_choices=long_countdown_choices,
     )
