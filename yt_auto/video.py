@@ -207,16 +207,37 @@ def _convert_vertical_to_16x9(cfg: Config, in_path: Path, out_path: Path) -> Non
     _run(cmd)
 
 
-def build_long_compilation(cfg: Config, clips: list[Path], out_mp4: Path, date_yyyymmdd: str) -> None:
+def build_long_compilation(
+    cfg: Config,
+    clips: list[Path],
+    out_mp4: Path,
+    *,
+    date_yyyymmdd: str,
+    intro_title: str = "Quizzaro",
+    intro_subtitle: str = "Quiz Compilation",
+    gap_title: str = "Next",
+    gap_subtitle: str = "Get Ready!",
+    outro_title: str = "Quizzaro",
+    outro_subtitle: str = "Subscribe for more quizzes!",
+    intro_s: float = 5.0,
+    gap_s: float = 1.6,
+    outro_s: float = 5.0,
+) -> None:
+    """Build a 16:9 long video by converting vertical clips and concatenating them.
+
+    This function is used by the long-video pipeline. It intentionally avoids
+    hardcoding repetitive "Daily Compilation + date" text.
+    """
+
     ensure_dir(out_mp4.parent)
 
     intro = cfg.out_dir / f"card_intro_{date_yyyymmdd}.mp4"
     outro = cfg.out_dir / f"card_outro_{date_yyyymmdd}.mp4"
     gap = cfg.out_dir / f"card_gap_{date_yyyymmdd}.mp4"
 
-    _make_card(cfg, intro, "Quizzaro", f"Daily Compilation • {date_yyyymmdd}", duration_s=6.0)
-    _make_card(cfg, gap, "Next Quiz", "Get Ready!", duration_s=2.0)
-    _make_card(cfg, outro, "Quizzaro", "Subscribe for more quizzes!", duration_s=6.0)
+    _make_card(cfg, intro, intro_title, intro_subtitle, duration_s=float(intro_s))
+    _make_card(cfg, gap, gap_title, gap_subtitle, duration_s=float(gap_s))
+    _make_card(cfg, outro, outro_title, outro_subtitle, duration_s=float(outro_s))
 
     processed: list[Path] = []
     for i, c in enumerate(clips, start=1):
