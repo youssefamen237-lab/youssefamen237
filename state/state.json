@@ -232,6 +232,13 @@
       "question": "Which popular dessert's name comes from the French word for 'burnt cream'?",
       "answer": "Creme Brulee",
       "date_iso": "2026-01-17"
+    },
+    {
+      "fp": "2eeac866e3b6d9de90ac1e33be2c8c296dd0a30dd3718770510f43d7e15631ea",
+      "q_norm": "what s the longest living species of bird",
+      "question": "What's the longest-living species of bird?",
+      "answer": "Laysan Albatross",
+      "date_iso": "2026-01-19"
     }
   ],
   "publishes": {
@@ -490,6 +497,16 @@
           "artifact": "short-20260117-slot2",
           "fp": "da09e32b3704ba0b9002b1c088962eb483cb0098a79aa70485b6ddacbf73b11b",
           "ts": "2026-01-17T07:36:19.807735+00:00"
+        }
+      }
+    },
+    "20260119": {
+      "shorts": {
+        "1": {
+          "video_id": "EAEkiExsvN8",
+          "artifact": "short-20260119-slot1",
+          "fp": "2eeac866e3b6d9de90ac1e33be2c8c296dd0a30dd3718770510f43d7e15631ea",
+          "ts": "2026-01-19T18:23:53.062070+00:00"
         }
       }
     }
