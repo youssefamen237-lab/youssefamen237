@@ -27,6 +27,14 @@ class QuizItem:
     provider: str
 
 
+@dataclass(frozen=True)
+class QuizQA:
+    category: str
+    question: str
+    answer: str
+    provider: str
+
+
 _JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 
 
@@ -284,6 +292,158 @@ def generate_quiz_item(cfg: Config, seed: int) -> QuizItem:
 
     _ = last_err
     return _fallback_item(seed)
+
+
+def _prompt_long_batch(seed: int, n_items: int, theme_key: str) -> str:
+    """Prompt used for generating a batch of Q/A items for LONG videos.
+
+    We keep it light (question/answer only) so we can request many items
+    without hitting small token limits.
+    """
+
+    theme_key = (theme_key or "GK").strip().upper()
+
+    style_map = {
+        "FLAGS": "Flags: ask 'guess the country' using flag color/symbol descriptions (NO images).",
+        "LOGOS": "Logos: ask 'guess the brand' using simple logo descriptions (NO images).",
+        "MOVIES": "Movies: safe movie trivia without quoting any lines. NO quotes.",
+        "GK": "General knowledge: timeless, non-controversial facts.",
+    }
+    style = style_map.get(theme_key, style_map["GK"])
+
+    return f"""
+Create {n_items} original quiz questions for a YouTube long video.
+
+Hard rules (must follow):
+- Family-friendly. No hate, harassment, sexual content, self-harm, or violence.
+- NO song lyrics, NO movie quotes, NO copyrighted passages.
+- Avoid politics, elections, wars, or controversial current events.
+- Each question under 140 characters. Each answer under 50 characters.
+- Keep questions clear, unambiguous, and easy to verify.
+- Do NOT mention AI.
+
+Theme for all items: {theme_key}
+Theme guidance: {style}
+
+Return ONLY valid JSON in this exact shape:
+{{
+  "items": [
+    {{"category": "short label", "question": "...", "answer": "..."}},
+    ...
+  ]
+}}
+
+Seed hint: {seed}
+""".strip()
+
+
+def generate_quiz_batch_long(cfg: Config, seed: int, n_items: int, theme_key: str) -> list[QuizQA]:
+    """Generate many Q/A items in one go for long videos.
+
+    Falls back to the simple local generator if no provider works.
+    """
+
+    prompt = _prompt_long_batch(seed, n_items, theme_key)
+    policy = RetryPolicy(max_attempts=3, base_sleep_s=0.9, max_sleep_s=8.0)
+
+    last_err: Exception | None = None
+
+    def _coerce_items(obj: dict[str, Any], provider: str) -> list[QuizQA]:
+        raw_items = obj.get("items") if isinstance(obj, dict) else None
+        if not isinstance(raw_items, list):
+            raise ValueError("bad_items_list")
+
+        out: list[QuizQA] = []
+        for it in raw_items:
+            if not isinstance(it, dict):
+                continue
+            category = str(it.get("category", "Quiz")).strip() or "Quiz"
+            question = str(it.get("question", "")).strip()
+            answer = str(it.get("answer", "")).strip()
+            if not question or not answer:
+                continue
+            if not validate_text_is_safe(question, answer).ok:
+                continue
+            out.append(QuizQA(category=category[:40], question=question[:170], answer=answer[:80], provider=provider))
+
+        # De-dup inside the batch
+        dedup: list[QuizQA] = []
+        seen = set()
+        for q in out:
+            k = q.question.strip().lower()
+            if k in seen:
+                continue
+            seen.add(k)
+            dedup.append(q)
+
+        return dedup[:n_items]
+
+    for provider in cfg.llm_order:
+        provider = provider.strip().lower()
+
+        if provider == "gemini":
+            if not cfg.gemini_api_key:
+                continue
+            for attempt in range(1, policy.max_attempts + 1):
+                try:
+                    txt = _call_gemini(cfg.gemini_api_key, cfg.gemini_model, prompt)
+                    obj = _extract_json(txt)
+                    return _coerce_items(obj, provider="gemini")
+                except Exception as e:
+                    last_err = e
+                    time.sleep(backoff_sleep_s(attempt, policy))
+
+        if provider == "groq":
+            if not cfg.groq_api_key:
+                continue
+            for attempt in range(1, policy.max_attempts + 1):
+                try:
+                    txt = _call_openai_compat("https://api.groq.com/openai/v1", cfg.groq_api_key, cfg.groq_model, prompt)
+                    obj = _extract_json(txt)
+                    return _coerce_items(obj, provider="groq")
+                except Exception as e:
+                    last_err = e
+                    time.sleep(backoff_sleep_s(attempt, policy))
+
+        if provider == "openrouter":
+            if not cfg.openrouter_key:
+                continue
+            for attempt in range(1, policy.max_attempts + 1):
+                try:
+                    headers = {"HTTP-Referer": "https://github.com/", "X-Title": "yt-auto"}
+                    txt = _call_openai_compat(
+                        "https://openrouter.ai/api/v1",
+                        cfg.openrouter_key,
+                        cfg.openrouter_model,
+                        prompt,
+                        extra_headers=headers,
+                    )
+                    obj = _extract_json(txt)
+                    return _coerce_items(obj, provider="openrouter")
+                except Exception as e:
+                    last_err = e
+                    time.sleep(backoff_sleep_s(attempt, policy))
+
+        if provider == "openai":
+            if not cfg.allow_paid_providers or not cfg.openai_api_key:
+                continue
+            for attempt in range(1, policy.max_attempts + 1):
+                try:
+                    txt = _call_openai_compat("https://api.openai.com/v1", cfg.openai_api_key, cfg.openai_model, prompt)
+                    obj = _extract_json(txt)
+                    return _coerce_items(obj, provider="openai")
+                except Exception as e:
+                    last_err = e
+                    time.sleep(backoff_sleep_s(attempt, policy))
+
+    _ = last_err
+
+    # Fallback: generate locally (limited variety, but always works)
+    out: list[QuizQA] = []
+    for i in range(n_items):
+        item = _fallback_item(seed + i * 997)
+        out.append(QuizQA(category=item.category, question=item.question, answer=item.answer, provider=item.provider))
+    return out
 
 
 def _coerce_item(obj: dict[str, Any], provider: str) -> QuizItem:
