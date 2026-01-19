@@ -246,6 +246,272 @@
       "question": "What is the largest planet in our solar system by diameter?",
       "answer": "Jupiter",
       "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "cca253f13c450bc1580fe6447e581ebf8f8415a28254b7da15c869136d778c4e",
+      "q_norm": "what actor played luke skywalker",
+      "question": "What actor played Luke Skywalker?",
+      "answer": "Mark Hamill",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "486de47ee8a6866edf5d13e2f71ac47f69543719efdf3fd6373d908fe855dda9",
+      "q_norm": "what 1994 movie stars tom hanks as the main character",
+      "question": "What 1994 movie stars Tom Hanks as the main character?",
+      "answer": "Forrest Gump",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "4d65284de0f2879f0b953080392df12ec508805ff98aaff052495fdf878fc363",
+      "q_norm": "what is the name of the award given to recognize excellence in filmmaking",
+      "question": "What is the name of the award given to recognize excellence in filmmaking?",
+      "answer": "Oscar",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "e687da6390c1372f74d62059cce255945e847d02c45d13c232af357c65f05d30",
+      "q_norm": "who directed the movie jaws",
+      "question": "Who directed the movie 'Jaws'?",
+      "answer": "Steven Spielberg",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "d77f0f883aebe222c54034cc1179af1523dd92edea7574a941dde8e27c4b6a9f",
+      "q_norm": "what 1984 movie is set in a chicago high school",
+      "question": "What 1984 movie is set in a Chicago high school?",
+      "answer": "The Breakfast Club",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "dec777d703b7be14dfc93d17959b966f759c3aac6b6d982bcbb71e247126da2d",
+      "q_norm": "who played the role of katniss everdeen",
+      "question": "Who played the role of Katniss Everdeen?",
+      "answer": "Jennifer Lawrence",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "4381b0497c0bdb86aa46439d4a8f1151151b1d56ec9f3453b889b5215238b759",
+      "q_norm": "what 1975 film is about a killer shark",
+      "question": "What 1975 film is about a killer shark?",
+      "answer": "Jaws",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "c5b97541d5d84ae6f403df8e0efe89f67ba02e5875e65ea09835503c6a13605a",
+      "q_norm": "what 1985 movie is set in a time traveling delorean",
+      "question": "What 1985 movie is set in a time-traveling DeLorean?",
+      "answer": "Back to the Future",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "a48e45a7d9687ab81189d60abf67fdf270b5a331babea8bb3afedbaae7136fa3",
+      "q_norm": "how many oscars did titanic win",
+      "question": "How many Oscars did 'Titanic' win?",
+      "answer": "11",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "bbd9cd9c5a7630dd1aae7c052c5d17acd064052a79ce35b23baef37a237a77cd",
+      "q_norm": "who directed the movie the matrix",
+      "question": "Who directed the movie 'The Matrix'?",
+      "answer": "Wachowskis",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "f0085f39b38b404744f8d249f44d0afb1f736d5afb30d9c22c52118cc371089f",
+      "q_norm": "what 1962 french film is known for its non linear storytelling",
+      "question": "What 1962 French film is known for its non-linear storytelling?",
+      "answer": "Jules and Jim",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "18b8236a5a9897557193bddc86fc02a582e6278b7d04d3618da9560e68ce065c",
+      "q_norm": "who played the role of spider man in the original trilogy",
+      "question": "Who played the role of Spider-Man in the original trilogy?",
+      "answer": "Tobey Maguire",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "5e70a7c271caaf147a219f5b823bccaadeaf9efbc880d3dd391784f475fb4a35",
+      "q_norm": "what 1999 film is set in a dystopian future",
+      "question": "What 1999 film is set in a dystopian future?",
+      "answer": "The Matrix",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "12a53e771e40782007bcc6d471349f501a32a2c3eb95fa4d53b6aacf343f0768",
+      "q_norm": "what is the name of the award given to recognize excellence in animation",
+      "question": "What is the name of the award given to recognize excellence in animation?",
+      "answer": "Annie Award",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "cc616b888d7f1ba7c47140755a1cd8f0bd26439d69a3de838241267cc1cfe4a2",
+      "q_norm": "who directed the movie e t the extra terrestrial",
+      "question": "Who directed the movie 'E.T. the Extra-Terrestrial'?",
+      "answer": "Steven Spielberg",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "7e75a706f80a260665b90a2a9522980ea78be34dfee896e13c1499bd1119e483",
+      "q_norm": "what 1954 film is a classic musical starring judy garland",
+      "question": "What 1954 film is a classic musical starring Judy Garland?",
+      "answer": "A Star is Born",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "0a18ce4666fe55479a8e200ff3a524fa79f10542d655a7f859acc48536e43b13",
+      "q_norm": "in which year was the lion king released",
+      "question": "In which year was 'The Lion King' released?",
+      "answer": "1994",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "b23117d88bd0f1610507b7d3b561a8880d9f2a6800255d1d870dd090c40d9ca7",
+      "q_norm": "who played the title role in forrest gump",
+      "question": "Who played the title role in 'Forrest Gump'?",
+      "answer": "Tom Hanks",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "1a2ba2791d3d879526617f8f8a33af5f789022f668469158103232475b715078",
+      "q_norm": "what is iron man s superhero name",
+      "question": "What is Iron Man's superhero name?",
+      "answer": "Tony Stark",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "24d3e3e9724ccd400b0e86b94e9473b6288a55ad700ed8f2a30776e1ac54b768",
+      "q_norm": "what is the name of ariel s best friend in the little mermaid",
+      "question": "What is the name of Ariel's best friend in 'The Little Mermaid'?",
+      "answer": "Flounder",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "4469eed2d53f2349475a6137e38931b6246d378d63f52de823c3d00c1a33998c",
+      "q_norm": "who played the main character in mrs doubtfire",
+      "question": "Who played the main character in 'Mrs. Doubtfire'?",
+      "answer": "Robin Williams",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "0fc6815878126014c793bbd052e4b91e25e84c68fe2de29f573ebebf98832055",
+      "q_norm": "in which year was the wizard of oz released",
+      "question": "In which year was 'The Wizard of Oz' released?",
+      "answer": "1939",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "e06bd8968f2032eb3c23bc708a9fd7c0dfb9f98fee6e1e9d7032675b96f1c057",
+      "q_norm": "who directed the lord of the rings trilogy",
+      "question": "Who directed 'The Lord of the Rings' trilogy?",
+      "answer": "Peter Jackson",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "30b774a02529904042bcdb78ee901d8fef7ade12144e99adce08b7d61c111878",
+      "q_norm": "in what year was raiders of the lost ark released",
+      "question": "In what year was 'Raiders of the Lost Ark' released?",
+      "answer": "1981",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "456986630f4544ea53ee0a16749bc4d6f5d25efe7b35bf6153c7141ff9a4d8e6",
+      "q_norm": "who voiced simba in the lion king",
+      "question": "Who voiced Simba in 'The Lion King'?",
+      "answer": "Jonathan Taylor Thomas",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "02c5bd5cfcca028926075a1e8b20c596ca45c90f584f0164066ab9fe1005dd90",
+      "q_norm": "what is the name of the superhero in the incredibles",
+      "question": "What is the name of the superhero in 'The Incredibles'?",
+      "answer": "Mr. Incredible",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "7c3fb1ff1a2662fc60aca6474892c07a7afc4e200ef4f91c5eb0596bbb5da61b",
+      "q_norm": "who played the main character in e t the extra terrestrial",
+      "question": "Who played the main character in 'E.T. the Extra-Terrestrial'?",
+      "answer": "Henry Thomas",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "89a43372a77d18106814d784dbdb8170dc0fe8e5a4982de537cbcbda57011569",
+      "q_norm": "what is the name of the toy space ranger in toy story",
+      "question": "What is the name of the toy space ranger in 'Toy Story'?",
+      "answer": "Buzz Lightyear",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "f1b8b0a85e9984ddd3013f1ae952468a8afc4da699f99a1ce69531390045eacd",
+      "q_norm": "who directed home alone",
+      "question": "Who directed 'Home Alone'?",
+      "answer": "Chris Columbus",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "7de10e927bd622b22c2303131ad187319c392a2c35f93318e410989531cdfb33",
+      "q_norm": "who played gandalf in the lord of the rings",
+      "question": "Who played Gandalf in 'The Lord of the Rings'?",
+      "answer": "Ian McKellen",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "94e540127d924afc67205a63475ad77d30f058b478a7f329428137084309dfe3",
+      "q_norm": "who played the main character in beverly hills cop",
+      "question": "Who played the main character in 'Beverly Hills Cop'?",
+      "answer": "Eddie Murphy",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "289886d6e029cf9aa8f46c71c0d18a05a828275b1b87ea6bcc4a6862f85a7911",
+      "q_norm": "who voiced shrek in the original film",
+      "question": "Who voiced Shrek in the original film?",
+      "answer": "Mike Myers",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "d195a7b1e51e5220dc94b9aae240672ba0375540549d99f3fe91fe56f6fe5442",
+      "q_norm": "leonardo dicaprio won an oscar for which film",
+      "question": "Leonardo DiCaprio won an Oscar for which film?",
+      "answer": "The Revenant",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "1eae7075517a04dc3fb2f77cc96be349e57b2b7511256e7c66f57510bfc921bb",
+      "q_norm": "what disney character s original name was mortimer",
+      "question": "What Disney character's original name was Mortimer?",
+      "answer": "Mickey Mouse",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "b25775df3d65650e22fd93229e9c6f72995ced2922f86b274730d09b3130c8e9",
+      "q_norm": "how many harry potter films were produced",
+      "question": "How many 'Harry Potter' films were produced?",
+      "answer": "8",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "cea211a951ad7929a08024345ec9ee34099f5cc66ed70a92a6452f191cf18a9b",
+      "q_norm": "who has won the most best director oscars",
+      "question": "Who has won the most 'Best Director' Oscars?",
+      "answer": "John Ford",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "f7b5402cffae008c1188d14b868e3c37d26966e64f86c6797268d5903879dfe8",
+      "q_norm": "what is iron man s superhero alter ego",
+      "question": "What is Iron Man's superhero alter ego?",
+      "answer": "Tony Stark",
+      "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "be98eafa4eacc1af416a2c7f4191dbc3ae7c89edd150ff77ccd1acdeb353e93d",
+      "q_norm": "when was the first toy story released",
+      "question": "When was the first 'Toy Story' released?",
+      "answer": "1995",
+      "date_iso": "2026-01-19"
     }
   ],
   "publishes": {
@@ -521,6 +787,10 @@
           "fp": "580b4c3706eee84b9f146f9a918114ea1c778ea4a9b267496e7f33ea8a1607b9",
           "ts": "2026-01-19T19:34:19.073474+00:00"
         }
+      },
+      "long": {
+        "video_id": "rk5PnsqREKM",
+        "ts": "2026-01-19T21:27:32.479886+00:00"
       }
     }
   }
