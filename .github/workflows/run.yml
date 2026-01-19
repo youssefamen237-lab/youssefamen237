@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "all|short|long|bootstrap"
+        description: "long|short|all|bootstrap"
         required: false
-        default: "all"
+        default: "long"
       slot:
         description: "1-4 (only for mode=short)"
         required: false
@@ -76,7 +76,7 @@ jobs:
             ACTION_KIND="bootstrap"
             CMD="python -m yt_auto bootstrap --date $RUN_DATE"
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            MODE="${INPUT_MODE:-all}"
+            MODE="${INPUT_MODE:-long}"
             if [ "$MODE" = "bootstrap" ]; then
               ACTION_KIND="bootstrap"
               CMD="python -m yt_auto bootstrap --date $RUN_DATE"
