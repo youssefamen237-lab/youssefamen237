@@ -239,6 +239,13 @@
       "question": "What's the longest-living species of bird?",
       "answer": "Laysan Albatross",
       "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "580b4c3706eee84b9f146f9a918114ea1c778ea4a9b267496e7f33ea8a1607b9",
+      "q_norm": "what is the largest planet in our solar system by diameter",
+      "question": "What is the largest planet in our solar system by diameter?",
+      "answer": "Jupiter",
+      "date_iso": "2026-01-19"
     }
   ],
   "publishes": {
@@ -507,6 +514,12 @@
           "artifact": "short-20260119-slot1",
           "fp": "2eeac866e3b6d9de90ac1e33be2c8c296dd0a30dd3718770510f43d7e15631ea",
           "ts": "2026-01-19T18:23:53.062070+00:00"
+        },
+        "4": {
+          "video_id": "E0DKANWYzJg",
+          "artifact": "short-20260119-slot4",
+          "fp": "580b4c3706eee84b9f146f9a918114ea1c778ea4a9b267496e7f33ea8a1607b9",
+          "ts": "2026-01-19T19:34:19.073474+00:00"
         }
       }
     }
