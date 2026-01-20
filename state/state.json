@@ -519,6 +519,13 @@
       "question": "If a pencil is 15 cm long and it's divided into 5 parts, how long is each part?",
       "answer": "3 cm",
       "date_iso": "2026-01-20"
+    },
+    {
+      "fp": "68ea27c0c5696e0ea20a284f19ff4c9c0f6071ad7425eef83c51717a8af630a3",
+      "q_norm": "if 2 2 is 4 and 4 4 is 8 what is 8 2 2",
+      "question": "If 2 + 2 is 4, and 4 + 4 is 8, what is 8 - 2 - 2?",
+      "answer": "4",
+      "date_iso": "2026-01-20"
     }
   ],
   "publishes": {
@@ -807,6 +814,12 @@
           "artifact": "short-20260120-slot1",
           "fp": "7a37c2c5c1e479aba0f8dab9351a17721648972d36f837797ef9109b0826edef",
           "ts": "2026-01-20T04:35:22.697976+00:00"
+        },
+        "2": {
+          "video_id": "9B5uIXBfyV0",
+          "artifact": "short-20260120-slot2",
+          "fp": "68ea27c0c5696e0ea20a284f19ff4c9c0f6071ad7425eef83c51717a8af630a3",
+          "ts": "2026-01-20T07:52:14.480212+00:00"
         }
       }
     }
