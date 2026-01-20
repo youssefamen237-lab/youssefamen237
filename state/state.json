@@ -526,6 +526,13 @@
       "question": "If 2 + 2 is 4, and 4 + 4 is 8, what is 8 - 2 - 2?",
       "answer": "4",
       "date_iso": "2026-01-20"
+    },
+    {
+      "fp": "68db7eb4dbbf1aca0877bd87ae4aab2453cd7c0bce10a20dc57504ab6b8f75ca",
+      "q_norm": "what percentage of this popular spice is actually not spice",
+      "question": "What percentage of this popular spice is actually not spice?",
+      "answer": "40%",
+      "date_iso": "2026-01-20"
     }
   ],
   "publishes": {
@@ -820,6 +827,12 @@
           "artifact": "short-20260120-slot2",
           "fp": "68ea27c0c5696e0ea20a284f19ff4c9c0f6071ad7425eef83c51717a8af630a3",
           "ts": "2026-01-20T07:52:14.480212+00:00"
+        },
+        "3": {
+          "video_id": "8_7VzSYLfBg",
+          "artifact": "short-20260120-slot3",
+          "fp": "68db7eb4dbbf1aca0877bd87ae4aab2453cd7c0bce10a20dc57504ab6b8f75ca",
+          "ts": "2026-01-20T14:55:35.355442+00:00"
         }
       }
     }
