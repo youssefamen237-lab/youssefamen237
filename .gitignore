@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.venv/
+.env
+
+# Outputs
+output_videos/
+artifacts/
+
+# OS
+.DS_Store
+
+# Keep state tracked (SQLite DB)
+# (do not ignore state/)
