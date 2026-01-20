@@ -213,10 +213,13 @@ class Settings:
         object.__setattr__(self, "music_dir", self.assets_dir / "music")
         object.__setattr__(self, "fonts_dir", self.assets_dir / "fonts")
 
+<<<<<<< HEAD
         # Ensure long time slots always has at least one option
         if not getattr(self, "long_time_slots_utc", None):
             object.__setattr__(self, "long_time_slots_utc", [self.long_time_slot_utc])
 
+=======
+>>>>>>> 25b4be6d30d0704267b8e0c413ee8a90adb2aa6c
     # -----------------
     # Compatibility aliases
     # -----------------
