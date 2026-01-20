@@ -212,6 +212,23 @@ class Settings:
         object.__setattr__(self, "music_dir", self.assets_dir / "music")
         object.__setattr__(self, "fonts_dir", self.assets_dir / "fonts")
 
+    # -----------------
+    # Compatibility aliases
+    # -----------------
+    # Some modules refer to older/internal attribute names.
+    # Keep these aliases to avoid runtime AttributeError.
+    @property
+    def jitter_minutes(self) -> int:
+        return int(self.schedule_jitter_minutes)
+
+    @property
+    def short_countdown_seconds(self) -> int:
+        return int(self.shorts_countdown_seconds)
+
+    @property
+    def short_answer_seconds(self) -> float:
+        return float(self.shorts_answer_seconds)
+
     @staticmethod
     def from_yaml_defaults() -> "Settings":
         """Load defaults from config/defaults.yml, then allow env overrides."""
