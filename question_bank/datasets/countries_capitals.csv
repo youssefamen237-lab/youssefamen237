@@ -1,0 +1,198 @@
+id,country,capital,region,iso2,flag_emoji,currency_code
+afghanistan-kabul,Afghanistan,Kabul,Asia,AF,🇦🇫,AFN
+algeria-algiers,Algeria,Algiers,Africa,DZ,🇩🇿,DZD
+american-samoa-pago-pago,American Samoa,Pago Pago,Oceania,AS,🇦🇸,USD
+angola-luanda,Angola,Luanda,Africa,AO,🇦🇴,AOA
+anguilla-the-valley,Anguilla,The Valley,Americas,AI,🇦🇮,XCD
+antigua-and-barbuda-saint-john-s,Antigua and Barbuda,Saint John's,Americas,AG,🇦🇬,XCD
+argentina-buenos-aires,Argentina,Buenos Aires,Americas,AR,🇦🇷,ARS
+armenia-yerevan,Armenia,Yerevan,Asia,AM,🇦🇲,AMD
+aruba-oranjestad,Aruba,Oranjestad,Americas,AW,🇦🇼,AWG
+australia-canberra,Australia,Canberra,Oceania,AU,🇦🇺,AUD
+austria-vienna,Austria,Vienna,Europe,AT,🇦🇹,EUR
+azerbaijan-baku,Azerbaijan,Baku,Asia,AZ,🇦🇿,AZN
+bahrain-manama,Bahrain,Manama,Asia,BH,🇧🇭,BHD
+bangladesh-dhaka,Bangladesh,Dhaka,Asia,BD,🇧🇩,BDT
+barbados-bridgetown,Barbados,Bridgetown,Americas,BB,🇧🇧,BBD
+belarus-minsk,Belarus,Minsk,Europe,BY,🇧🇾,BYR
+belgium-brussels,Belgium,Brussels,Europe,BE,🇧🇪,EUR
+belize-belmopan,Belize,Belmopan,Americas,BZ,🇧🇿,BZD
+benin-porto-novo,Benin,Porto-Novo,Africa,BJ,🇧🇯,XOF
+bermuda-hamilton,Bermuda,Hamilton,Americas,BM,🇧🇲,BMD
+bhutan-thimphu,Bhutan,Thimphu,Asia,BT,🇧🇹,BTN
+bosnia-and-herzegovina-sarajevo,Bosnia and Herzegovina,Sarajevo,Europe,BA,🇧🇦,BAM
+botswana-gaborone,Botswana,Gaborone,Africa,BW,🇧🇼,BWP
+brazil-bras-lia,Brazil,Brasília,Americas,BR,🇧🇷,BRL
+british-indian-ocean-territory-diego-garcia,British Indian Ocean Territory,Diego Garcia,Africa,IO,🇮🇴,USD
+bulgaria-sofia,Bulgaria,Sofia,Europe,BG,🇧🇬,BGN
+burkina-faso-ouagadougou,Burkina Faso,Ouagadougou,Africa,BF,🇧🇫,XOF
+burundi-bujumbura,Burundi,Bujumbura,Africa,BI,🇧🇮,BIF
+cambodia-phnom-penh,Cambodia,Phnom Penh,Asia,KH,🇰🇭,KHR
+cameroon-yaound,Cameroon,Yaoundé,Africa,CM,🇨🇲,XAF
+canada-ottawa,Canada,Ottawa,Americas,CA,🇨🇦,CAD
+cayman-islands-george-town,Cayman Islands,George Town,Americas,KY,🇰🇾,KYD
+central-african-republic-bangui,Central African Republic,Bangui,Africa,CF,🇨🇫,XAF
+chad-n-djamena,Chad,N'Djamena,Africa,TD,🇹🇩,XAF
+chile-santiago,Chile,Santiago,Americas,CL,🇨🇱,CLF
+china-beijing,China,Beijing,Asia,CN,🇨🇳,CNY
+christmas-island-flying-fish-cove,Christmas Island,Flying Fish Cove,Oceania,CX,🇨🇽,AUD
+cocos-keeling-islands-west-island,Cocos (Keeling) Islands,West Island,Oceania,CC,🇨🇨,AUD
+colombia-bogot,Colombia,Bogotá,Americas,CO,🇨🇴,COP
+comoros-moroni,Comoros,Moroni,Africa,KM,🇰🇲,KMF
+cook-islands-avarua,Cook Islands,Avarua,Oceania,CK,🇨🇰,NZD
+costa-rica-san-jos,Costa Rica,San José,Americas,CR,🇨🇷,CRC
+croatia-zagreb,Croatia,Zagreb,Europe,HR,🇭🇷,HRK
+cuba-havana,Cuba,Havana,Americas,CU,🇨🇺,CUC
+cyprus-nicosia,Cyprus,Nicosia,Europe,CY,🇨🇾,EUR
+denmark-copenhagen,Denmark,Copenhagen,Europe,DK,🇩🇰,DKK
+djibouti-djibouti,Djibouti,Djibouti,Africa,DJ,🇩🇯,DJF
+dominica-roseau,Dominica,Roseau,Americas,DM,🇩🇲,XCD
+dominican-republic-santo-domingo,Dominican Republic,Santo Domingo,Americas,DO,🇩🇴,DOP
+ecuador-quito,Ecuador,Quito,Americas,EC,🇪🇨,USD
+egypt-cairo,Egypt,Cairo,Africa,EG,🇪🇬,EGP
+el-salvador-san-salvador,El Salvador,San Salvador,Americas,SV,🇸🇻,SVC
+equatorial-guinea-malabo,Equatorial Guinea,Malabo,Africa,GQ,🇬🇶,XAF
+eritrea-asmara,Eritrea,Asmara,Africa,ER,🇪🇷,ERN
+estonia-tallinn,Estonia,Tallinn,Europe,EE,🇪🇪,EUR
+ethiopia-addis-ababa,Ethiopia,Addis Ababa,Africa,ET,🇪🇹,ETB
+faroe-islands-t-rshavn,Faroe Islands,Tórshavn,Europe,FO,🇫🇴,DKK
+fiji-suva,Fiji,Suva,Oceania,FJ,🇫🇯,FJD
+finland-helsinki,Finland,Helsinki,Europe,FI,🇫🇮,EUR
+france-paris,France,Paris,Europe,FR,🇫🇷,EUR
+french-guiana-cayenne,French Guiana,Cayenne,Americas,GF,🇬🇫,EUR
+french-polynesia-papeet,French Polynesia,Papeetē,Oceania,PF,🇵🇫,XPF
+gabon-libreville,Gabon,Libreville,Africa,GA,🇬🇦,XAF
+georgia-tbilisi,Georgia,Tbilisi,Asia,GE,🇬🇪,GEL
+germany-berlin,Germany,Berlin,Europe,DE,🇩🇪,EUR
+ghana-accra,Ghana,Accra,Africa,GH,🇬🇭,GHS
+gibraltar-gibraltar,Gibraltar,Gibraltar,Europe,GI,🇬🇮,GIP
+greece-athens,Greece,Athens,Europe,GR,🇬🇷,EUR
+greenland-nuuk,Greenland,Nuuk,Americas,GL,🇬🇱,DKK
+grenada-st-george-s,Grenada,St. George's,Americas,GD,🇬🇩,XCD
+guadeloupe-basse-terre,Guadeloupe,Basse-Terre,Americas,GP,🇬🇵,EUR
+guam-hag-t-a,Guam,Hagåtña,Oceania,GU,🇬🇺,USD
+guatemala-guatemala-city,Guatemala,Guatemala City,Americas,GT,🇬🇹,GTQ
+guernsey-st-peter-port,Guernsey,St. Peter Port,Europe,GG,🇬🇬,GBP
+guinea-conakry,Guinea,Conakry,Africa,GN,🇬🇳,GNF
+guinea-bissau-bissau,Guinea-Bissau,Bissau,Africa,GW,🇬🇼,XOF
+guyana-georgetown,Guyana,Georgetown,Americas,GY,🇬🇾,GYD
+haiti-port-au-prince,Haiti,Port-au-Prince,Americas,HT,🇭🇹,HTG
+honduras-tegucigalpa,Honduras,Tegucigalpa,Americas,HN,🇭🇳,HNL
+hong-kong-city-of-victoria,Hong Kong,City of Victoria,Asia,HK,🇭🇰,HKD
+hungary-budapest,Hungary,Budapest,Europe,HU,🇭🇺,HUF
+iceland-reykjavik,Iceland,Reykjavik,Europe,IS,🇮🇸,ISK
+india-new-delhi,India,New Delhi,Asia,IN,🇮🇳,INR
+indonesia-jakarta,Indonesia,Jakarta,Asia,ID,🇮🇩,IDR
+iraq-baghdad,Iraq,Baghdad,Asia,IQ,🇮🇶,IQD
+ireland-dublin,Ireland,Dublin,Europe,IE,🇮🇪,EUR
+isle-of-man-douglas,Isle of Man,Douglas,Europe,IM,🇮🇲,GBP
+italy-rome,Italy,Rome,Europe,IT,🇮🇹,EUR
+jamaica-kingston,Jamaica,Kingston,Americas,JM,🇯🇲,JMD
+japan-tokyo,Japan,Tokyo,Asia,JP,🇯🇵,JPY
+jersey-saint-helier,Jersey,Saint Helier,Europe,JE,🇯🇪,GBP
+jordan-amman,Jordan,Amman,Asia,JO,🇯🇴,JOD
+kazakhstan-astana,Kazakhstan,Astana,Asia,KZ,🇰🇿,KZT
+kenya-nairobi,Kenya,Nairobi,Africa,KE,🇰🇪,KES
+kiribati-south-tarawa,Kiribati,South Tarawa,Oceania,KI,🇰🇮,AUD
+kuwait-kuwait-city,Kuwait,Kuwait City,Asia,KW,🇰🇼,KWD
+kyrgyzstan-bishkek,Kyrgyzstan,Bishkek,Asia,KG,🇰🇬,KGS
+lao-people-s-democratic-republic-vientiane,Lao People's Democratic Republic,Vientiane,Asia,LA,🇱🇦,LAK
+latvia-riga,Latvia,Riga,Europe,LV,🇱🇻,EUR
+lebanon-beirut,Lebanon,Beirut,Asia,LB,🇱🇧,LBP
+lesotho-maseru,Lesotho,Maseru,Africa,LS,🇱🇸,LSL
+liberia-monrovia,Liberia,Monrovia,Africa,LR,🇱🇷,LRD
+libya-tripoli,Libya,Tripoli,Africa,LY,🇱🇾,LYD
+liechtenstein-vaduz,Liechtenstein,Vaduz,Europe,LI,🇱🇮,CHF
+lithuania-vilnius,Lithuania,Vilnius,Europe,LT,🇱🇹,EUR
+luxembourg-luxembourg,Luxembourg,Luxembourg,Europe,LU,🇱🇺,EUR
+madagascar-antananarivo,Madagascar,Antananarivo,Africa,MG,🇲🇬,MGA
+malawi-lilongwe,Malawi,Lilongwe,Africa,MW,🇲🇼,MWK
+malaysia-kuala-lumpur,Malaysia,Kuala Lumpur,Asia,MY,🇲🇾,MYR
+maldives-mal,Maldives,Malé,Asia,MV,🇲🇻,MVR
+mali-bamako,Mali,Bamako,Africa,ML,🇲🇱,XOF
+malta-valletta,Malta,Valletta,Europe,MT,🇲🇹,EUR
+marshall-islands-majuro,Marshall Islands,Majuro,Oceania,MH,🇲🇭,USD
+martinique-fort-de-france,Martinique,Fort-de-France,Americas,MQ,🇲🇶,EUR
+mauritania-nouakchott,Mauritania,Nouakchott,Africa,MR,🇲🇷,MRO
+mauritius-port-louis,Mauritius,Port Louis,Africa,MU,🇲🇺,MUR
+mayotte-mamoudzou,Mayotte,Mamoudzou,Africa,YT,🇾🇹,EUR
+mexico-mexico-city,Mexico,Mexico City,Americas,MX,🇲🇽,MXN
+monaco-monaco,Monaco,Monaco,Europe,MC,🇲🇨,EUR
+mongolia-ulan-bator,Mongolia,Ulan Bator,Asia,MN,🇲🇳,MNT
+montserrat-plymouth,Montserrat,Plymouth,Americas,MS,🇲🇸,XCD
+morocco-rabat,Morocco,Rabat,Africa,MA,🇲🇦,MAD
+mozambique-maputo,Mozambique,Maputo,Africa,MZ,🇲🇿,MZN
+namibia-windhoek,Namibia,Windhoek,Africa,NA,🇳🇦,NAD
+nauru-yaren,Nauru,Yaren,Oceania,NR,🇳🇷,AUD
+nepal-kathmandu,Nepal,Kathmandu,Asia,NP,🇳🇵,NPR
+netherlands-amsterdam,Netherlands,Amsterdam,Europe,NL,🇳🇱,EUR
+new-caledonia-noum-a,New Caledonia,Nouméa,Oceania,NC,🇳🇨,XPF
+new-zealand-wellington,New Zealand,Wellington,Oceania,NZ,🇳🇿,NZD
+nicaragua-managua,Nicaragua,Managua,Americas,NI,🇳🇮,NIO
+niger-niamey,Niger,Niamey,Africa,NE,🇳🇪,XOF
+nigeria-abuja,Nigeria,Abuja,Africa,NG,🇳🇬,NGN
+niue-alofi,Niue,Alofi,Oceania,NU,🇳🇺,NZD
+norfolk-island-kingston,Norfolk Island,Kingston,Oceania,NF,🇳🇫,AUD
+northern-mariana-islands-saipan,Northern Mariana Islands,Saipan,Oceania,MP,🇲🇵,USD
+norway-oslo,Norway,Oslo,Europe,NO,🇳🇴,NOK
+oman-muscat,Oman,Muscat,Asia,OM,🇴🇲,OMR
+palau-ngerulmud,Palau,Ngerulmud,Oceania,PW,🇵🇼,USD
+panama-panama-city,Panama,Panama City,Americas,PA,🇵🇦,PAB
+papua-new-guinea-port-moresby,Papua New Guinea,Port Moresby,Oceania,PG,🇵🇬,PGK
+paraguay-asunci-n,Paraguay,Asunción,Americas,PY,🇵🇾,PYG
+peru-lima,Peru,Lima,Americas,PE,🇵🇪,PEN
+philippines-manila,Philippines,Manila,Asia,PH,🇵🇭,PHP
+portugal-lisbon,Portugal,Lisbon,Europe,PT,🇵🇹,EUR
+puerto-rico-san-juan,Puerto Rico,San Juan,Americas,PR,🇵🇷,USD
+qatar-doha,Qatar,Doha,Asia,QA,🇶🇦,QAR
+romania-bucharest,Romania,Bucharest,Europe,RO,🇷🇴,RON
+rwanda-kigali,Rwanda,Kigali,Africa,RW,🇷🇼,RWF
+r-union-saint-denis,Réunion,Saint-Denis,Africa,RE,🇷🇪,EUR
+saint-kitts-and-nevis-basseterre,Saint Kitts and Nevis,Basseterre,Americas,KN,🇰🇳,XCD
+saint-lucia-castries,Saint Lucia,Castries,Americas,LC,🇱🇨,XCD
+saint-pierre-and-miquelon-saint-pierre,Saint Pierre and Miquelon,Saint-Pierre,Americas,PM,🇵🇲,EUR
+saint-vincent-and-the-grenadines-kingstown,Saint Vincent and the Grenadines,Kingstown,Americas,VC,🇻🇨,XCD
+samoa-apia,Samoa,Apia,Oceania,WS,🇼🇸,WST
+san-marino-city-of-san-marino,San Marino,City of San Marino,Europe,SM,🇸🇲,EUR
+saudi-arabia-riyadh,Saudi Arabia,Riyadh,Asia,SA,🇸🇦,SAR
+senegal-dakar,Senegal,Dakar,Africa,SN,🇸🇳,XOF
+serbia-belgrade,Serbia,Belgrade,Europe,RS,🇷🇸,RSD
+seychelles-victoria,Seychelles,Victoria,Africa,SC,🇸🇨,SCR
+sierra-leone-freetown,Sierra Leone,Freetown,Africa,SL,🇸🇱,SLL
+singapore-singapore,Singapore,Singapore,Asia,SG,🇸🇬,SGD
+slovakia-bratislava,Slovakia,Bratislava,Europe,SK,🇸🇰,EUR
+slovenia-ljubljana,Slovenia,Ljubljana,Europe,SI,🇸🇮,EUR
+solomon-islands-honiara,Solomon Islands,Honiara,Oceania,SB,🇸🇧,SBD
+somalia-mogadishu,Somalia,Mogadishu,Africa,SO,🇸🇴,SOS
+south-africa-pretoria,South Africa,Pretoria,Africa,ZA,🇿🇦,ZAR
+south-sudan-juba,South Sudan,Juba,Africa,SS,🇸🇸,SSP
+spain-madrid,Spain,Madrid,Europe,ES,🇪🇸,EUR
+sri-lanka-colombo,Sri Lanka,Colombo,Asia,LK,🇱🇰,LKR
+sudan-khartoum,Sudan,Khartoum,Africa,SD,🇸🇩,SDG
+suriname-paramaribo,Suriname,Paramaribo,Americas,SR,🇸🇷,SRD
+svalbard-and-jan-mayen-longyearbyen,Svalbard and Jan Mayen,Longyearbyen,Europe,SJ,🇸🇯,NOK
+sweden-stockholm,Sweden,Stockholm,Europe,SE,🇸🇪,SEK
+switzerland-bern,Switzerland,Bern,Europe,CH,🇨🇭,CHE
+syrian-arab-republic-damascus,Syrian Arab Republic,Damascus,Asia,SY,🇸🇾,SYP
+tajikistan-dushanbe,Tajikistan,Dushanbe,Asia,TJ,🇹🇯,TJS
+thailand-bangkok,Thailand,Bangkok,Asia,TH,🇹🇭,THB
+togo-lom,Togo,Lomé,Africa,TG,🇹🇬,XOF
+tokelau-fakaofo,Tokelau,Fakaofo,Oceania,TK,🇹🇰,NZD
+tonga-nuku-alofa,Tonga,Nuku'alofa,Oceania,TO,🇹🇴,TOP
+trinidad-and-tobago-port-of-spain,Trinidad and Tobago,Port of Spain,Americas,TT,🇹🇹,TTD
+tunisia-tunis,Tunisia,Tunis,Africa,TN,🇹🇳,TND
+turkey-ankara,Turkey,Ankara,Asia,TR,🇹🇷,TRY
+turkmenistan-ashgabat,Turkmenistan,Ashgabat,Asia,TM,🇹🇲,TMT
+tuvalu-funafuti,Tuvalu,Funafuti,Oceania,TV,🇹🇻,AUD
+uganda-kampala,Uganda,Kampala,Africa,UG,🇺🇬,UGX
+united-arab-emirates-abu-dhabi,United Arab Emirates,Abu Dhabi,Asia,AE,🇦🇪,AED
+united-kingdom-london,United Kingdom,London,Europe,GB,🇬🇧,GBP
+united-states-washington-d-c,United States,Washington D.C.,Americas,US,🇺🇸,USD
+uruguay-montevideo,Uruguay,Montevideo,Americas,UY,🇺🇾,UYI
+uzbekistan-tashkent,Uzbekistan,Tashkent,Asia,UZ,🇺🇿,UZS
+vanuatu-port-vila,Vanuatu,Port Vila,Oceania,VU,🇻🇺,VUV
+wallis-and-futuna-mata-utu,Wallis and Futuna,Mata-Utu,Oceania,WF,🇼🇫,XPF
+western-sahara-el-aai-n,Western Sahara,El Aaiún,Africa,EH,🇪🇭,MAD
+yemen-sana-a,Yemen,Sana'a,Asia,YE,🇾🇪,YER
+zambia-lusaka,Zambia,Lusaka,Africa,ZM,🇿🇲,ZMK
+zimbabwe-harare,Zimbabwe,Harare,Africa,ZW,🇿🇼,USD
