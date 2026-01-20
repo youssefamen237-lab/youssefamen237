@@ -512,6 +512,13 @@
       "question": "When was the first 'Toy Story' released?",
       "answer": "1995",
       "date_iso": "2026-01-19"
+    },
+    {
+      "fp": "7a37c2c5c1e479aba0f8dab9351a17721648972d36f837797ef9109b0826edef",
+      "q_norm": "if a pencil is 15 cm long and it s divided into 5 parts how long is each part",
+      "question": "If a pencil is 15 cm long and it's divided into 5 parts, how long is each part?",
+      "answer": "3 cm",
+      "date_iso": "2026-01-20"
     }
   ],
   "publishes": {
@@ -791,6 +798,16 @@
       "long": {
         "video_id": "rk5PnsqREKM",
         "ts": "2026-01-19T21:27:32.479886+00:00"
+      }
+    },
+    "20260120": {
+      "shorts": {
+        "1": {
+          "video_id": "qSE8RKrroiA",
+          "artifact": "short-20260120-slot1",
+          "fp": "7a37c2c5c1e479aba0f8dab9351a17721648972d36f837797ef9109b0826edef",
+          "ts": "2026-01-20T04:35:22.697976+00:00"
+        }
       }
     }
   }
