@@ -271,7 +271,7 @@ class Planner:
         slot_keys = self._choose_short_slots_for_today()
         times = self._publish_times_for_today(slot_keys)
 
-        first_run = self._total_shorts() == 0
+        first_run = (self._total_shorts() == 0) or bool(self.settings.bootstrap_run)
 
         plans: List[PlannedVideo] = []
         for i in range(self.settings.shorts_per_day):

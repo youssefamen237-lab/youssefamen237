@@ -186,6 +186,7 @@ def main() -> None:
                     analytics_service = None
             metrics_fetcher = YouTubeMetricsFetcher(youtube_service=youtube_service, analytics_service=analytics_service)
         except Exception as e:
+            logger.exception("YouTube auth init failed")
             report.errors.append(f"YouTube auth init failed: {e}")
             youtube_service = None
             uploader = None
@@ -197,14 +198,7 @@ def main() -> None:
             "YT_CLIENT_SECRET_*, YT_REFRESH_TOKEN_*) and that the refresh token includes YouTube upload scopes."
         )
         _write_artifacts(settings, report)
-
-    # Fail the workflow on real runs if anything didn't upload successfully.
-    if not settings.dry_run and settings.run_enabled:
-        if not report.outcomes:
-            raise SystemExit(1)
-        non_ok = [o for o in report.outcomes if o.status != "ok"]
-        if non_ok:
-            raise SystemExit(1)
+        logger.error("Fatal: YouTube uploader is unavailable; aborting real run.")
         raise SystemExit(1)
 
     # Analyzer / bandit
@@ -457,6 +451,20 @@ def main() -> None:
             report.errors.append(str(e))
 
     _write_artifacts(settings, report)
+
+    # On real runs, fail the workflow if anything did not upload successfully.
+    if not settings.dry_run and settings.run_enabled:
+        if not report.outcomes:
+            logger.error("No planned outcomes produced; failing run.")
+            raise SystemExit(1)
+        failed = [o for o in report.outcomes if o.status != "ok"]
+        if failed:
+            logger.error("One or more planned items failed (%d).", len(failed))
+            raise SystemExit(1)
+        uploaded = [o for o in report.outcomes if o.status == "ok" and o.video_id]
+        if not uploaded:
+            logger.error("No videos uploaded (missing video_id); failing run.")
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":

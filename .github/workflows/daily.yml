@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "0 1 * * *"  # 01:00 UTC daily
   workflow_dispatch:
+    inputs:
+      bootstrap_run:
+        description: "Bootstrap: publish 1 Short + 1 Long immediately (NOW)"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
@@ -36,6 +41,7 @@ jobs:
         env:
           RUN_ENABLED: "true"
           DRY_RUN: "false"
+          BOOTSTRAP_RUN: ${{ inputs.bootstrap_run }}
           ALLOW_PAID_PROVIDERS: "false"
 
           CAMB_AI_KEY_1: ${{ secrets.CAMB_AI_KEY_1 }}
@@ -80,6 +86,16 @@ jobs:
         run: |
           PYTHONPATH=src python -m yt_channel.pipeline.run_daily
 
+
+      - name: Print run report
+        if: always()
+        run: |
+          echo "---- RUN REPORT ----"
+          if [ -f artifacts/run_report.md ]; then
+            cat artifacts/run_report.md
+          else
+            echo "No artifacts/run_report.md found"
+          fi
       - name: Upload run report
         if: always()
         uses: actions/upload-artifact@v4

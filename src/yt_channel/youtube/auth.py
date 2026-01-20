@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 YOUTUBE_SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
-    "https://www.googleapis.com/auth/youtube.force-ssl",
 ]
 
 ANALYTICS_SCOPES = [

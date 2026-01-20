@@ -85,6 +85,7 @@ class Settings:
     repo_root: Path = field(default_factory=_repo_root)
     run_enabled: bool = field(default_factory=lambda: _env_bool("RUN_ENABLED", True))
     dry_run: bool = field(default_factory=lambda: _env_bool("DRY_RUN", False))
+    bootstrap_run: bool = field(default_factory=lambda: _env_bool("BOOTSTRAP_RUN", False))
     allow_paid_providers: bool = field(default_factory=lambda: _env_bool("ALLOW_PAID_PROVIDERS", False))
     timezone: str = field(default_factory=lambda: _env_str("TIMEZONE", "UTC"))
 
