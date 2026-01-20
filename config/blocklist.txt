@@ -1,0 +1,144 @@
+# Content safety blocklist (case-insensitive substring match)
+# Add or remove terms as needed. Any match blocks the item.
+
+# Politics / governance / current events
+president
+prime minister
+congress
+parliament
+senate
+election
+campaign
+vote
+voting
+politics
+political
+white house
+kremlin
+nato
+united nations
+war
+battle
+conflict
+invasion
+terror
+terrorist
+attack
+bomb
+shooting
+massacre
+assassination
+genocide
+holocaust
+ukraine
+russia
+israel
+palestine
+gaza
+iran
+taiwan
+north korea
+sanctions
+military
+army
+navy
+air force
+nuclear
+missile
+
+# Religion
+religion
+religious
+christian
+christianity
+muslim
+islam
+jew
+jewish
+judaism
+hindu
+hinduism
+buddhism
+bible
+quran
+koran
+torah
+church
+mosque
+temple
+prayer
+allah
+jesus
+muhammad
+prophet
+
+# Hate / extremism
+nazi
+fascist
+kkk
+white supremacist
+supremacy
+racist
+racism
+slur
+antisemitic
+islamophobic
+homophobic
+transphobic
+hate
+
+# Adult / NSFW
+sex
+sexual
+porn
+pornography
+nude
+nudity
+onlyfans
+fetish
+masturbation
+orgasm
+condom
+std
+
+# Drugs / self-harm
+cocaine
+heroin
+meth
+opioid
+fentanyl
+marijuana
+weed
+cannabis
+suicide
+self harm
+self-harm
+cutting
+overdose
+
+# Medical / tragedy
+cancer
+hiv
+aids
+pandemic
+covid
+covid-19
+virus
+murder
+death
+dead
+funeral
+
+# Graphic violence / weapons
+gun
+firearm
+rifle
+pistol
+knife
+stabbing
+blood
+
+# Profanity (basic)
+f***
+shit
+bitch

@@ -1,0 +1,32 @@
+global:
+  run_enabled: true
+  dry_run: false
+  allow_paid_providers: false
+
+production:
+  shorts_per_day: 4
+  longs_per_week: 3
+  daily_hard_cap_uploads: 6
+
+schedule:
+  # UTC time slots for 4 shorts per day (no batch publishing)
+  shorts_time_slots_utc:
+    - "09:15"
+    - "13:15"
+    - "17:15"
+    - "21:15"
+  # 3 long-form uploads per week (one long on each of these days)
+  long_days_utc:
+    - "TUE"
+    - "THU"
+    - "SAT"
+  long_time_slot_utc: "19:30"
+  jitter_minutes: 12
+
+music:
+  enabled_default: true
+  volume_db: -28.0
+
+tts:
+  voice_female: "en-US-JennyNeural"
+  voice_male: "en-US-GuyNeural"
