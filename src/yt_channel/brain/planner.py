@@ -58,7 +58,33 @@ class Planner:
         self.rng = rng
 
     def _total_shorts(self) -> int:
-        cur = self.db.conn.execute("SELECT COUNT(1) AS c FROM videos WHERE kind='short'")
+        """Count uploaded shorts (video_id present).
+
+        Use uploaded count (not merely planned rows) so a failed run doesn't
+        disable first-run behavior or A/B scheduling.
+        """
+        cur = self.db.conn.execute(
+            "SELECT COUNT(1) AS c FROM videos WHERE kind='short' AND video_id IS NOT NULL AND video_id<>''"
+        )
+        row = cur.fetchone()
+        return int(row["c"] if row else 0)
+
+    def _total_longs(self) -> int:
+        """Count uploaded longs (video_id present)."""
+        cur = self.db.conn.execute(
+            "SELECT COUNT(1) AS c FROM videos WHERE kind='long' AND video_id IS NOT NULL AND video_id<>''"
+        )
+        row = cur.fetchone()
+        return int(row["c"] if row else 0)
+
+
+    def _uploaded_longs_in_last_days(self, days_back: int) -> int:
+        since = _utc_now() - timedelta(days=int(days_back))
+        cur = self.db.conn.execute(
+            "SELECT COUNT(1) AS c FROM videos "
+            "WHERE kind='long' AND video_id IS NOT NULL AND video_id<>'' AND created_at >= ?",
+            (_iso(since),),
+        )
         row = cur.fetchone()
         return int(row["c"] if row else 0)
 
@@ -136,27 +162,104 @@ class Planner:
             plan.append(choice == "music_on")
         return plan
 
-    def _publish_times_for_today(self) -> List[datetime]:
+
+    def _choose_short_slots_for_today(self) -> List[str]:
+        slots = [str(s).strip() for s in (self.settings.shorts_time_slots_utc or []) if str(s).strip()]
+        if not slots:
+            slots = ["09:15", "13:15", "17:15", "21:15"]
+
+        # Thompson sampling — pick best N time slots.
+        if len(slots) <= self.settings.shorts_per_day:
+            chosen = list(slots)
+        else:
+            scored = []
+            for s in slots:
+                a = self.bandit.sample_arm(arm_type="short_time_slot", arm_value=s)
+                scored.append((a.sample, s))
+            scored.sort(reverse=True)
+            chosen = [s for _, s in scored[: self.settings.shorts_per_day]]
+
+            # Exploration to avoid fingerprinting (20%): rotate a contiguous window.
+            if self.rng.random() < 0.2:
+                start = (self._total_shorts() * self.settings.shorts_per_day) % len(slots)
+                rot = []
+                for i in range(self.settings.shorts_per_day):
+                    rot.append(slots[(start + i) % len(slots)])
+                chosen = rot
+
+        # Ensure unique + stable chronological order
+        seen = set()
+        uniq = []
+        for s in chosen:
+            if s not in seen:
+                uniq.append(s)
+                seen.add(s)
+
+        # Fill if needed
+        if len(uniq) < self.settings.shorts_per_day:
+            for s in slots:
+                if s not in seen:
+                    uniq.append(s)
+                    seen.add(s)
+                if len(uniq) >= self.settings.shorts_per_day:
+                    break
+
+        uniq.sort(key=lambda x: _parse_time_slot(x))
+        return uniq[: self.settings.shorts_per_day]
+
+    def _publish_times_for_today(self, slot_keys: List[str]) -> List[datetime]:
         now = _utc_now()
         times: List[datetime] = []
-        for slot in self.settings.shorts_time_slots_utc[: self.settings.shorts_per_day]:
+        for i, slot in enumerate(slot_keys):
             hh, mm = _parse_time_slot(slot)
             dt = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
-            # Ensure not in the past (for manual runs). Push forward if too close.
+
+            # Ensure not in the past (manual runs) and keep minimum lead time for scheduling.
             if dt < now + timedelta(minutes=20):
-                dt = now + timedelta(minutes=35 + len(times) * 90)
+                dt = now + timedelta(minutes=35 + i * 90)
+
             dt = _add_jitter(self.rng, dt, self.settings.jitter_minutes)
+
+            # Ensure strictly increasing times (spacing)
+            if times:
+                min_dt = times[-1] + timedelta(minutes=35)
+                if dt < min_dt:
+                    dt = min_dt
+
+            # Never schedule in the immediate past due to jitter
+            if dt < now + timedelta(minutes=10):
+                dt = now + timedelta(minutes=35 + i * 90)
+
             times.append(dt)
 
-        # Ensure strictly increasing times (spacing)
-        times_sorted: List[datetime] = []
-        last = None
-        for t in sorted(times):
-            if last and t <= last + timedelta(minutes=35):
-                t = last + timedelta(minutes=35)
-            times_sorted.append(t)
-            last = t
-        return times_sorted
+        return times
+
+
+
+    def _choose_long_slot_for_today(self) -> str:
+        slots = []
+        try:
+            slots = [str(s).strip() for s in (self.settings.long_time_slots_utc or []) if str(s).strip()]
+        except Exception:
+            slots = []
+        if not slots:
+            slots = [str(getattr(self.settings, "long_time_slot_utc", "19:30")).strip() or "19:30"]
+
+        # Thompson sampling — pick best long slot
+        scored = []
+        for s in slots:
+            a = self.bandit.sample_arm(arm_type="long_time_slot", arm_value=s)
+            scored.append((a.sample, s))
+        scored.sort(reverse=True)
+        best = scored[0][1] if scored else slots[0]
+
+        # Small exploration
+        if len(slots) > 1 and self.rng.random() < 0.15:
+            others = [s for s in slots if s != best]
+            if others:
+                return self.rng.choice(others)
+        return best
+
 
     def plan_daily(self) -> List[PlannedVideo]:
         if not self.settings.run_enabled:
@@ -165,7 +268,8 @@ class Planner:
         templates = self._select_templates()
         voices = self._voice_plan_for_day()
         musics = self._music_plan_for_day(templates)
-        times = self._publish_times_for_today()
+        slot_keys = self._choose_short_slots_for_today()
+        times = self._publish_times_for_today(slot_keys)
 
         first_run = self._total_shorts() == 0
 
@@ -175,7 +279,7 @@ class Planner:
             voice = voices[i]
             with_music = musics[i]
             publish_dt = times[i]
-            slot_label = publish_dt.strftime("%H:%M")
+            slot_label = slot_keys[i]
 
             privacy = "private"
             publish_at = _iso(publish_dt)
@@ -215,11 +319,30 @@ class Planner:
                 )
             )
 
-        # Long video plan for today
+        # Long video plan for today (3/week) + first-run bootstrap
         now = _utc_now()
         today_code = _weekday_utc(now)
-        if today_code in self.settings.long_days_utc:
-            hh, mm = _parse_time_slot(self.settings.long_time_slot_utc)
+        first_long = self._total_longs() == 0
+
+        if first_long:
+            # Bootstrap: publish one long immediately so you can verify the pipeline.
+            plans.append(
+                PlannedVideo(
+                    kind="long",
+                    publish_at=None,
+                    privacy_status="public",
+                    template_id="long_episode",
+                    topic="episode_mix",
+                    countdown_seconds=self.settings.long_countdown_seconds,
+                    answer_seconds=self.settings.long_answer_seconds,
+                    voice_gender=self.bandit.choose(arm_type="voice", choices=["female", "male"]),
+                    with_music=True,
+                    slot="NOW",
+                )
+            )
+        elif today_code in self.settings.long_days_utc and self._uploaded_longs_in_last_days(7) < self.settings.longs_per_week:
+            slot_key = self._choose_long_slot_for_today()
+            hh, mm = _parse_time_slot(slot_key)
             dt = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
             if dt < now + timedelta(minutes=30):
                 dt = now + timedelta(minutes=60)
@@ -235,9 +358,9 @@ class Planner:
                     answer_seconds=self.settings.long_answer_seconds,
                     voice_gender=self.bandit.choose(arm_type="voice", choices=["female", "male"]),
                     with_music=True,
-                    slot=dt.strftime("%H:%M"),
+                    slot=slot_key,
                 )
             )
 
-        # Hard cap safety
+# Hard cap safety
         return plans[: self.settings.daily_hard_cap_uploads]

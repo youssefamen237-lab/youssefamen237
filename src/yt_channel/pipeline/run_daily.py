@@ -190,6 +190,23 @@ def main() -> None:
             youtube_service = None
             uploader = None
 
+    # If this is a real run, we must have a working uploader.
+    if not settings.dry_run and uploader is None:
+        report.errors.append(
+            "Fatal: YouTube uploader is unavailable. Check OAuth secrets (YT_CLIENT_ID_*, "
+            "YT_CLIENT_SECRET_*, YT_REFRESH_TOKEN_*) and that the refresh token includes YouTube upload scopes."
+        )
+        _write_artifacts(settings, report)
+
+    # Fail the workflow on real runs if anything didn't upload successfully.
+    if not settings.dry_run and settings.run_enabled:
+        if not report.outcomes:
+            raise SystemExit(1)
+        non_ok = [o for o in report.outcomes if o.status != "ok"]
+        if non_ok:
+            raise SystemExit(1)
+        raise SystemExit(1)
+
     # Analyzer / bandit
     bandit = BetaBandit(rng=rng, db=db)
     if metrics_fetcher is not None:

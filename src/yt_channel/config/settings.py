@@ -130,6 +130,7 @@ class Settings:
         ["TUE", "THU", "SAT"],
     ))
     long_time_slot_utc: str = field(default_factory=lambda: _env_str("LONG_TIME_SLOT_UTC", "19:30"))
+    long_time_slots_utc: List[str] = field(default_factory=lambda: _env_list("LONG_TIME_SLOTS_UTC", []))
     schedule_jitter_minutes: int = field(default_factory=lambda: _env_int("SCHEDULE_JITTER_MINUTES", 12))
 
     # Question bank
@@ -212,6 +213,27 @@ class Settings:
         object.__setattr__(self, "music_dir", self.assets_dir / "music")
         object.__setattr__(self, "fonts_dir", self.assets_dir / "fonts")
 
+        # Ensure long time slots always has at least one option
+        if not getattr(self, "long_time_slots_utc", None):
+            object.__setattr__(self, "long_time_slots_utc", [self.long_time_slot_utc])
+
+    # -----------------
+    # Compatibility aliases
+    # -----------------
+    # Some modules refer to older/internal attribute names.
+    # Keep these aliases to avoid runtime AttributeError.
+    @property
+    def jitter_minutes(self) -> int:
+        return int(self.schedule_jitter_minutes)
+
+    @property
+    def short_countdown_seconds(self) -> int:
+        return int(self.shorts_countdown_seconds)
+
+    @property
+    def short_answer_seconds(self) -> float:
+        return float(self.shorts_answer_seconds)
+
     @staticmethod
     def from_yaml_defaults() -> "Settings":
         """Load defaults from config/defaults.yml, then allow env overrides."""
@@ -259,6 +281,7 @@ class Settings:
             "SHORTS_TIME_SLOTS_UTC": ",".join(get_list(("schedule", "shorts_time_slots_utc"), ["09:15", "13:15", "17:15", "21:15"])),
             "LONG_DAYS_UTC": ",".join(get_list(("schedule", "long_days_utc"), ["TUE", "THU", "SAT"])),
             "LONG_TIME_SLOT_UTC": get_str(("schedule", "long_time_slot_utc"), "19:30"),
+            "LONG_TIME_SLOTS_UTC": ",".join(get_list(("schedule", "long_time_slots_utc"), [])),
             "SCHEDULE_JITTER_MINUTES": get_int(("schedule", "jitter_minutes"), 12),
             "MUSIC_ENABLED_DEFAULT": get_bool(("music", "enabled_default"), True),
             "MUSIC_VOLUME_DB": get_float(("music", "volume_db"), -28.0),

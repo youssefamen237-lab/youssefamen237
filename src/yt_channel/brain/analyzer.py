@@ -132,8 +132,9 @@ class Analyzer:
                 self.bandit.update(arm_type="topic", arm_value=topic, success=success)
             if voice:
                 self.bandit.update(arm_type="voice", arm_value=voice, success=success)
-            if time_slot:
-                self.bandit.update(arm_type="time_slot", arm_value=time_slot, success=success)
+            if time_slot and time_slot.upper() != "NOW":
+                ts_arm_type = "short_time_slot" if kind == "short" else ("long_time_slot" if kind == "long" else "time_slot")
+                self.bandit.update(arm_type=ts_arm_type, arm_value=time_slot, success=success)
             self.bandit.update(arm_type="music", arm_value=music_on, success=success)
 
     def voice_winner(self, *, min_shorts: int = 28) -> Optional[str]:

@@ -9,18 +9,32 @@ production:
   daily_hard_cap_uploads: 6
 
 schedule:
-  # UTC time slots for 4 shorts per day (no batch publishing)
+  # Candidate UTC time slots. The planner will pick 4 per day via bandit + exploration.
+  # This reduces repetitive fingerprinting and lets the system learn best posting times.
   shorts_time_slots_utc:
-    - "09:15"
-    - "13:15"
-    - "17:15"
-    - "21:15"
+    - "08:15"
+    - "10:15"
+    - "12:15"
+    - "14:15"
+    - "16:15"
+    - "18:15"
+    - "20:15"
+    - "22:15"
+
   # 3 long-form uploads per week (one long on each of these days)
   long_days_utc:
     - "TUE"
     - "THU"
     - "SAT"
+
+  # Candidate UTC time slots for long videos (planner will pick best).
   long_time_slot_utc: "19:30"
+  long_time_slots_utc:
+    - "11:30"
+    - "15:30"
+    - "19:30"
+    - "23:30"
+
   jitter_minutes: 12
 
 music:

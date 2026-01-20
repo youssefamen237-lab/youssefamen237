@@ -366,3 +366,92 @@ class StateDB:
             (since_iso,),
         )
         return [dict(r) for r in cur.fetchall()]
+
+    # -----------------
+    # Compatibility / convenience methods (used by pipeline modules)
+    # -----------------
+    def add_video_record(
+        self,
+        *,
+        kind: str,
+        publish_at: Optional[str],
+        template_id: str,
+        topic: str,
+        difficulty: int,
+        countdown_seconds: int,
+        voice_gender: str,
+        music_track_id: Optional[str],
+        bg_image_id: Optional[str],
+        title_style_id: str,
+        question_id: str,
+        question_text: str,
+        answer_text: str,
+        title: str,
+        description: str,
+        tags: List[str],
+        metadata: Dict[str, Any],
+        status: str = "planned",
+    ) -> int:
+        """Insert a video row (planned/rendered) for reporting and later analysis.
+
+        This keeps the public pipeline stable even if internal DB method names evolve.
+        """
+        row_id = self.insert_video_planned(
+            kind=kind,
+            publish_at=publish_at,
+            template_id=template_id,
+            topic=topic,
+            difficulty=difficulty,
+            countdown_seconds=countdown_seconds,
+            voice_gender=voice_gender,
+            music_track_id=music_track_id,
+            bg_image_id=bg_image_id,
+            title_style_id=title_style_id,
+            question_id=question_id,
+            question_text=question_text,
+            answer_text=answer_text,
+            title=title,
+            description=description,
+            tags=tags,
+            metadata=metadata,
+        )
+        if status and status != "planned":
+            self.conn.execute("UPDATE videos SET status=? WHERE id=?", (status, row_id))
+            self.conn.commit()
+        return row_id
+
+    def mark_uploaded(self, *, question_id: str, video_id: str, status: str = "uploaded") -> None:
+        """Mark a row as uploaded by question_id (stable public API)."""
+        self.conn.execute(
+            "UPDATE videos SET video_id=?, uploaded_at=?, status=? WHERE question_id=?",
+            (video_id, _utc_now_iso(), status, question_id),
+        )
+        self.conn.commit()
+
+    def mark_failed(self, *, question_id: str, error: str) -> None:
+        """Mark a row as failed by question_id (stable public API)."""
+        meta = {"error": error, "failed_at": _utc_now_iso()}
+        self.conn.execute(
+            "UPDATE videos SET status=?, metadata_json=? WHERE question_id=?",
+            ("failed", json.dumps(meta, ensure_ascii=False), question_id),
+        )
+        self.conn.commit()
+
+    def is_answer_on_cooldown(self, answer_hash: str, cooldown_days: int) -> bool:
+        return self.answer_in_cooldown(answer_hash, cooldown_days)
+
+    def recent_questions(self, limit: int) -> List[str]:
+        cur = self.conn.execute(
+            "SELECT question_text FROM videos WHERE question_text IS NOT NULL AND question_text<>'' "
+            "ORDER BY created_at DESC LIMIT ?",
+            (int(limit),),
+        )
+        return [str(r["question_text"]) for r in cur.fetchall() if r.get("question_text")]
+
+    def recent_hashes(self, kind: str, limit: int) -> List[str]:
+        cur = self.conn.execute(
+            "SELECT hash FROM dedupe_hashes WHERE kind=? ORDER BY created_at DESC LIMIT ?",
+            (kind, int(limit)),
+        )
+        return [str(r["hash"]) for r in cur.fetchall() if r.get("hash")]
+

@@ -81,6 +81,7 @@ jobs:
           PYTHONPATH=src python -m yt_channel.pipeline.run_daily
 
       - name: Upload run report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: run-report
@@ -89,6 +90,7 @@ jobs:
             artifacts/run_report.md
 
       - name: Commit state
+        if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
