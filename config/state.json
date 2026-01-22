@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "last_analyst_run": null,
+  "target_country": "US",
+  "target_timezone": "America/New_York",
+  "schedule_hours_local": [
+    11,
+    14,
+    18,
+    21
+  ],
+  "template_weights": {
+    "tf_capital": 1.1,
+    "mc_capital": 1.1,
+    "direct_capital": 1.0,
+    "flag_emoji": 1.0,
+    "which_continent": 0.9,
+    "fill_blank": 0.8,
+    "would_you_rather": 0.55,
+    "match_prediction": 0.6
+  },
+  "voice_weights": {
+    "eleven_rachel": 1.0,
+    "eleven_bella": 0.9,
+    "eleven_adam": 1.0,
+    "eleven_antoni": 0.85,
+    "edge_guy": 0.7,
+    "edge_jenny": 0.7
+  },
+  "topic_weights": {
+    "geography": 0.55,
+    "flags": 0.2,
+    "capitals": 0.15,
+    "continents": 0.1
+  },
+  "recent_cta_ids": [],
+  "recent_background_ids": [],
+  "recent_music_ids": []
+}
