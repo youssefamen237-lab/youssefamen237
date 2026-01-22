@@ -1,0 +1,87 @@
+name: Daily Autopilot (Shorts + Longs)
+
+on:
+  schedule:
+    - cron: "17 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: autoyt-daily
+  cancel-in-progress: true
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run daily pipeline (schedule uploads)
+        env:
+          # YouTube upload
+          YT_CLIENT_ID_1: ${{ secrets.YT_CLIENT_ID_1 }}
+          YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
+          YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
+          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+
+          # Analytics (optional)
+          YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
+          YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
+          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+
+          # Sports fixtures (optional)
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+          FOOTBALL_DATA_ORG: ${{ secrets.FOOTBALL_DATA_ORG }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+
+          # Voice (optional)
+          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+
+          # Background/music (optional)
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          UNSPLASH_ID: ${{ secrets.UNSPLASH_ID }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          FREESOUND_API: ${{ secrets.FREESOUND_API }}
+          FREESOUND_ID: ${{ secrets.FREESOUND_ID }}
+        run: |
+          python -m autoyt.cli daily
+
+      - name: Upload rendered videos as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-output
+          path: out/
+
+      - name: Commit logs + state back to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add config/state.json data/history.jsonl data/video_log.jsonl || true
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: daily logs [skip ci]"
+          git push
