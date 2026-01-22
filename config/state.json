@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "last_analyst_run": null,
-  "target_country": "US",
-  "target_timezone": "America/New_York",
+  "last_analyst_run": "2026-01-22T22:08:26.515603Z",
+  "target_country": "EG",
+  "target_timezone": "Africa/Cairo",
   "schedule_hours_local": [
     11,
     14,
@@ -34,6 +34,14 @@
     "continents": 0.1
   },
   "recent_cta_ids": [],
-  "recent_background_ids": [],
-  "recent_music_ids": []
+  "recent_background_ids": [
+    "unsplash:8uZPynIu-rQ"
+  ],
+  "recent_music_ids": [],
+  "recent_title_tpl_ids_shorts": [
+    1
+  ],
+  "recent_desc_tpl_ids_shorts": [
+    1
+  ]
 }
