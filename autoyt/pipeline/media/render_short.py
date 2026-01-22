@@ -117,8 +117,11 @@ def render_short(
             f"enable='between(t,{seg1},{total})'"
         )
 
+        # NOTE: ffmpeg scale filter does NOT support force_original_aspect_ratio=cover.
+        # To emulate a "cover" behavior (fill then crop), we scale while *increasing*
+        # the size without changing aspect ratio, then center-crop.
         video_filter = (
-            f"[0:v]scale={W}:{H}:force_original_aspect_ratio=cover,"
+            f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,"
             f"crop={W}:{H},boxblur=20:1,format=yuv420p,"
             + ",".join(draw)
             + "[v]"
@@ -254,8 +257,11 @@ def render_short(
         f"enable='between(t,{t_timer_end},{t_answer_end})'"
     )
 
+    # NOTE: ffmpeg scale filter does NOT support force_original_aspect_ratio=cover.
+    # To emulate a "cover" behavior (fill then crop), we scale while *increasing*
+    # the size without changing aspect ratio, then center-crop.
     video_filter = (
-        f"[0:v]scale={W}:{H}:force_original_aspect_ratio=cover,"
+        f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,"
         f"crop={W}:{H},boxblur=20:1,format=yuv420p,"
         + ",".join(draw)
         + "[v]"

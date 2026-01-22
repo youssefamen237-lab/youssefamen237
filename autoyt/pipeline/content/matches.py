@@ -25,14 +25,16 @@ class Match:
         return self.kickoff_utc.date()
 
 
-# football-data.org competition IDs (v4)
-FOOTBALL_DATA_COMPETITIONS: Dict[str, int] = {
-    "UEFA Champions League": 2001,
-    "Premier League": 2021,
-    "La Liga": 2014,
-    "Bundesliga": 2002,
-    "Serie A": 2019,
-    "Ligue 1": 2015,
+# football-data.org competition codes (v4)
+# Docs/examples use competition codes like PL, PD, SA, BL1, FL1, CL.
+# Using codes is more reliable across tiers than numeric IDs.
+FOOTBALL_DATA_COMPETITIONS: Dict[str, str] = {
+    "UEFA Champions League": "CL",
+    "Premier League": "PL",
+    "La Liga": "PD",
+    "Bundesliga": "BL1",
+    "Serie A": "SA",
+    "Ligue 1": "FL1",
 }
 
 # API-Football league IDs (api-sports v3)

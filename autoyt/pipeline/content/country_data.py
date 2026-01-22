@@ -14,7 +14,9 @@ from autoyt.utils.logging_utils import get_logger
 log = get_logger("autoyt.country_data")
 
 
-RESTCOUNTRIES_ALL = "https://restcountries.com/v3.1/all"
+# NOTE (2025+): RestCountries "all" endpoint returns 400 unless `fields` is
+# specified. We request only what we need (<=10 fields).
+RESTCOUNTRIES_ALL = "https://restcountries.com/v3.1/all?fields=name,cca2,capital,region,subregion,population,currencies"
 
 
 @dataclass(frozen=True)
