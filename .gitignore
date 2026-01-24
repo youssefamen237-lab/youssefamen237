@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*.so
+.env
+.venv/
+venv/
+dist/
+build/
+
+# runtime artifacts
+outputs/
+logs/
+data/*.sqlite
+data/*.sqlite-journal
+data/*.sqlite-wal
+data/*.sqlite-shm
+data/*.json.bak
+data/*.tmp
+
+# generated media (kept out of git; uploaded directly)
+*.mp4
+*.mp3
