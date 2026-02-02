@@ -1,0 +1,497 @@
+{
+  "version": 1,
+  "bootstrapped": true,
+  "used": [
+    {
+      "fp": "7b1b47eded20fcc53ac36b8181c3d946eaac15b9828f41fc80ac64c5f5c64409",
+      "q_norm": "what ancient wonder had a statue of the greek god helios",
+      "question": "What ancient wonder had a statue of the Greek god Helios?",
+      "answer": "Colossus of Rhodes",
+      "date_iso": "2026-01-09"
+    },
+    {
+      "fp": "6b59f3f1f27f581629306e022b9b576e9f1e9d157ce91391223c8a7ae031b686",
+      "q_norm": "what does break a leg mean",
+      "question": "What does 'break a leg' mean?",
+      "answer": "Good luck",
+      "date_iso": "2026-01-09"
+    },
+    {
+      "fp": "bb862b4a3721f4c6360e628576856a73d0c6efe04d8555a250e5a60504bc40d9",
+      "q_norm": "a snail is at the bottom of a 20ft well each day it climbs 3ft but falls back 2ft at night how many days to reach the top",
+      "question": "A snail is at the bottom of a 20ft well. Each day, it climbs 3ft but falls back 2ft at night. How many days to reach the top?",
+      "answer": "18",
+      "date_iso": "2026-01-09"
+    },
+    {
+      "fp": "f94b550a9c16c260ebe5f5adba25870fc2cdeefdccb82fd51d7e8158b173ec69",
+      "q_norm": "what does cpu stand for",
+      "question": "What does CPU stand for?",
+      "answer": "Central Processing Unit",
+      "date_iso": "2026-01-09"
+    },
+    {
+      "fp": "aee4a99921749c3ab4de381da48386818b63da50734a94802c5b5081798835d4",
+      "q_norm": "what is the fastest land animal",
+      "question": "What is the fastest land animal?",
+      "answer": "Cheetah",
+      "date_iso": "2026-01-10"
+    },
+    {
+      "fp": "6df3093520f64f4e88b8d8a46e4fc9dbb5daa605311fe8bf5feecca091c7d4b5",
+      "q_norm": "what planet in our solar system has the most moons",
+      "question": "What planet in our solar system has the most moons?",
+      "answer": "Jupiter",
+      "date_iso": "2026-01-10"
+    },
+    {
+      "fp": "863dc78673567d23973536e4df0b5f0f8664f6b83f2959c38df53c35e250dc45",
+      "q_norm": "who holds the record for most career home runs in baseball",
+      "question": "Who holds the record for most career home runs in baseball?",
+      "answer": "Barry Bonds",
+      "date_iso": "2026-01-10"
+    },
+    {
+      "fp": "f7c2ec63e7f1c11bd6911a5c0f9c24412368e338d3b43946af794c67a031db90",
+      "q_norm": "i am a 5 digit number take away my first digit and i still sound the same what am i",
+      "question": "I am a 5-digit number. Take away my first digit and I still sound the same. What am I?",
+      "answer": "Eight thousand",
+      "date_iso": "2026-01-11"
+    },
+    {
+      "fp": "dc3a77abd994051d250ee64edfa36a0fa3243f015e9a64e26edafd64604fbc0a",
+      "q_norm": "what is the approximate number of bytes in a gigabyte",
+      "question": "What is the approximate number of bytes in a gigabyte?",
+      "answer": "1,073,741,824",
+      "date_iso": "2026-01-11"
+    },
+    {
+      "fp": "d14543f9cdfd6961876ea5f6a2a24403e53cb0f12e5ad217cbb731b18d0b9eff",
+      "q_norm": "what s the capital of australia",
+      "question": "What's the capital of Australia?",
+      "answer": "Canberra",
+      "date_iso": "2026-01-11"
+    },
+    {
+      "fp": "2792e749497e29bd24d9526fa4c882ef83d4a25eab99b4c60a3fece9738572f0",
+      "q_norm": "which popular dessert s name translates to pick me up in italian",
+      "question": "Which popular dessert's name translates to 'pick-me-up' in Italian?",
+      "answer": "Tiramisu",
+      "date_iso": "2026-01-11"
+    },
+    {
+      "fp": "d4e005bb0125492c024a24dd21327a9cd3c02bf75af2c5f55adf21a05d9da2bb",
+      "q_norm": "what is the capital of greenland",
+      "question": "What is the capital of Greenland?",
+      "answer": "Nuuk",
+      "date_iso": "2026-01-12"
+    },
+    {
+      "fp": "b2f1d1580b56814a3342bfdfa809f6517b3749b4d2594ba4d0128264bec661fd",
+      "q_norm": "what does bend over backwards mean",
+      "question": "What does 'bend over backwards' mean?",
+      "answer": "Go out of one's way to help",
+      "date_iso": "2026-01-12"
+    },
+    {
+      "fp": "72748f42b563e74bf3f2823b2ad45f25406edaa07822f24e149edc4b767c97e0",
+      "q_norm": "what is the largest planet in our solar system",
+      "question": "What is the largest planet in our solar system?",
+      "answer": "Jupiter",
+      "date_iso": "2026-01-12"
+    },
+    {
+      "fp": "5ddbc7fc763aa156aede7c18f1f5585fa70d79a7e9aed01501e31a3fa9809a4b",
+      "q_norm": "which popular italian dessert translates to pick me up",
+      "question": "Which popular Italian dessert translates to 'pick-me-up'?",
+      "answer": "Tiramisu",
+      "date_iso": "2026-01-12"
+    },
+    {
+      "fp": "d1042c8d5426d4b85dd335c679935c149029d547fcb1c224df2904a829ba166f",
+      "q_norm": "which baseball player broke the color barrier in 1947",
+      "question": "Which baseball player broke the color barrier in 1947?",
+      "answer": "Jackie Robinson",
+      "date_iso": "2026-01-13"
+    },
+    {
+      "fp": "bc1e2f40b5380069759dab3e8934cb1d3356d2efce269e7f1e0bc587096e1568",
+      "q_norm": "who holds the record for the most olympic gold medals won by an individual",
+      "question": "Who holds the record for the most Olympic gold medals won by an individual?",
+      "answer": "Michael Phelps",
+      "date_iso": "2026-01-13"
+    },
+    {
+      "fp": "aac1f0762c7131a59c012869716837e6636cacf83279d8edd17a9bd864c7b6d7",
+      "q_norm": "what does cpu stand for in computers",
+      "question": "What does CPU stand for in computers?",
+      "answer": "Central Processing Unit",
+      "date_iso": "2026-01-13"
+    },
+    {
+      "fp": "65439498e02787152158d2af31635ded1c1ddd0fad9e24906c00c8f3a0afc5e1",
+      "q_norm": "what can be broken but never held",
+      "question": "What can be broken, but never held?",
+      "answer": "A promise",
+      "date_iso": "2026-01-13"
+    },
+    {
+      "fp": "905a44a04f6fbee572437b763a90af02b47d40107491d8b4c282b0057426b82a",
+      "q_norm": "most consecutive baseball games played",
+      "question": "Most consecutive baseball games played?",
+      "answer": "2,632",
+      "date_iso": "2026-01-14"
+    },
+    {
+      "fp": "6c5c5a0c12c6fce5256674c2569bd5545eefc514f35a4406ca5c103cfe4e986e",
+      "q_norm": "what popular italian dessert means pick me up in english",
+      "question": "What popular Italian dessert means 'pick-me-up' in English?",
+      "answer": "Tiramisu",
+      "date_iso": "2026-01-14"
+    },
+    {
+      "fp": "b6ea2e3e2946226401d5bedbdbb439ab905e674edde3a27adcdfa8000282735b",
+      "q_norm": "what popular italian dessert s name means pick me up",
+      "question": "What popular Italian dessert's name means 'pick-me-up'?",
+      "answer": "Tiramisu",
+      "date_iso": "2026-01-14"
+    },
+    {
+      "fp": "763afeb677f56f5a760c382b1bdd002175b3f728e1ba5a1ad8501ae3c5dd33cd",
+      "q_norm": "what does cpu stand for in computing",
+      "question": "What does CPU stand for in computing?",
+      "answer": "Central Processing Unit",
+      "date_iso": "2026-01-14"
+    },
+    {
+      "fp": "19f2035d9784bd99e3e39f091e0bb35ad75764346850ac34f1d84d2afa75efc4",
+      "q_norm": "what continent is home to the country of morocco",
+      "question": "What continent is home to the country of Morocco?",
+      "answer": "Africa",
+      "date_iso": "2026-01-15"
+    },
+    {
+      "fp": "4012a618b9a1410fc54f08f517c908d0b5fe95d48e299d819d4b83bf44ecf8f7",
+      "q_norm": "what is 161 x 3 192 286",
+      "question": "What is 161 x 3 + 192 - 286?",
+      "answer": "495",
+      "date_iso": "2026-01-15"
+    },
+    {
+      "fp": "c486e5f0dc19dbaf055ab2afb9bf1875e1f88c6dd35ecbe2818a44a506a54924",
+      "q_norm": "what is 354067249 divided by 7",
+      "question": "What is 354067249 divided by 7?",
+      "answer": "50538107",
+      "date_iso": "2026-01-15"
+    },
+    {
+      "fp": "4614bbedc8d55eea964dafa250b33e4a9c58f95b989176021f3367b37fde9c41",
+      "q_norm": "what does gb stand for in computer storage",
+      "question": "What does 'GB' stand for in computer storage?",
+      "answer": "Gigabyte",
+      "date_iso": "2026-01-15"
+    },
+    {
+      "fp": "4de262e1953c85762fcb5286c294c742fa75e4ce0914699c71bd8598cdcc57d8",
+      "q_norm": "what continent is brunei located on",
+      "question": "What continent is Brunei located on?",
+      "answer": "Asia",
+      "date_iso": "2026-01-16"
+    },
+    {
+      "fp": "fcc5aee17e01b36d4eac8ec360e2eade8aef1fe6a7ed3ca084d7d23894a3f13a",
+      "q_norm": "what is the longest recorded tennis match in hours and minutes",
+      "question": "What is the longest recorded tennis match in hours and minutes?",
+      "answer": "11 hours 5 minutes",
+      "date_iso": "2026-01-16"
+    },
+    {
+      "fp": "f32680fa3fe9b15a559238303c3e3c40eb304b8b88c08df4ed1eecf4d3bfcd6e",
+      "q_norm": "what s 5 005 445 divided by 5",
+      "question": "What's 5,005,445 divided by 5?",
+      "answer": "1,001,089",
+      "date_iso": "2026-01-16"
+    },
+    {
+      "fp": "caf55b006f5c44c41092b1e28b93a31033e175c0072d16513702dc5935cd0d6c",
+      "q_norm": "what is the world s most widely consumed fruit",
+      "question": "What is the world's most widely consumed fruit?",
+      "answer": "Banana",
+      "date_iso": "2026-01-16"
+    },
+    {
+      "fp": "27d80ebd2b5966db7e2ded536c379b9d371097ddf7966987c87ff177316899b1",
+      "q_norm": "which company produced the first affordable personal computer in 1975",
+      "question": "Which company produced the first affordable personal computer in 1975?",
+      "answer": "Apple",
+      "date_iso": "2026-01-17"
+    },
+    {
+      "fp": "da09e32b3704ba0b9002b1c088962eb483cb0098a79aa70485b6ddacbf73b11b",
+      "q_norm": "which popular dessert s name comes from the french word for burnt cream",
+      "question": "Which popular dessert's name comes from the French word for 'burnt cream'?",
+      "answer": "Creme Brulee",
+      "date_iso": "2026-01-17"
+    }
+  ],
+  "publishes": {
+    "20260109": {
+      "shorts": {
+        "1": {
+          "video_id": "D-e_n9_jc_Q",
+          "artifact": "short-20260109-slot1",
+          "fp": "7b1b47eded20fcc53ac36b8181c3d946eaac15b9828f41fc80ac64c5f5c64409",
+          "ts": "2026-01-09T22:39:17.334611+00:00"
+        },
+        "2": {
+          "video_id": "R5h8A6kcZ98",
+          "artifact": "short-20260109-slot2",
+          "fp": "6b59f3f1f27f581629306e022b9b576e9f1e9d157ce91391223c8a7ae031b686",
+          "ts": "2026-01-09T22:41:41.828936+00:00"
+        },
+        "3": {
+          "video_id": "8RI1WF5H83M",
+          "artifact": "short-20260109-slot3",
+          "fp": "bb862b4a3721f4c6360e628576856a73d0c6efe04d8555a250e5a60504bc40d9",
+          "ts": "2026-01-09T22:42:27.906449+00:00"
+        },
+        "4": {
+          "video_id": "Ms6PbMfb1uM",
+          "artifact": "short-20260109-slot4",
+          "fp": "f94b550a9c16c260ebe5f5adba25870fc2cdeefdccb82fd51d7e8158b173ec69",
+          "ts": "2026-01-09T22:43:11.664156+00:00"
+        }
+      }
+    },
+    "20260110": {
+      "shorts": {
+        "1": {
+          "video_id": "Icj0RZWPlRE",
+          "artifact": "short-20260110-slot1",
+          "fp": "aee4a99921749c3ab4de381da48386818b63da50734a94802c5b5081798835d4",
+          "ts": "2026-01-10T08:56:51.865183+00:00"
+        },
+        "3": {
+          "video_id": "N_3G6_tNIcE",
+          "artifact": "short-20260110-slot3",
+          "fp": "6df3093520f64f4e88b8d8a46e4fc9dbb5daa605311fe8bf5feecca091c7d4b5",
+          "ts": "2026-01-10T13:55:12.006084+00:00"
+        },
+        "4": {
+          "video_id": "9YeRB1NvYAE",
+          "artifact": "short-20260110-slot4",
+          "fp": "863dc78673567d23973536e4df0b5f0f8664f6b83f2959c38df53c35e250dc45",
+          "ts": "2026-01-10T19:32:17.591641+00:00"
+        }
+      }
+    },
+    "20260111": {
+      "shorts": {
+        "1": {
+          "video_id": "XMM4UArvveI",
+          "artifact": "short-20260111-slot1",
+          "fp": "f7c2ec63e7f1c11bd6911a5c0f9c24412368e338d3b43946af794c67a031db90",
+          "ts": "2026-01-11T04:38:22.082415+00:00"
+        },
+        "2": {
+          "video_id": "KcwCQ_gYk1Y",
+          "artifact": "short-20260111-slot2",
+          "fp": "dc3a77abd994051d250ee64edfa36a0fa3243f015e9a64e26edafd64604fbc0a",
+          "ts": "2026-01-11T07:41:26.842928+00:00"
+        },
+        "3": {
+          "video_id": "ALEyGuxNL6M",
+          "artifact": "short-20260111-slot3",
+          "fp": "d14543f9cdfd6961876ea5f6a2a24403e53cb0f12e5ad217cbb731b18d0b9eff",
+          "ts": "2026-01-11T13:54:39.916093+00:00"
+        },
+        "4": {
+          "video_id": "5p1QmOErQIU",
+          "artifact": "short-20260111-slot4",
+          "fp": "2792e749497e29bd24d9526fa4c882ef83d4a25eab99b4c60a3fece9738572f0",
+          "ts": "2026-01-11T19:32:54.975180+00:00"
+        }
+      },
+      "long": {
+        "video_id": "VCK23kJ8tW0",
+        "ts": "2026-01-11T23:50:49.292607+00:00"
+      }
+    },
+    "20260112": {
+      "shorts": {
+        "1": {
+          "video_id": "B4_-5_uj83Y",
+          "artifact": "short-20260112-slot1",
+          "fp": "d4e005bb0125492c024a24dd21327a9cd3c02bf75af2c5f55adf21a05d9da2bb",
+          "ts": "2026-01-12T04:40:10.132248+00:00"
+        },
+        "2": {
+          "video_id": "rcZbyaloOMc",
+          "artifact": "short-20260112-slot2",
+          "fp": "b2f1d1580b56814a3342bfdfa809f6517b3749b4d2594ba4d0128264bec661fd",
+          "ts": "2026-01-12T07:50:22.124799+00:00"
+        },
+        "3": {
+          "video_id": "fylbEP-oGT4",
+          "artifact": "short-20260112-slot3",
+          "fp": "72748f42b563e74bf3f2823b2ad45f25406edaa07822f24e149edc4b767c97e0",
+          "ts": "2026-01-12T14:02:52.265360+00:00"
+        },
+        "4": {
+          "video_id": "mVxTUiiOi-Q",
+          "artifact": "short-20260112-slot4",
+          "fp": "5ddbc7fc763aa156aede7c18f1f5585fa70d79a7e9aed01501e31a3fa9809a4b",
+          "ts": "2026-01-12T19:38:56.585417+00:00"
+        }
+      },
+      "long": {
+        "video_id": "bAFCqCkO6lc",
+        "ts": "2026-01-12T23:48:59.313372+00:00"
+      }
+    },
+    "20260113": {
+      "shorts": {
+        "1": {
+          "video_id": "hQd0sGwKgWM",
+          "artifact": "short-20260113-slot1",
+          "fp": "d1042c8d5426d4b85dd335c679935c149029d547fcb1c224df2904a829ba166f",
+          "ts": "2026-01-13T04:14:31.499436+00:00"
+        },
+        "2": {
+          "video_id": "yGSaFG_pY5E",
+          "artifact": "short-20260113-slot2",
+          "fp": "bc1e2f40b5380069759dab3e8934cb1d3356d2efce269e7f1e0bc587096e1568",
+          "ts": "2026-01-13T07:46:57.134792+00:00"
+        },
+        "3": {
+          "video_id": "4E6B8CCLe0s",
+          "artifact": "short-20260113-slot3",
+          "fp": "aac1f0762c7131a59c012869716837e6636cacf83279d8edd17a9bd864c7b6d7",
+          "ts": "2026-01-13T14:02:48.605057+00:00"
+        },
+        "4": {
+          "video_id": "EYMehM6yjkg",
+          "artifact": "short-20260113-slot4",
+          "fp": "65439498e02787152158d2af31635ded1c1ddd0fad9e24906c00c8f3a0afc5e1",
+          "ts": "2026-01-13T19:35:42.398471+00:00"
+        }
+      },
+      "long": {
+        "video_id": "dQb7FK-42qc",
+        "ts": "2026-01-13T23:51:00.428419+00:00"
+      }
+    },
+    "20260114": {
+      "shorts": {
+        "1": {
+          "video_id": "bixVbuj9RiI",
+          "artifact": "short-20260114-slot1",
+          "fp": "905a44a04f6fbee572437b763a90af02b47d40107491d8b4c282b0057426b82a",
+          "ts": "2026-01-14T04:42:20.393860+00:00"
+        },
+        "2": {
+          "video_id": "3JyWmaFdYR0",
+          "artifact": "short-20260114-slot2",
+          "fp": "6c5c5a0c12c6fce5256674c2569bd5545eefc514f35a4406ca5c103cfe4e986e",
+          "ts": "2026-01-14T07:49:23.157739+00:00"
+        },
+        "3": {
+          "video_id": "9wAN1axCwbc",
+          "artifact": "short-20260114-slot3",
+          "fp": "b6ea2e3e2946226401d5bedbdbb439ab905e674edde3a27adcdfa8000282735b",
+          "ts": "2026-01-14T14:02:28.128604+00:00"
+        },
+        "4": {
+          "video_id": "7jzom2TF7DE",
+          "artifact": "short-20260114-slot4",
+          "fp": "763afeb677f56f5a760c382b1bdd002175b3f728e1ba5a1ad8501ae3c5dd33cd",
+          "ts": "2026-01-14T19:39:42.025918+00:00"
+        }
+      },
+      "long": {
+        "video_id": "kTEbEiUOtjw",
+        "ts": "2026-01-14T23:49:59.246006+00:00"
+      }
+    },
+    "20260115": {
+      "shorts": {
+        "1": {
+          "video_id": "myA0kIfAHD8",
+          "artifact": "short-20260115-slot1",
+          "fp": "19f2035d9784bd99e3e39f091e0bb35ad75764346850ac34f1d84d2afa75efc4",
+          "ts": "2026-01-15T04:14:44.433572+00:00"
+        },
+        "2": {
+          "video_id": "bx3j1lUQ7QA",
+          "artifact": "short-20260115-slot2",
+          "fp": "4012a618b9a1410fc54f08f517c908d0b5fe95d48e299d819d4b83bf44ecf8f7",
+          "ts": "2026-01-15T07:47:20.893107+00:00"
+        },
+        "3": {
+          "video_id": "4BgAF3jS5y4",
+          "artifact": "short-20260115-slot3",
+          "fp": "c486e5f0dc19dbaf055ab2afb9bf1875e1f88c6dd35ecbe2818a44a506a54924",
+          "ts": "2026-01-15T14:01:47.032961+00:00"
+        },
+        "4": {
+          "video_id": "yoF2LIoN8YM",
+          "artifact": "short-20260115-slot4",
+          "fp": "4614bbedc8d55eea964dafa250b33e4a9c58f95b989176021f3367b37fde9c41",
+          "ts": "2026-01-15T19:48:31.945771+00:00"
+        }
+      },
+      "long": {
+        "video_id": "94TI-9HyPvU",
+        "ts": "2026-01-15T23:52:24.785211+00:00"
+      }
+    },
+    "20260116": {
+      "shorts": {
+        "1": {
+          "video_id": "_l-6r9SMWZs",
+          "artifact": "short-20260116-slot1",
+          "fp": "4de262e1953c85762fcb5286c294c742fa75e4ce0914699c71bd8598cdcc57d8",
+          "ts": "2026-01-16T04:13:15.229594+00:00"
+        },
+        "2": {
+          "video_id": "cb2hQn4n2hY",
+          "artifact": "short-20260116-slot2",
+          "fp": "fcc5aee17e01b36d4eac8ec360e2eade8aef1fe6a7ed3ca084d7d23894a3f13a",
+          "ts": "2026-01-16T07:47:17.577803+00:00"
+        },
+        "3": {
+          "video_id": "ad11Ns-jdT8",
+          "artifact": "short-20260116-slot3",
+          "fp": "f32680fa3fe9b15a559238303c3e3c40eb304b8b88c08df4ed1eecf4d3bfcd6e",
+          "ts": "2026-01-16T14:01:06.964956+00:00"
+        },
+        "4": {
+          "video_id": "mU4izmbm6ww",
+          "artifact": "short-20260116-slot4",
+          "fp": "caf55b006f5c44c41092b1e28b93a31033e175c0072d16513702dc5935cd0d6c",
+          "ts": "2026-01-16T19:32:39.229360+00:00"
+        }
+      },
+      "long": {
+        "video_id": "mKJwd1JgQG0",
+        "ts": "2026-01-16T23:51:08.716289+00:00"
+      }
+    },
+    "20260117": {
+      "shorts": {
+        "1": {
+          "video_id": "G0qoWszG-cM",
+          "artifact": "short-20260117-slot1",
+          "fp": "27d80ebd2b5966db7e2ded536c379b9d371097ddf7966987c87ff177316899b1",
+          "ts": "2026-01-17T04:03:17.259771+00:00"
+        },
+        "2": {
+          "video_id": "Astso9g3-io",
+          "artifact": "short-20260117-slot2",
+          "fp": "da09e32b3704ba0b9002b1c088962eb483cb0098a79aa70485b6ddacbf73b11b",
+          "ts": "2026-01-17T07:36:19.807735+00:00"
+        }
+      }
+    }
+  }
+}
