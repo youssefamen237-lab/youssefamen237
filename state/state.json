@@ -246,6 +246,13 @@
       "question": "Who holds the record for most Super Bowl rings won by a player?",
       "answer": "Tom Brady",
       "date_iso": "2026-02-03"
+    },
+    {
+      "fp": "aee4a99921749c3ab4de381da48386818b63da50734a94802c5b5081798835d4",
+      "q_norm": "what is the fastest land animal",
+      "question": "What is the fastest land animal?",
+      "answer": "Cheetah",
+      "date_iso": "2026-02-03"
     }
   ],
   "publishes": {
@@ -520,6 +527,12 @@
           "artifact": "short-20260203-slot2",
           "fp": "7d81fef3ad00856cd627d7c65edec23c34ce991d3196d316cd76d9651e5589cc",
           "ts": "2026-02-03T09:06:33.083556+00:00"
+        },
+        "3": {
+          "video_id": "LTgx8vjrQyo",
+          "artifact": "short-20260203-slot3",
+          "fp": "aee4a99921749c3ab4de381da48386818b63da50734a94802c5b5081798835d4",
+          "ts": "2026-02-03T15:37:48.269117+00:00"
         }
       }
     }
