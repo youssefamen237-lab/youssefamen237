@@ -239,6 +239,13 @@
       "question": "A bat and a ball together cost $1.10. The bat costs $1.00 more than the ball. How much does the ball cost?",
       "answer": "5 cents",
       "date_iso": "2026-02-03"
+    },
+    {
+      "fp": "7d81fef3ad00856cd627d7c65edec23c34ce991d3196d316cd76d9651e5589cc",
+      "q_norm": "who holds the record for most super bowl rings won by a player",
+      "question": "Who holds the record for most Super Bowl rings won by a player?",
+      "answer": "Tom Brady",
+      "date_iso": "2026-02-03"
     }
   ],
   "publishes": {
@@ -507,6 +514,12 @@
           "artifact": "short-20260203-slot1",
           "fp": "50edbf86c9fd47c18590fd094c519d40970a6221d999744b581bcb154a4628c2",
           "ts": "2026-02-03T05:21:26.430644+00:00"
+        },
+        "2": {
+          "video_id": "r7SsGDl_r_c",
+          "artifact": "short-20260203-slot2",
+          "fp": "7d81fef3ad00856cd627d7c65edec23c34ce991d3196d316cd76d9651e5589cc",
+          "ts": "2026-02-03T09:06:33.083556+00:00"
         }
       }
     }
