@@ -253,6 +253,13 @@
       "question": "What is the fastest land animal?",
       "answer": "Cheetah",
       "date_iso": "2026-02-03"
+    },
+    {
+      "fp": "72748f42b563e74bf3f2823b2ad45f25406edaa07822f24e149edc4b767c97e0",
+      "q_norm": "what is the largest planet in our solar system",
+      "question": "What is the largest planet in our solar system?",
+      "answer": "Jupiter",
+      "date_iso": "2026-02-03"
     }
   ],
   "publishes": {
@@ -533,6 +540,12 @@
           "artifact": "short-20260203-slot3",
           "fp": "aee4a99921749c3ab4de381da48386818b63da50734a94802c5b5081798835d4",
           "ts": "2026-02-03T15:37:48.269117+00:00"
+        },
+        "4": {
+          "video_id": "jnAzbuOPVJw",
+          "artifact": "short-20260203-slot4",
+          "fp": "72748f42b563e74bf3f2823b2ad45f25406edaa07822f24e149edc4b767c97e0",
+          "ts": "2026-02-03T21:02:12.862060+00:00"
         }
       }
     }
