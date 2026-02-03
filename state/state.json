@@ -232,6 +232,13 @@
       "question": "Which popular dessert's name comes from the French word for 'burnt cream'?",
       "answer": "Creme Brulee",
       "date_iso": "2026-01-17"
+    },
+    {
+      "fp": "50edbf86c9fd47c18590fd094c519d40970a6221d999744b581bcb154a4628c2",
+      "q_norm": "a bat and a ball together cost 1 10 the bat costs 1 00 more than the ball how much does the ball cost",
+      "question": "A bat and a ball together cost $1.10. The bat costs $1.00 more than the ball. How much does the ball cost?",
+      "answer": "5 cents",
+      "date_iso": "2026-02-03"
     }
   ],
   "publishes": {
@@ -490,6 +497,16 @@
           "artifact": "short-20260117-slot2",
           "fp": "da09e32b3704ba0b9002b1c088962eb483cb0098a79aa70485b6ddacbf73b11b",
           "ts": "2026-01-17T07:36:19.807735+00:00"
+        }
+      }
+    },
+    "20260203": {
+      "shorts": {
+        "1": {
+          "video_id": "6PRIJ64LH-4",
+          "artifact": "short-20260203-slot1",
+          "fp": "50edbf86c9fd47c18590fd094c519d40970a6221d999744b581bcb154a4628c2",
+          "ts": "2026-02-03T05:21:26.430644+00:00"
         }
       }
     }
