@@ -260,6 +260,13 @@
       "question": "What is the largest planet in our solar system?",
       "answer": "Jupiter",
       "date_iso": "2026-02-03"
+    },
+    {
+      "fp": "863dc78673567d23973536e4df0b5f0f8664f6b83f2959c38df53c35e250dc45",
+      "q_norm": "who holds the record for most career home runs in baseball",
+      "question": "Who holds the record for most career home runs in baseball?",
+      "answer": "Barry Bonds",
+      "date_iso": "2026-02-04"
     }
   ],
   "publishes": {
@@ -546,6 +553,16 @@
           "artifact": "short-20260203-slot4",
           "fp": "72748f42b563e74bf3f2823b2ad45f25406edaa07822f24e149edc4b767c97e0",
           "ts": "2026-02-03T21:02:12.862060+00:00"
+        }
+      }
+    },
+    "20260204": {
+      "shorts": {
+        "1": {
+          "video_id": "Udsjx62Z8XM",
+          "artifact": "short-20260204-slot1",
+          "fp": "863dc78673567d23973536e4df0b5f0f8664f6b83f2959c38df53c35e250dc45",
+          "ts": "2026-02-04T05:19:15.711423+00:00"
         }
       }
     }
