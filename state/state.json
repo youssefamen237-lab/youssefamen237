@@ -274,6 +274,13 @@
       "question": "What does 'break a leg' mean?",
       "answer": "Good luck",
       "date_iso": "2026-02-04"
+    },
+    {
+      "fp": "ce7c8a8c9a9a5c8c9ab98c2a73baeecc388232515344a22a58fbaaad58c0ff90",
+      "q_norm": "i have a head a tail but no body what am i",
+      "question": "I have a head, a tail, but no body. What am I?",
+      "answer": "A coin",
+      "date_iso": "2026-02-04"
     }
   ],
   "publishes": {
@@ -576,6 +583,12 @@
           "artifact": "short-20260204-slot2",
           "fp": "6b59f3f1f27f581629306e022b9b576e9f1e9d157ce91391223c8a7ae031b686",
           "ts": "2026-02-04T09:11:54.993172+00:00"
+        },
+        "3": {
+          "video_id": "SGf_z-C_KSg",
+          "artifact": "short-20260204-slot3",
+          "fp": "ce7c8a8c9a9a5c8c9ab98c2a73baeecc388232515344a22a58fbaaad58c0ff90",
+          "ts": "2026-02-04T15:29:11.982661+00:00"
         }
       }
     }
