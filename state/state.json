@@ -281,6 +281,13 @@
       "question": "I have a head, a tail, but no body. What am I?",
       "answer": "A coin",
       "date_iso": "2026-02-04"
+    },
+    {
+      "fp": "665f934893f7be01b0a2bd3eba0db02a9c5de71ddcf35ddc4bd44e674ad792cd",
+      "q_norm": "a bakery sells 146 loaves of bread at 27 each how much money did they make",
+      "question": "A bakery sells 146 loaves of bread at $27 each. How much money did they make?",
+      "answer": "$3942",
+      "date_iso": "2026-02-04"
     }
   ],
   "publishes": {
@@ -589,6 +596,12 @@
           "artifact": "short-20260204-slot3",
           "fp": "ce7c8a8c9a9a5c8c9ab98c2a73baeecc388232515344a22a58fbaaad58c0ff90",
           "ts": "2026-02-04T15:29:11.982661+00:00"
+        },
+        "4": {
+          "video_id": "p1AgC86loLc",
+          "artifact": "short-20260204-slot4",
+          "fp": "665f934893f7be01b0a2bd3eba0db02a9c5de71ddcf35ddc4bd44e674ad792cd",
+          "ts": "2026-02-04T20:04:58.876790+00:00"
         }
       }
     }
