@@ -267,6 +267,13 @@
       "question": "Who holds the record for most career home runs in baseball?",
       "answer": "Barry Bonds",
       "date_iso": "2026-02-04"
+    },
+    {
+      "fp": "6b59f3f1f27f581629306e022b9b576e9f1e9d157ce91391223c8a7ae031b686",
+      "q_norm": "what does break a leg mean",
+      "question": "What does 'break a leg' mean?",
+      "answer": "Good luck",
+      "date_iso": "2026-02-04"
     }
   ],
   "publishes": {
@@ -563,6 +570,12 @@
           "artifact": "short-20260204-slot1",
           "fp": "863dc78673567d23973536e4df0b5f0f8664f6b83f2959c38df53c35e250dc45",
           "ts": "2026-02-04T05:19:15.711423+00:00"
+        },
+        "2": {
+          "video_id": "Jvdi4K51aYg",
+          "artifact": "short-20260204-slot2",
+          "fp": "6b59f3f1f27f581629306e022b9b576e9f1e9d157ce91391223c8a7ae031b686",
+          "ts": "2026-02-04T09:11:54.993172+00:00"
         }
       }
     }
