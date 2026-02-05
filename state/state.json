@@ -288,6 +288,13 @@
       "question": "A bakery sells 146 loaves of bread at $27 each. How much money did they make?",
       "answer": "$3942",
       "date_iso": "2026-02-04"
+    },
+    {
+      "fp": "34c1714fa095f63a119beea5b53e094174045567735cd5fcdcb7b2d266934150",
+      "q_norm": "which country has the capital city of valletta",
+      "question": "Which country has the capital city of Valletta?",
+      "answer": "Malta",
+      "date_iso": "2026-02-05"
     }
   ],
   "publishes": {
@@ -602,6 +609,16 @@
           "artifact": "short-20260204-slot4",
           "fp": "665f934893f7be01b0a2bd3eba0db02a9c5de71ddcf35ddc4bd44e674ad792cd",
           "ts": "2026-02-04T20:04:58.876790+00:00"
+        }
+      }
+    },
+    "20260205": {
+      "shorts": {
+        "1": {
+          "video_id": "WTiN2aAyN1U",
+          "artifact": "short-20260205-slot1",
+          "fp": "34c1714fa095f63a119beea5b53e094174045567735cd5fcdcb7b2d266934150",
+          "ts": "2026-02-05T05:35:48.025488+00:00"
         }
       }
     }
