@@ -309,6 +309,13 @@
       "question": "What's the only mammal that lays eggs?",
       "answer": "Platypus",
       "date_iso": "2026-02-05"
+    },
+    {
+      "fp": "b70be5f4781b2010f1075afb20e45b937965b65cba7774a71a5dc3104c84250d",
+      "q_norm": "what country s capital is asmara",
+      "question": "What country's capital is Asmara?",
+      "answer": "Eritrea",
+      "date_iso": "2026-02-05"
     }
   ],
   "publishes": {
@@ -645,6 +652,12 @@
           "artifact": "short-20260205-slot3",
           "fp": "8a054380e74228cfdc735bedc39da10748bb1feac8146a185125f3f8646d22c6",
           "ts": "2026-02-05T15:31:44.899804+00:00"
+        },
+        "4": {
+          "video_id": "MMtXejgRC7c",
+          "artifact": "short-20260205-slot4",
+          "fp": "b70be5f4781b2010f1075afb20e45b937965b65cba7774a71a5dc3104c84250d",
+          "ts": "2026-02-05T20:04:55.900564+00:00"
         }
       }
     }
