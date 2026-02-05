@@ -295,6 +295,13 @@
       "question": "Which country has the capital city of Valletta?",
       "answer": "Malta",
       "date_iso": "2026-02-05"
+    },
+    {
+      "fp": "3868e9668a823bef2b2f5d647dda1f1bb2ab5901a83907c4e70d263284b13d43",
+      "q_norm": "what pastry is traditionally eaten on new year s day in greece",
+      "question": "What pastry is traditionally eaten on New Year's Day in Greece?",
+      "answer": "Vasilopita",
+      "date_iso": "2026-02-05"
     }
   ],
   "publishes": {
@@ -619,6 +626,12 @@
           "artifact": "short-20260205-slot1",
           "fp": "34c1714fa095f63a119beea5b53e094174045567735cd5fcdcb7b2d266934150",
           "ts": "2026-02-05T05:35:48.025488+00:00"
+        },
+        "2": {
+          "video_id": "5Ybgc5zeaeQ",
+          "artifact": "short-20260205-slot2",
+          "fp": "3868e9668a823bef2b2f5d647dda1f1bb2ab5901a83907c4e70d263284b13d43",
+          "ts": "2026-02-05T09:31:23.183336+00:00"
         }
       }
     }
