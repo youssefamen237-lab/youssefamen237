@@ -302,6 +302,13 @@
       "question": "What pastry is traditionally eaten on New Year's Day in Greece?",
       "answer": "Vasilopita",
       "date_iso": "2026-02-05"
+    },
+    {
+      "fp": "8a054380e74228cfdc735bedc39da10748bb1feac8146a185125f3f8646d22c6",
+      "q_norm": "what s the only mammal that lays eggs",
+      "question": "What's the only mammal that lays eggs?",
+      "answer": "Platypus",
+      "date_iso": "2026-02-05"
     }
   ],
   "publishes": {
@@ -632,6 +639,12 @@
           "artifact": "short-20260205-slot2",
           "fp": "3868e9668a823bef2b2f5d647dda1f1bb2ab5901a83907c4e70d263284b13d43",
           "ts": "2026-02-05T09:31:23.183336+00:00"
+        },
+        "3": {
+          "video_id": "sJiBUyBDR8A",
+          "artifact": "short-20260205-slot3",
+          "fp": "8a054380e74228cfdc735bedc39da10748bb1feac8146a185125f3f8646d22c6",
+          "ts": "2026-02-05T15:31:44.899804+00:00"
         }
       }
     }
