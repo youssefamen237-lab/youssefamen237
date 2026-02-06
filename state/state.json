@@ -337,6 +337,13 @@
       "question": "Who is the only tennis player to achieve a 'Golden Slam'?",
       "answer": "Steffi Graf",
       "date_iso": "2026-02-06"
+    },
+    {
+      "fp": "69097f8c45ae65f7b6f774730e575aec12ce165420cff9c14e3a852ad7ee7daa",
+      "q_norm": "i have a 7 letter word if you remove my first letter i still sound the same if you remove my last letter i still sound the same what am i",
+      "question": "I have a 7-letter word. If you remove my first letter, I still sound the same. If you remove my last letter, I still sound the same. What am I?",
+      "answer": "Swims",
+      "date_iso": "2026-02-06"
     }
   ],
   "publishes": {
@@ -705,6 +712,12 @@
           "artifact": "short-20260206-slot3",
           "fp": "093b0d9ed0c7f481ae26f7d98e3aa12afa950e8aa3214a7f24be8088bdeffba3",
           "ts": "2026-02-06T15:27:48.050843+00:00"
+        },
+        "4": {
+          "video_id": "-qxYdl4yZds",
+          "artifact": "short-20260206-slot4",
+          "fp": "69097f8c45ae65f7b6f774730e575aec12ce165420cff9c14e3a852ad7ee7daa",
+          "ts": "2026-02-06T20:02:51.356656+00:00"
         }
       }
     }
