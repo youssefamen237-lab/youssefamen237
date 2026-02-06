@@ -316,6 +316,13 @@
       "question": "What country's capital is Asmara?",
       "answer": "Eritrea",
       "date_iso": "2026-02-05"
+    },
+    {
+      "fp": "b0469a45c0c8cbf3ed77e184cf71649e4b508753459e574702bbe937127622b4",
+      "q_norm": "what has a head a tail but no body think you can solve it",
+      "question": "What has a head, a tail, but no body? Think you can solve it?",
+      "answer": "Coin",
+      "date_iso": "2026-02-06"
     }
   ],
   "publishes": {
@@ -663,6 +670,16 @@
       "long": {
         "video_id": "s47TqLgnkLs",
         "ts": "2026-02-05T23:59:55.943952+00:00"
+      }
+    },
+    "20260206": {
+      "shorts": {
+        "1": {
+          "video_id": "lkxbN69AUyI",
+          "artifact": "short-20260206-slot1",
+          "fp": "b0469a45c0c8cbf3ed77e184cf71649e4b508753459e574702bbe937127622b4",
+          "ts": "2026-02-06T05:21:52.348750+00:00"
+        }
       }
     }
   }
