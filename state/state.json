@@ -323,6 +323,13 @@
       "question": "What has a head, a tail, but no body? Think you can solve it?",
       "answer": "Coin",
       "date_iso": "2026-02-06"
+    },
+    {
+      "fp": "81385b64ecd19ec372a64f211b44e05b238934d03abc5cf52dd97cfce60e32b9",
+      "q_norm": "which popular italian dessert s name means pick me up",
+      "question": "Which popular Italian dessert's name means 'pick-me-up'?",
+      "answer": "Tiramisu",
+      "date_iso": "2026-02-06"
     }
   ],
   "publishes": {
@@ -679,6 +686,12 @@
           "artifact": "short-20260206-slot1",
           "fp": "b0469a45c0c8cbf3ed77e184cf71649e4b508753459e574702bbe937127622b4",
           "ts": "2026-02-06T05:21:52.348750+00:00"
+        },
+        "2": {
+          "video_id": "gRJpSJkG0mg",
+          "artifact": "short-20260206-slot2",
+          "fp": "81385b64ecd19ec372a64f211b44e05b238934d03abc5cf52dd97cfce60e32b9",
+          "ts": "2026-02-06T09:30:47.096023+00:00"
         }
       }
     }
