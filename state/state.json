@@ -330,6 +330,13 @@
       "question": "Which popular Italian dessert's name means 'pick-me-up'?",
       "answer": "Tiramisu",
       "date_iso": "2026-02-06"
+    },
+    {
+      "fp": "093b0d9ed0c7f481ae26f7d98e3aa12afa950e8aa3214a7f24be8088bdeffba3",
+      "q_norm": "who is the only tennis player to achieve a golden slam",
+      "question": "Who is the only tennis player to achieve a 'Golden Slam'?",
+      "answer": "Steffi Graf",
+      "date_iso": "2026-02-06"
     }
   ],
   "publishes": {
@@ -692,6 +699,12 @@
           "artifact": "short-20260206-slot2",
           "fp": "81385b64ecd19ec372a64f211b44e05b238934d03abc5cf52dd97cfce60e32b9",
           "ts": "2026-02-06T09:30:47.096023+00:00"
+        },
+        "3": {
+          "video_id": "1PUkyo4AFv8",
+          "artifact": "short-20260206-slot3",
+          "fp": "093b0d9ed0c7f481ae26f7d98e3aa12afa950e8aa3214a7f24be8088bdeffba3",
+          "ts": "2026-02-06T15:27:48.050843+00:00"
         }
       }
     }
