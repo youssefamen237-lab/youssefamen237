@@ -358,6 +358,13 @@
       "question": "What's the capital of Australia?",
       "answer": "Canberra",
       "date_iso": "2026-02-07"
+    },
+    {
+      "fp": "7dd735df80f600785f26ec6a9cdd2347228f4f322ad9331c6e637f3b86c44a35",
+      "q_norm": "which country s capital is oslo",
+      "question": "Which country's capital is Oslo?",
+      "answer": "Norway",
+      "date_iso": "2026-02-07"
     }
   ],
   "publishes": {
@@ -748,6 +755,12 @@
           "artifact": "short-20260207-slot2",
           "fp": "d14543f9cdfd6961876ea5f6a2a24403e53cb0f12e5ad217cbb731b18d0b9eff",
           "ts": "2026-02-07T07:55:37.856098+00:00"
+        },
+        "3": {
+          "video_id": "Li7EJsfDTm4",
+          "artifact": "short-20260207-slot3",
+          "fp": "7dd735df80f600785f26ec6a9cdd2347228f4f322ad9331c6e637f3b86c44a35",
+          "ts": "2026-02-07T14:05:27.486813+00:00"
         }
       }
     }
