@@ -351,6 +351,13 @@
       "question": "What is the highest-ever recorded marathon time by a human?",
       "answer": "2:01:09",
       "date_iso": "2026-02-07"
+    },
+    {
+      "fp": "d14543f9cdfd6961876ea5f6a2a24403e53cb0f12e5ad217cbb731b18d0b9eff",
+      "q_norm": "what s the capital of australia",
+      "question": "What's the capital of Australia?",
+      "answer": "Canberra",
+      "date_iso": "2026-02-07"
     }
   ],
   "publishes": {
@@ -735,6 +742,12 @@
           "artifact": "short-20260207-slot1",
           "fp": "f9959c3e5b8ee61794b261c7bc9b08c3eda7b752a53d3cf19797d29a82f75b22",
           "ts": "2026-02-07T05:10:24.376396+00:00"
+        },
+        "2": {
+          "video_id": "-vGzxbzsCy0",
+          "artifact": "short-20260207-slot2",
+          "fp": "d14543f9cdfd6961876ea5f6a2a24403e53cb0f12e5ad217cbb731b18d0b9eff",
+          "ts": "2026-02-07T07:55:37.856098+00:00"
         }
       }
     }
