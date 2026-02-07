@@ -344,6 +344,13 @@
       "question": "I have a 7-letter word. If you remove my first letter, I still sound the same. If you remove my last letter, I still sound the same. What am I?",
       "answer": "Swims",
       "date_iso": "2026-02-06"
+    },
+    {
+      "fp": "f9959c3e5b8ee61794b261c7bc9b08c3eda7b752a53d3cf19797d29a82f75b22",
+      "q_norm": "what is the highest ever recorded marathon time by a human",
+      "question": "What is the highest-ever recorded marathon time by a human?",
+      "answer": "2:01:09",
+      "date_iso": "2026-02-07"
     }
   ],
   "publishes": {
@@ -718,6 +725,16 @@
           "artifact": "short-20260206-slot4",
           "fp": "69097f8c45ae65f7b6f774730e575aec12ce165420cff9c14e3a852ad7ee7daa",
           "ts": "2026-02-06T20:02:51.356656+00:00"
+        }
+      }
+    },
+    "20260207": {
+      "shorts": {
+        "1": {
+          "video_id": "cDTK1sotWAM",
+          "artifact": "short-20260207-slot1",
+          "fp": "f9959c3e5b8ee61794b261c7bc9b08c3eda7b752a53d3cf19797d29a82f75b22",
+          "ts": "2026-02-07T05:10:24.376396+00:00"
         }
       }
     }
