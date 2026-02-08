@@ -1,7 +1,3 @@
-diff --git a/yt_auto/cli.py b/yt_auto/cli.py
-index 2ca08cfa140b88174a6ca386e3a1e2eca8fe3976..53ea7378dd451f3023e45f3dabee38300c80c69f 100644
---- a/yt_auto/cli.py
-+++ b/yt_auto/cli.py
 @@ -127,53 +127,67 @@ def _build_short_pipeline(cfg, state: StateStore, slot: int, date_yyyymmdd: str)
  def _build_long_pipeline(cfg, state: StateStore, date_yyyymmdd: str) -> str:
      ensure_dir(cfg.out_dir)
