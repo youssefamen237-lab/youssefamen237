@@ -1,0 +1,174 @@
+name: YouTube Automation (One Workflow)
+
+on:
+  push:
+    branches: ["main"]
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "all|short|long|bootstrap"
+        required: false
+        default: "all"
+      slot:
+        description: "1-4 (only for mode=short)"
+        required: false
+        default: "1"
+      date:
+        description: "YYYYMMDD (optional)"
+        required: false
+        default: ""
+
+  schedule:
+    - cron: "5 1 * * *"    # slot 1
+    - cron: "5 7 * * *"    # slot 2
+    - cron: "5 13 * * *"   # slot 3
+    - cron: "5 19 * * *"   # slot 4
+    - cron: "35 23 * * *"  # long
+
+concurrency:
+  group: yt-auto-one
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  run:
+    if: ${{ github.event_name != 'push' || github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Decide action
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event_name == 'schedule' && github.event.schedule || '' }}
+          INPUT_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || '' }}
+          INPUT_SLOT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.slot || '' }}
+          INPUT_DATE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.date || '' }}
+        run: |
+          if [ -n "$INPUT_DATE" ]; then
+            RUN_DATE="$INPUT_DATE"
+          else
+            RUN_DATE="$(date -u +%Y%m%d)"
+          fi
+
+          ACTION_KIND=""
+          SLOT=""
+          CMD=""
+
+          if [ "$EVENT_NAME" = "push" ]; then
+            ACTION_KIND="bootstrap"
+            CMD="python -m yt_auto bootstrap --date $RUN_DATE"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            MODE="${INPUT_MODE:-all}"
+            if [ "$MODE" = "bootstrap" ]; then
+              ACTION_KIND="bootstrap"
+              CMD="python -m yt_auto bootstrap --date $RUN_DATE"
+            elif [ "$MODE" = "long" ]; then
+              ACTION_KIND="long"
+              CMD="python -m yt_auto long --date $RUN_DATE"
+            elif [ "$MODE" = "short" ]; then
+              ACTION_KIND="short"
+              SLOT="${INPUT_SLOT:-1}"
+              CMD="python -m yt_auto short --slot $SLOT --date $RUN_DATE"
+            else
+              ACTION_KIND="all"
+              CMD="python -m yt_auto run-all --date $RUN_DATE"
+            fi
+          else
+            case "$SCHEDULE" in
+              "5 1 * * *")
+                ACTION_KIND="short"; SLOT="1"; CMD="python -m yt_auto short --slot 1 --date $RUN_DATE";;
+              "5 7 * * *")
+                ACTION_KIND="short"; SLOT="2"; CMD="python -m yt_auto short --slot 2 --date $RUN_DATE";;
+              "5 13 * * *")
+                ACTION_KIND="short"; SLOT="3"; CMD="python -m yt_auto short --slot 3 --date $RUN_DATE";;
+              "5 19 * * *")
+                ACTION_KIND="short"; SLOT="4"; CMD="python -m yt_auto short --slot 4 --date $RUN_DATE";;
+              "35 23 * * *")
+                ACTION_KIND="long"; CMD="python -m yt_auto long --date $RUN_DATE";;
+              *)
+                ACTION_KIND="none"; CMD="echo 'Unknown schedule'; exit 0";;
+            esac
+          fi
+
+          echo "RUN_DATE=$RUN_DATE" >> $GITHUB_ENV
+          echo "ACTION_KIND=$ACTION_KIND" >> $GITHUB_ENV
+          echo "SLOT=$SLOT" >> $GITHUB_ENV
+          echo "CMD=$CMD" >> $GITHUB_ENV
+
+      - name: Run pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
+          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+          YT_CLIENT_ID_1: ${{ secrets.YT_CLIENT_ID_1 }}
+          YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
+          YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
+          YT_CLIENT_ID_2: ${{ secrets.YT_CLIENT_ID_2 }}
+          YT_CLIENT_SECRET_2: ${{ secrets.YT_CLIENT_SECRET_2 }}
+          YT_REFRESH_TOKEN_2: ${{ secrets.YT_REFRESH_TOKEN_2 }}
+          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Running: $CMD"
+          eval "$CMD"
+
+      - name: Upload short artifact
+        if: env.ACTION_KIND == 'short'
+        uses: actions/upload-artifact@v4
+        with:
+          name: short-${{ env.RUN_DATE }}-slot${{ env.SLOT }}
+          path: out/short-${{ env.RUN_DATE }}-slot${{ env.SLOT }}.mp4
+          if-no-files-found: ignore
+          retention-days: 10
+
+      - name: Upload long artifact
+        if: env.ACTION_KIND == 'long'
+        uses: actions/upload-artifact@v4
+        with:
+          name: long-${{ env.RUN_DATE }}
+          path: |
+            out/long-${{ env.RUN_DATE }}.mp4
+            out/thumb-${{ env.RUN_DATE }}.jpg
+          if-no-files-found: ignore
+          retention-days: 10
+
+      - name: Upload run-all artifact
+        if: env.ACTION_KIND == 'all'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runall-${{ env.RUN_DATE }}
+          path: out/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Commit state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/state.json
+          if git diff --cached --quiet; then
+            echo "No state changes to commit."
+            exit 0
+          fi
+          git commit -m "state: $ACTION_KIND $RUN_DATE ${SLOT}"
+          git pull --rebase
+          git push
