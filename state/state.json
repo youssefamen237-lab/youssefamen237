@@ -393,6 +393,13 @@
       "question": "What does 'bend over backwards' mean?",
       "answer": "Go out of one's way",
       "date_iso": "2026-02-08"
+    },
+    {
+      "fp": "2c0a6605a15d2b67b10bf84853d896834f680337bf15cd953186970faf825e7a",
+      "q_norm": "what s 448196 divided by 4",
+      "question": "What's 448196 divided by 4?",
+      "answer": "112049",
+      "date_iso": "2026-02-08"
     }
   ],
   "publishes": {
@@ -817,6 +824,12 @@
           "artifact": "short-20260208-slot3",
           "fp": "b2f1d1580b56814a3342bfdfa809f6517b3749b4d2594ba4d0128264bec661fd",
           "ts": "2026-02-08T14:17:50.556237+00:00"
+        },
+        "4": {
+          "video_id": "jPFkW6BV0ww",
+          "artifact": "short-20260208-slot4",
+          "fp": "2c0a6605a15d2b67b10bf84853d896834f680337bf15cd953186970faf825e7a",
+          "ts": "2026-02-08T19:51:28.293841+00:00"
         }
       }
     }
