@@ -386,6 +386,13 @@
       "question": "What does CPU stand for in computing?",
       "answer": "Central Processing Unit",
       "date_iso": "2026-02-08"
+    },
+    {
+      "fp": "b2f1d1580b56814a3342bfdfa809f6517b3749b4d2594ba4d0128264bec661fd",
+      "q_norm": "what does bend over backwards mean",
+      "question": "What does 'bend over backwards' mean?",
+      "answer": "Go out of one's way",
+      "date_iso": "2026-02-08"
     }
   ],
   "publishes": {
@@ -804,6 +811,12 @@
           "artifact": "short-20260208-slot2",
           "fp": "763afeb677f56f5a760c382b1bdd002175b3f728e1ba5a1ad8501ae3c5dd33cd",
           "ts": "2026-02-08T08:02:49.531616+00:00"
+        },
+        "3": {
+          "video_id": "ZJrlzgq0WeI",
+          "artifact": "short-20260208-slot3",
+          "fp": "b2f1d1580b56814a3342bfdfa809f6517b3749b4d2594ba4d0128264bec661fd",
+          "ts": "2026-02-08T14:17:50.556237+00:00"
         }
       }
     }
