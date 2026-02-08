@@ -1,182 +1,124 @@
-from __future__ import annotations
-
-from pathlib import Path
-from typing import Sequence
-
-from ..utils.ffmpeg import FFmpegError, run_ffmpeg
-from ..utils.text import wrap_for_display
-
-
-def _write_textfile(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text.strip() + "\n", encoding="utf-8")
-
-
-def _render_static_segment(
-    *,
-    bg_path: Path,
-    out_mp4: Path,
-    text: str,
-    font_bold_path: str,
-    width: int,
-    height: int,
-    fps: int,
-    duration_s: int,
-    fontsize: int,
-) -> None:
-    out_mp4.parent.mkdir(parents=True, exist_ok=True)
-    txt = out_mp4.with_suffix(".txt")
-    _write_textfile(txt, wrap_for_display(text, max_chars=18, max_lines=3))
-
-    bg_zoom = 1.32
-    bg_blur = 30
-    bg_brightness = -0.12
-
-    base_bg = (
-        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-        f"crop={width}:{height},"
-        f"scale=iw*{bg_zoom}:ih*{bg_zoom},"
-        f"crop={width}:{height},"
-        f"gblur=sigma={bg_blur},"
-        f"eq=brightness={bg_brightness}"
-    )
-
-    panel_w = int(width * 0.90)
-    panel_h = int(height * 0.30)
-
-    vf = (
-        f"{base_bg},"
-        f"drawbox=x=(w-{panel_w})/2:y=(h-{panel_h})/2:w={panel_w}:h={panel_h}:color=black@0.28:t=fill,"
-        f"drawtext=fontfile='{font_bold_path}':textfile='{txt}':reload=1:fontsize={fontsize}:fontcolor=white:"
-        f"shadowcolor=black:shadowx=4:shadowy=4:x=(w-text_w)/2:y=(h-text_h)/2:line_spacing=10"
-    )
-
-    run_ffmpeg(
-        [
-            "-loop",
-            "1",
-            "-i",
-            str(bg_path),
-            "-f",
-            "lavfi",
-            "-i",
-            "anullsrc=channel_layout=stereo:sample_rate=44100",
-            "-t",
-            str(duration_s),
-            "-r",
-            str(fps),
-            "-vf",
-            vf,
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-profile:v",
-            "high",
-            "-level",
-            "4.1",
-            "-preset",
-            "veryfast",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "128k",
-            "-movflags",
-            "+faststart",
-            str(out_mp4),
-        ]
-    )
-
-
-def render_compilation(
-    *,
-    short_paths: Sequence[Path],
-    bg_path: Path,
-    out_mp4: Path,
-    font_bold_path: str,
-    width: int = 1080,
-    height: int = 1920,
-    fps: int = 30,
-) -> None:
-    out_mp4.parent.mkdir(parents=True, exist_ok=True)
-
-    intro = out_mp4.with_name(out_mp4.stem + ".intro.mp4")
-    outro = out_mp4.with_name(out_mp4.stem + ".outro.mp4")
-    trans = out_mp4.with_name(out_mp4.stem + ".transition.mp4")
-
-    _render_static_segment(
-        bg_path=bg_path,
-        out_mp4=intro,
-        text="Daily Trivia Compilation\n4 Quick Questions",
-        font_bold_path=font_bold_path,
-        width=width,
-        height=height,
-        fps=fps,
-        duration_s=5,
-        fontsize=int(height * 0.07),
-    )
-
-    _render_static_segment(
-        bg_path=bg_path,
-        out_mp4=trans,
-        text="Next Question",
-        font_bold_path=font_bold_path,
-        width=width,
-        height=height,
-        fps=fps,
-        duration_s=2,
-        fontsize=int(height * 0.07),
-    )
-
-    _render_static_segment(
-        bg_path=bg_path,
-        out_mp4=outro,
-        text="How many did you get?\nComment your score!",
-        font_bold_path=font_bold_path,
-        width=width,
-        height=height,
-        fps=fps,
-        duration_s=5,
-        fontsize=int(height * 0.065),
-    )
-
-    concat_list = out_mp4.with_suffix(".concat.txt")
-    lines = [f"file '{intro.as_posix()}'\n"]
-    for i, sp in enumerate(short_paths):
-        lines.append(f"file '{sp.as_posix()}'\n")
-        if i != len(short_paths) - 1:
-            lines.append(f"file '{trans.as_posix()}'\n")
-    lines.append(f"file '{outro.as_posix()}'\n")
-    concat_list.write_text("".join(lines), encoding="utf-8")
-
-    try:
-        run_ffmpeg(["-f", "concat", "-safe", "0", "-i", str(concat_list), "-c", "copy", str(out_mp4)])
-        return
-    except FFmpegError:
-        run_ffmpeg(
-            [
-                "-f",
-                "concat",
-                "-safe",
-                "0",
-                "-i",
-                str(concat_list),
-                "-c:v",
-                "libx264",
-                "-pix_fmt",
-                "yuv420p",
-                "-profile:v",
-                "high",
-                "-level",
-                "4.1",
-                "-preset",
-                "veryfast",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "128k",
-                "-movflags",
-                "+faststart",
-                str(out_mp4),
-            ]
-        )
+@@ -32,52 +32,68 @@ def _final_description(base: str, hashtags: list[str]) -> str:
+     out = (base + extra).strip()
+     return out[:4800]
+ 
+ 
+ def _safe_title(title: str) -> str:
+     t = (title or "").strip()
+     if not t:
+         t = "10-Second Trivia (10s Quiz)"
+     if len(t) > 95:
+         t = t[:92].rstrip() + "..."
+     return t
+ 
+ 
+ def _safe_tags(tags: list[str]) -> list[str]:
+     cleaned = []
+     for t in tags:
+         s = (t or "").strip()
+         if not s:
+             continue
+         if len(s) > 28:
+             s = s[:28].strip()
+         cleaned.append(s)
+     return clamp_list(cleaned, 450)
+ 
+ 
+-def _build_daily_title() -> str:
+-    return "Daily Trivia Compilation (4 Shorts)"
++def _build_daily_title(day: str, specs: list[ShortSpec]) -> str:
++    base = f"Quizzaro Daily Trivia Compilation - {day}"
++    total = len(specs)
++    categories: list[str] = []
++    seen: set[str] = set()
++    for spec in specs:
++        cat = (spec.category or "").strip()
++        key = cat.lower()
++        if not cat or key in seen:
++            continue
++        seen.add(key)
++        categories.append(cat)
++        if len(categories) >= 3:
++            break
++    if categories:
++        cat_label = ", ".join(categories)
++        return f"{base} | {total} Questions: {cat_label}"
++    return f"{base} | {total} Questions"
+ 
+ 
+ def _build_daily_description(specs: list[ShortSpec]) -> str:
+     lines = [
+         "4 quick trivia questions from today!",
+         "",
+         "Questions included:",
+     ]
+     for i, s in enumerate(specs, start=1):
+         q = s.question.replace("\n", " ").strip()
+         if len(q) > 140:
+             q = q[:137].rstrip() + "..."
+         lines.append(f"{i}) {q}")
+     lines.append("")
+     lines.append("Comment your score!")
+     lines.append("")
+     lines.append("#trivia #quiz")
+     return "\n".join(lines)
+ 
+ 
+ def main() -> int:
+     setup_logging()
+     cfg = load_config()
+ 
+     if not cfg.yt_profiles:
+@@ -183,51 +199,51 @@ def main() -> int:
+                         "privacy": "public",
+                         "publish_at": None,
+                     }
+                 ]
+             },
+         )
+         log.info("Uploaded short %d/%d: %s", idx + 1, cfg.shorts_per_run, result.video_id)
+ 
+     comp_bg = out_dir / f"{day}.comp.bg.png"
+     comp_mp4 = out_dir / f"{day}.compilation.mp4"
+     comp_thumb = out_dir / f"{day}.compilation.thumb.png"
+ 
+     generate_background(comp_bg, width=cfg.width, height=cfg.height, rng=rng)
+     render_compilation(
+         short_paths=short_paths,
+         bg_path=comp_bg,
+         out_mp4=comp_mp4,
+         font_bold_path=cfg.font_bold_path,
+         width=cfg.width,
+         height=cfg.height,
+         fps=cfg.fps,
+     )
+ 
+     generate_thumbnail(comp_bg, comp_thumb, headline="4 Questions | Daily Compilation", font_bold_path=cfg.font_bold_path)
+ 
+-    comp_title = _safe_title(_build_daily_title())
++    comp_title = _safe_title(_build_daily_title(day, short_specs))
+     comp_desc = _final_description(_build_daily_description(short_specs), ["#trivia", "#quiz"])
+     comp_tags = _safe_tags(["trivia", "quiz", "compilation", "general knowledge", "education"])
+ 
+     throttle.wait()
+     comp_res = upload_video(
+         youtube,
+         file_path=str(comp_mp4),
+         title=comp_title,
+         description=comp_desc,
+         tags=comp_tags,
+         category_id=cfg.category_id,
+         privacy_status="public",
+         publish_at_iso=None,
+         notify_subscribers=False,
+         made_for_kids=False,
+         contains_synthetic_media=True,
+     )
+     throttle.wait()
+     set_thumbnail(youtube, video_id=comp_res.video_id, thumbnail_path=str(comp_thumb))
+ 
+     uploaded_ids.append(comp_res.video_id)
+ 
+     state.add_day_entry(
+         day,
+         {
