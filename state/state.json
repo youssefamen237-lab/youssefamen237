@@ -379,6 +379,13 @@
       "question": "What is 716706960 in binary?",
       "answer": "10110111011010100000",
       "date_iso": "2026-02-08"
+    },
+    {
+      "fp": "763afeb677f56f5a760c382b1bdd002175b3f728e1ba5a1ad8501ae3c5dd33cd",
+      "q_norm": "what does cpu stand for in computing",
+      "question": "What does CPU stand for in computing?",
+      "answer": "Central Processing Unit",
+      "date_iso": "2026-02-08"
     }
   ],
   "publishes": {
@@ -791,6 +798,12 @@
           "artifact": "short-20260208-slot1",
           "fp": "33642e77ce371e67baf3e3b85273a486e8c639448a8753cb6cfe49b004952ec7",
           "ts": "2026-02-08T05:47:47.246943+00:00"
+        },
+        "2": {
+          "video_id": "YGhJYkHXuPk",
+          "artifact": "short-20260208-slot2",
+          "fp": "763afeb677f56f5a760c382b1bdd002175b3f728e1ba5a1ad8501ae3c5dd33cd",
+          "ts": "2026-02-08T08:02:49.531616+00:00"
         }
       }
     }
