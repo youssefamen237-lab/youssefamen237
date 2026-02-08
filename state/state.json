@@ -232,6 +232,13 @@
       "question": "Which popular dessert's name comes from the French word for 'burnt cream'?",
       "answer": "Creme Brulee",
       "date_iso": "2026-01-17"
+    },
+    {
+      "fp": "fa1a549917eca68347735e58bd7727c1b18dee8c067995f0d0db744990ecaf00",
+      "q_norm": "if a bookshelf has 6 shelves and each shelf can hold 2 boxes how many boxes can it hold in total",
+      "question": "If a bookshelf has 6 shelves and each shelf can hold 2 boxes, how many boxes can it hold in total?",
+      "answer": "12",
+      "date_iso": "2026-02-08"
     }
   ],
   "publishes": {
@@ -490,6 +497,16 @@
           "artifact": "short-20260117-slot2",
           "fp": "da09e32b3704ba0b9002b1c088962eb483cb0098a79aa70485b6ddacbf73b11b",
           "ts": "2026-01-17T07:36:19.807735+00:00"
+        }
+      }
+    },
+    "20260208": {
+      "shorts": {
+        "1": {
+          "video_id": "lhOQE5_DvL0",
+          "artifact": "short-20260208-slot1",
+          "fp": "fa1a549917eca68347735e58bd7727c1b18dee8c067995f0d0db744990ecaf00",
+          "ts": "2026-02-08T19:55:44.658252+00:00"
         }
       }
     }
