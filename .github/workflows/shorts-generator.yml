@@ -1,0 +1,107 @@
+name: Self-Governing Shorts Engine
+
+on:
+  schedule:
+    # Randomized windows: 4-8 uploads daily at irregular intervals
+    - cron: '17 2,6,11,15,19,22 * * *'    # Variable slots
+    - cron: '43 1,9,14,18,23 * * *'       # Jitter pattern
+  workflow_dispatch:
+    inputs:
+      force_upload:
+        description: 'Skip random delay (testing only)'
+        required: false
+        default: 'false'
+
+env:
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+  YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+  YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
+  YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
+  YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+  SERPAPI: ${{ secrets.SERPAPI }}
+  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v3
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg imagemagick
+        
+    - name: Cache Python packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        
+    - name: Install Python dependencies
+      run: |
+        pip install -r requirements.txt
+        
+    - name: Random Micro Delay (Human Simulation)
+      if: github.event.inputs.force_upload != 'true'
+      run: |
+        DELAY=$(( RANDOM % 540 + 120 ))  # 2-11 minutes in seconds
+        echo "Waiting $DELAY seconds to simulate human behavior..."
+        sleep $DELAY
+        
+    - name: Execute Growth Engine
+      run: |
+        python src/main.py --mode generate
+        
+    - name: Commit Analytics Updates
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "AI Growth Engine"
+        git add data/
+        git diff --quiet && git diff --staged --quiet || git commit -m "📊 Update: Analytics & Strategy State $(date +'%Y-%m-%d %H:%M')"
+        git push
+
+  analytics-collector:
+    runs-on: ubuntu-latest
+    needs: generate-and-upload
+    if: always()
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - run: pip install -r requirements.txt
+    - run: python src/main.py --mode analytics
+    - run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "AI Analytics"
+        git add data/analytics/
+        git diff --quiet && git diff --staged --quiet || git commit -m "📈 Analytics sync $(date +%s)" && git push
+
+  weekly-evolution:
+    runs-on: ubuntu-latest
+    schedule:
+      - cron: '0 3 * * 0'  # Weekly on Sunday
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - run: pip install -r requirements.txt
+    - run: python src/main.py --mode evolve
+    - run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "AI Strategy"
+        git add data/strategy_state.json
+        git commit -m "🧬 Weekly Strategy Evolution" || echo "No changes"
+        git push
