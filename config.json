@@ -1,0 +1,72 @@
+{
+  "channel_config": {
+    "niche": "fast_brain",
+    "content_types": ["trivia", "brain_teaser", "optical_illusion", "quick_math", "memory_challenge"],
+    "target_audience": ["US", "UK", "CA", "AU"]
+  },
+  "production": {
+    "daily_uploads": {"min": 4, "max": 8},
+    "weekly_long_form": true,
+    "video_length_range": [17, 23],
+    "voice_speed_range": [0.95, 1.07],
+    "timer_duration_range": [4.8, 5.3],
+    "safe_zones": {
+      "title_top": 0.15,
+      "title_bottom": 0.25,
+      "interaction_bottom": 0.20
+    }
+  },
+  "templates": [
+    "true_false",
+    "multiple_choice",
+    "visual_difference",
+    "quick_solve",
+    "guess_answer",
+    "genius_challenge",
+    "five_second_challenge",
+    "memory_test"
+  ],
+  "voice_profiles": {
+    "male": {"probability": 0.4, "elevenlabs_voice": "Josh"},
+    "female": {"probability": 0.6, "elevenlabs_voice": "Rachel"}
+  },
+  "hooks": [
+    "Only 1% Can Solve This",
+    "99% Will Get This Wrong",
+    "Brain Teaser Challenge",
+    "Can You Spot It?",
+    "Genius Level Test",
+    "5 Second Challenge",
+    "Quick Math Test",
+    "Memory Challenge"
+  ],
+  "ctas": [
+    "Write your answer below",
+    "Drop it in comments",
+    "Think fast...",
+    "Comment your answer",
+    "What did you choose?",
+    "Geniuses comment below"
+  ],
+  "safety": {
+    "banned_keywords": ["death", "war", "political", "sexual", "religion", "kill", "murder", "attack"],
+    "banned_entities": ["trump", "biden", "putin", "celebrity names"],
+    "min_dna_similarity": 0.30,
+    "semantic_threshold": 0.65
+  },
+  "strategy_weights": {
+    "watch_time": 0.35,
+    "completion": 0.25,
+    "ctr": 0.15,
+    "comments": 0.10,
+    "rewatch": 0.15
+  },
+  "thresholds": {
+    "shadow_ban_impression_drop": 0.60,
+    "low_ctr_threshold": 0.03,
+    "high_ctr_threshold": 0.08,
+    "target_retention": 0.85,
+    "target_ctr": 0.07,
+    "target_completion": 0.70
+  }
+}
