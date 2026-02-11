@@ -1,30 +1,29 @@
-فيما يلي نسخة مصححة ومحسّنة من README.md مع ضبط التنسيق، توحيد المصطلحات، إزالة الغموض، وتحسين قابلية التنفيذ دون تغيير منطق النظام.
+# Self-Governing AI YouTube Shorts Growth System
 
-Self-Governing AI YouTube Shorts Growth System
-Overview
+## Overview
 
 Automated, self-optimizing YouTube Shorts publishing system with:
 
-AI-generated content (Gemini / Groq)
-
-Semantic DNA tracking to prevent duplication
-
-Automated vertical video rendering (1080×1920)
-
-Human-behavior simulation layer
-
-Weekly strategic self-adjustment
-
-Multi-layer content safety filtering
+- AI-generated content (Gemini / Groq)
+- Semantic DNA tracking to prevent duplication
+- Automated vertical video rendering (1080×1920)
+- Human-behavior simulation layer
+- Weekly strategic self-adjustment
+- Multi-layer content safety filtering
 
 System is designed for autonomous operation after initial configuration.
 
-Initial Setup
-1) Fork the Repository
+---
+
+## Initial Setup
+
+### 1) Fork the Repository
 
 Fork this repository to your GitHub account.
 
-2) Configure GitHub Secrets
+---
+
+### 2) Configure GitHub Secrets
 
 Go to:
 
@@ -32,204 +31,193 @@ Settings → Secrets and Variables → Actions
 
 Add the following secrets:
 
-All required API keys (as specified in the project documentation)
+- All required API keys (as specified in the project documentation)
+- `YT_CHANNEL_ID` — Your YouTube Channel ID
+- `YT_REFRESH_TOKEN` — YouTube OAuth refresh token
 
-YT_CHANNEL_ID — Your YouTube Channel ID
+---
 
-YT_REFRESH_TOKEN — YouTube OAuth refresh token (see OAuth setup section)
-
-3) Initialize Required Folders
+### 3) Initialize Required Folders
 
 Run:
 
+```bash
 mkdir -p assets/backgrounds
 mkdir -p assets/music
 mkdir -p assets/fonts
 mkdir -p assets/overlays
 mkdir -p data/analytics
 mkdir -p data/content_memory
+```
 
-4) Add Background Music
+---
 
-Place royalty-free .mp3 files inside:
+### 4) Add Background Music
+
+Place royalty-free `.mp3` files inside:
 
 assets/music/
 
+Recommended: 10–15 tracks  
+Each track is automatically rotated  
+Max usage: 3 times per week per track  
 
-Recommended: 10–15 tracks
+Ensure you have full commercial rights to all audio assets.
 
-Each track is automatically rotated
+---
 
-Max usage: 3 times per week per track
+### 5) Enable GitHub Workflows
 
-⚠ Ensure you have full commercial rights to all audio assets.
+1. Open the Actions tab  
+2. Enable workflows if prompted  
+3. Verify scheduled workflows are active  
 
-5) Enable GitHub Workflows
+System will begin operating based on configured triggers.
 
-Open the Actions tab.
+---
 
-Enable workflows if prompted.
+## How It Works
 
-Verify scheduled workflows are active.
+### Content Generation
 
-System will begin operating based on configured triggers (cron or event-based).
+- AI generates unique brain teaser content using Gemini or Groq
+- Prompts adapt dynamically based on performance feedback
 
-How It Works
-Content Generation
+---
 
-AI generates unique brain teaser content using Gemini or Groq.
+### DNA Tracking
 
-Prompts are dynamically adapted based on performance feedback.
-
-DNA Tracking
-
-Semantic hashing prevents content duplication.
-
-Stored in:
+- Semantic hashing prevents duplicate content
+- Stored in:
 
 data/content_memory/
 
-Video Assembly
+---
 
-MoviePy renders 1080×1920 vertical videos.
+### Video Assembly
 
-Automatic:
+- MoviePy renders 1080×1920 vertical videos
+- Automatic:
+  - Text overlays
+  - Background selection
+  - Music rotation
+  - Timing optimization
 
-Text overlays
+---
 
-Background selection
+### Human Simulation Layer
 
-Music rotation
-
-Timing optimization
-
-Human Simulation Layer
-
-Randomized publishing delays
-
-Slight speed variations
-
-Behavioral drift modeling
-
-Pattern entropy injection
+- Randomized publishing delays
+- Slight speed variations
+- Behavioral drift modeling
+- Pattern entropy injection
 
 Designed to reduce automation detectability.
 
-Self-Evolution Engine
+---
 
-Weekly analytics analysis
+### Self-Evolution Engine
 
-Strategy weight rebalancing
-
-Hook pattern optimization
-
-Retention-based prompt tuning
+- Weekly analytics analysis
+- Strategy weight rebalancing
+- Hook pattern optimization
+- Retention-based prompt tuning
 
 Strategy state stored in:
 
 data/strategy_state.json
 
-Monitoring
+---
+
+## Monitoring
 
 To inspect system behavior:
 
 data/strategy_state.json
 
-
 Contains:
 
-Performance metrics
-
-Strategy weights
-
-Evolution logs
-
-Publishing velocity
+- Performance metrics
+- Strategy weights
+- Evolution logs
+- Publishing velocity
 
 Analytics stored in:
 
 data/analytics/
 
-Critical Implementation Notes
-1) YouTube API Quotas
+---
 
-Respects 10,000 units/day limit
+## Critical Implementation Notes
 
-Batches analytics requests
+### 1) YouTube API Quotas
 
-Uses efficient endpoint calls
-
-Avoids unnecessary polling
+- Respects 10,000 units/day limit
+- Batches analytics requests
+- Uses efficient endpoint calls
+- Avoids unnecessary polling
 
 Monitor quota usage via Google Cloud Console.
 
-2) Storage Constraints
+---
 
-GitHub Actions provides ~14GB SSD
+### 2) Storage Constraints
 
-Videos are temporary
+- GitHub Actions provides ~14GB SSD
+- Videos are temporary
+- Rendered assets are not committed to repository
+- Clean-up runs automatically after publishing
 
-Rendered assets are not committed to repository
+---
 
-Clean-up runs automatically after publishing
-
-3) OAuth Setup (Manual Step Required)
+### 3) OAuth Setup (Manual Step Required)
 
 You must:
 
-Create Google Cloud project
-
-Enable YouTube Data API v3
-
-Create OAuth credentials
-
-Run local OAuth flow
-
-Extract refresh token
-
-Add YT_REFRESH_TOKEN to GitHub Secrets
+1. Create Google Cloud project  
+2. Enable YouTube Data API v3  
+3. Create OAuth credentials  
+4. Run local OAuth flow  
+5. Extract refresh token  
+6. Add `YT_REFRESH_TOKEN` to GitHub Secrets  
 
 The system cannot generate this token automatically.
 
-4) Music Compliance
+---
 
-Use royalty-free or licensed tracks only
+### 4) Music Compliance
 
-No copyrighted commercial music
-
-Avoid Content ID matches
+- Use royalty-free or licensed tracks only  
+- No copyrighted commercial music  
+- Avoid Content ID matches  
 
 Failure to comply may result in:
 
-Monetization loss
+- Monetization loss  
+- Video removal  
+- Channel strikes  
 
-Video removal
+---
 
-Channel strikes
-
-5) Safety Layer
+### 5) Safety Layer
 
 Content is filtered through:
 
-Keyword blacklist
-
-Topic compliance check
-
-Strike-risk classifier
+- Keyword blacklist  
+- Topic compliance check  
+- Strike-risk classifier  
 
 Review:
 
 src/safety_checker.py
 
-
 Adjust blacklist carefully if changing niche.
 
-Operational Notes
+---
 
-Designed for long-term autonomous scaling
+## Operational Notes
 
-Optimized for YouTube Shorts vertical algorithm
-
-Strategy adapts weekly
-
-Publishing begins immediately once workflows are enabled
+- Designed for long-term autonomous scaling  
+- Optimized for YouTube Shorts vertical algorithm  
+- Strategy adapts weekly  
+- Publishing begins immediately once workflows are enabled  
