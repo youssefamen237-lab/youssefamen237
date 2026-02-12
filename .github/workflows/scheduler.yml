@@ -16,25 +16,20 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.10' # تحديث النسخة هنا
         
     - name: Install Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y imagemagick ffmpeg fonts-liberation
-        # إصلاح صلاحيات ImageMagick
         sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml
+        pip install --upgrade pip
         pip install -r requirements.txt
         
     - name: Prepare Assets
       run: |
-        mkdir -p assets/backgrounds
-        mkdir -p assets/fonts
-        mkdir -p output
-        # بدلاً من التحميل، سننسخ خط النظام الأساسي لضمان التشغيل 100%
+        mkdir -p assets/backgrounds assets/fonts output
         cp /usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf assets/fonts/Arimo-Bold.ttf
-        
-        # إذا لم تكن قد رفعت فيديو خلفية بعد، هذا السطر سينتج فيديو تجريبي بسيط لمنع الفشل
         if [ -z "$(ls -A assets/backgrounds)" ]; then
           ffmpeg -f lavfi -i color=c=black:s=1080x1920:d=10 -vf "noise=alls=10:allf=t+u" assets/backgrounds/default_bg.mp4
         fi
