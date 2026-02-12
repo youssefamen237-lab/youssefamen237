@@ -1,60 +1,56 @@
 import hashlib
 import json
 import random
-from openai import OpenAI
+import google.generativeai as genai
 from .config import Config
-
-client = OpenAI(api_key=Config.OPENAI_KEY)
-
-TEMPLATES = [
-    "Riddle: {question}",
-    "True or False: {question}",
-    "Find the odd one out: {question}",
-    "Quick Math: {question}"
-]
 
 class ContentEngine:
     def __init__(self, strategy):
         self.strategy = strategy
+        # إعداد جمناي
+        genai.configure(api_key=Config.GEMINI_KEY)
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
 
     def generate_hook(self):
         hooks = [
             "Only 1% can solve this!",
             "Are you a genius?",
             "I bet you fail this.",
-            "99% get this wrong."
+            "99% get this wrong.",
+            "Think you're smart? Try this."
         ]
         return random.choice(hooks)
 
     def generate_script(self):
-        # Generate Trivia using OpenAI
         prompt = f"""
         Generate a unique, engaging trivia question. 
         Type: {self.strategy['question_type']}.
-        Output JSON format: {{
+        Output MUST be in strictly valid JSON format like this:
+        {{
             "question": "The question text",
-            "options": ["A", "B", "C"],
-            "answer": "The correct answer",
-            "answer_index": 0 (0, 1, or 2)
+            "options": ["Option A", "Option B", "Option C"],
+            "answer": "The correct answer text",
+            "answer_index": 0
         }}
         """
         
         try:
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"}
+            # طلب التوليد من جمناي
+            response = self.model.generate_content(
+                prompt,
+                generation_config={"response_mime_type": "application/json"}
             )
-            content = json.loads(response.choices[0].message.content)
+            
+            content = json.loads(response.text)
             
             content['hook'] = self.generate_hook()
-            content['cta'] = random.choice(["Subscribe for more!", "Comment your score!"])
+            content['cta'] = random.choice(["Subscribe for more!", "Comment your score!", "Share with a friend!"])
             
-            # Create Hash
+            # عمل Hash للمحتوى لمنع التكرار
             content_str = f"{content['question']}-{content['answer']}"
             content['hash'] = hashlib.sha256(content_str.encode()).hexdigest()
             
             return content
         except Exception as e:
-            print(f"Error generating content: {e}")
+            print(f"❌ Gemini Generation Error: {e}")
             return None
