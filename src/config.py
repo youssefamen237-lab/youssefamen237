@@ -10,11 +10,10 @@ class Config:
     
     # AI Keys
     OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-    GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+    GEMINI_KEY = os.getenv("GEMINI_API_KEY") # تأكد أن هذا الاسم مطابق لـ GitHub Secrets
     
     # Media APIs
     PEXELS_KEY = os.getenv("PEXELS_API_KEY")
-    ELEVEN_KEY = os.getenv("ELEVEN_API_KEY")
     
     # Paths
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,8 +28,9 @@ class Config:
     def ensure_dirs():
         os.makedirs(Config.DATA_DIR, exist_ok=True)
         os.makedirs(Config.OUTPUT_DIR, exist_ok=True)
+        os.makedirs(os.path.join(Config.ASSETS_DIR, 'backgrounds'), exist_ok=True)
+        os.makedirs(os.path.join(Config.ASSETS_DIR, 'fonts'), exist_ok=True)
         
-        # Initialize JSONs if empty
         files = ['content_registry.json', 'performance_db.json', 'upload_queue.json', 'ab_tests.json']
         for f in files:
             path = os.path.join(Config.DATA_DIR, f)
