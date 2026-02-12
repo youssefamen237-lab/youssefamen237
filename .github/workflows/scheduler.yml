@@ -3,7 +3,6 @@ name: AI Growth Engine
 on:
   schedule:
     # Runs randomly between 8am and 8pm UTC (handled via logic inside or mutiple crons)
-    # Here we set a fixed frequent cron, but use Python to exit if outside window
     - cron: '0 */4 * * *' 
   workflow_dispatch: # Allow manual trigger
 
@@ -32,9 +31,8 @@ jobs:
       run: |
         mkdir -p assets/backgrounds
         mkdir -p assets/fonts
-        # Download a font (Arimo) because MoviePy needs one
-        wget -O assets/fonts/Arimo-Bold.ttf https://github.com/google/fonts/raw/main/apache/arimo/Arimo-Bold.ttf
-        # Note: Background video needs to be in repo or downloaded here
+        # FIXED: Updated URL to a stable source (Roboto Bold acting as Arimo)
+        wget -O assets/fonts/Arimo-Bold.ttf https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Bold.ttf
         
     - name: Run AI Engine
       env:
