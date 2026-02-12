@@ -2,9 +2,8 @@ name: AI Growth Engine
 
 on:
   schedule:
-    # Runs randomly between 8am and 8pm UTC (handled via logic inside or mutiple crons)
     - cron: '0 */4 * * *' 
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch: 
 
 jobs:
   run-engine:
@@ -22,17 +21,23 @@ jobs:
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y imagemagick ffmpeg
-        # Fix ImageMagick policy for MoviePy
+        sudo apt-get install -y imagemagick ffmpeg fonts-liberation
+        # إصلاح صلاحيات ImageMagick
         sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml
         pip install -r requirements.txt
         
-    - name: Create Assets Directory
+    - name: Prepare Assets
       run: |
         mkdir -p assets/backgrounds
         mkdir -p assets/fonts
-        # FIXED: Updated URL to a stable source (Roboto Bold acting as Arimo)
-        wget -O assets/fonts/Arimo-Bold.ttf https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Bold.ttf
+        mkdir -p output
+        # بدلاً من التحميل، سننسخ خط النظام الأساسي لضمان التشغيل 100%
+        cp /usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf assets/fonts/Arimo-Bold.ttf
+        
+        # إذا لم تكن قد رفعت فيديو خلفية بعد، هذا السطر سينتج فيديو تجريبي بسيط لمنع الفشل
+        if [ -z "$(ls -A assets/backgrounds)" ]; then
+          ffmpeg -f lavfi -i color=c=black:s=1080x1920:d=10 -vf "noise=alls=10:allf=t+u" assets/backgrounds/default_bg.mp4
+        fi
         
     - name: Run AI Engine
       env:
@@ -50,5 +55,5 @@ jobs:
         git config --global user.name "AI-Bot"
         git config --global user.email "bot@ai.com"
         git add data/*.json
-        git commit -m "📈 Auto-update: Performance Data & Content Registry" || echo "No changes to commit"
+        git commit -m "📈 Auto-update: Performance Data" || echo "No changes to commit"
         git push
