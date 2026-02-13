@@ -278,7 +278,8 @@ class VideoEngine:
             
             # Timer
             timer_duration = structure['timer_duration']
-            timer_filter = f"color=c=black:s=1080x1920:d={timer_duration}[timer_bg];"
+            # Create a timer background filter (no trailing semicolon)
+            timer_filter = f"color=c=black:s=1080x1920:d={timer_duration}[timer_bg]"
             filter_parts.append(timer_filter)
             
             # Answer
@@ -291,7 +292,9 @@ class VideoEngine:
             filter_parts.append(f"[4]scale=1080:1920,fps={fps},trim=0:{cta_duration}[cta]")
             
             # Concatenate segments
-            filter_complex = ";".join(filter_parts)
+            # Join filter parts and ensure no empty segments
+            filter_complex = ";".join(p.rstrip(';') for p in filter_parts if p)
+            filter_complex = filter_complex.strip(';')
             filter_complex += f";[hook][question][timer_bg][answer][cta]concat=n=5:v=1[v]"
             
             # Build command
