@@ -404,75 +404,128 @@ For local testing:
             return False
 
     def run_daily_cycle(self):
-        """Run a daily production cycle"""
+        """Run a daily production cycle with robust error handling"""
+        cycle_start = time.time()
+        max_cycle_time = 350 * 60  # 350 minutes (leave 50 min buffer for GitHub Actions 400 min limit)
+        
         try:
             logger.info("=" * 60)
             logger.info("🎬 STARTING DAILY CYCLE")
             logger.info("=" * 60)
             
-            # Analysis and optimization
-            self.get_analytics_summary()
-            
-            if datetime.now().weekday() % 2 == 0:  # Every other day
-                self.analyze_performance()
-                self.optimize_strategy()
-            
-            # Shadow ban check
-            self.check_shadow_ban()
-            
-            # Behavioral drift (weekly)
-            if datetime.now().weekday() == 0:  # Monday
-                self.apply_behavioral_drift()
+            # Check time before analytics
+            if time.time() - cycle_start > max_cycle_time:
+                logger.warning("⏰ Time limit approaching, skipping analytics...")
+            else:
+                try:
+                    # Analysis and optimization (with timeout)
+                    self.get_analytics_summary()
+                except Exception as e:
+                    logger.warning(f"Analytics failed (non-fatal): {e}")
+                
+                if datetime.now().weekday() % 2 == 0:
+                    try:
+                        self.analyze_performance()
+                        self.optimize_strategy()
+                    except Exception as e:
+                        logger.warning(f"Strategy optimization failed (non-fatal): {e}")
+                
+                try:
+                    self.check_shadow_ban()
+                except Exception as e:
+                    logger.warning(f"Shadow ban check failed (non-fatal): {e}")
+                
+                if datetime.now().weekday() == 0:
+                    try:
+                        self.apply_behavioral_drift()
+                    except Exception as e:
+                        logger.warning(f"Behavioral drift failed (non-fatal): {e}")
             
             # Content production (4-8 times per day)
-            daily_target = self.scheduler.calculate_optimal_upload_density()
-            produced_count = 0
+            try:
+                daily_target = self.scheduler.calculate_optimal_upload_density()
+            except Exception as e:
+                logger.warning(f"Could not calculate optimal density, using default: {e}")
+                daily_target = 4
             
+            produced_count = 0
             logger.info(f"📊 Daily target: {daily_target} videos")
             
             for i in range(daily_target):
-                if not self.should_produce_content():
-                    logger.info("⏸️ Upload conditions not met")
+                # Check time remaining
+                elapsed = time.time() - cycle_start
+                if elapsed > max_cycle_time:
+                    logger.warning(f"⏰ Time limit reached! Stopping production. (Elapsed: {elapsed/60:.1f}m)")
                     break
                 
-                # Generate short
-                short_data = self.generate_full_short()
-                
-                if not short_data:
-                    logger.warning(f"Failed to generate short #{i+1}")
-                    continue
-                
-                # Upload asynchronously
                 try:
-                    loop = asyncio.get_event_loop()
-                except RuntimeError:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                
-                success = loop.run_until_complete(
-                    self.upload_short_async(short_data)
-                )
-                
-                if success:
-                    produced_count += 1
+                    if not self.should_produce_content():
+                        logger.info("⏸️ Upload conditions not met")
+                        break
                     
-                    # Random delay between uploads (5-15 minutes)
-                    if i < daily_target - 1:
-                        delay = random.randint(5 * 60, 15 * 60)
-                        logger.info(f"⏳ Waiting {delay}s before next production...")
-                        time.sleep(delay)
-                else:
-                    logger.warning(f"Upload failed for short #{i+1}")
+                    # Generate short
+                    short_data = self.generate_full_short()
+                    
+                    if not short_data:
+                        logger.warning(f"Failed to generate short #{i+1}")
+                        continue
+                    
+                    # Check time before upload
+                    if time.time() - cycle_start > max_cycle_time - (10 * 60):
+                        logger.warning("⏰ Approaching time limit, aborting remaining uploads")
+                        break
+                    
+                    # Upload asynchronously
+                    try:
+                        loop = asyncio.get_event_loop()
+                    except RuntimeError:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                    
+                    success = loop.run_until_complete(
+                        self.upload_short_async(short_data)
+                    )
+                    
+                    if success:
+                        produced_count += 1
+                        
+                        # Random delay between uploads (5-15 minutes)
+                        if i < daily_target - 1:
+                            delay = random.randint(5 * 60, 15 * 60)
+                            remaining = max_cycle_time - (time.time() - cycle_start)
+                            if remaining > delay:
+                                logger.info(f"⏳ Waiting {delay}s before next production...")
+                                time.sleep(delay)
+                            else:
+                                logger.warning("Not enough time for next upload")
+                                break
+                    else:
+                        logger.warning(f"Upload failed for short #{i+1}")
+                
+                except Exception as e:
+                    logger.error(f"Error producing short #{i+1}: {e}", exc_info=True)
+                    continue
             
             logger.info(f"✅ Daily cycle complete! Produced: {produced_count} video(s)")
             
             # Cleanup
-            self.cleanup_and_maintain()
+            try:
+                self.cleanup_and_maintain()
+            except Exception as e:
+                logger.warning(f"Cleanup failed (non-fatal): {e}")
             
             logger.info("=" * 60)
+            logger.info(f"Total time: {(time.time() - cycle_start)/60:.1f}m")
 
+        except KeyboardInterrupt:
+            logger.info("Cycle interrupted by user")
         except Exception as e:
-            logger.error(f"Error in daily cycle: {e}", exc_info=True)
+            logger.error(f"Fatal error in daily cycle: {e}", exc_info=True)
+            logger.error("Attempting graceful shutdown...")
+            try:
+                self.cleanup_and_maintain()
+            except:
+                pass
 
     def schedule_jobs(self):
         """Schedule recurring jobs"""
@@ -519,7 +572,7 @@ For local testing:
 
 
 def main():
-    """Main entry point"""
+    """Main entry point with robust error handling"""
     try:
         import argparse
         
@@ -536,29 +589,54 @@ def main():
         logger.info("🎯 YouTube Shorts Smart Engine Starting...")
         logger.info(f"⏰ Timestamp: {datetime.now().isoformat()}")
         
-        engine = SmartShortsEngine()
+        try:
+            engine = SmartShortsEngine()
+        except Exception as e:
+            logger.error(f"Failed to initialize engine: {e}")
+            logger.error("\n⚠️  SETUP REQUIRED")
+            logger.error("Please make sure:")
+            logger.error("  1. All API keys are added to GitHub Secrets")
+            logger.error("  2. YouTube credentials are valid")
+            logger.error("  3. Database is initialized")
+            sys.exit(1)
         
         if args.single_cycle:
             logger.info("Running single production cycle...")
-            engine.run_daily_cycle()
-            logger.info("✅ Single cycle complete!")
-            sys.exit(0)
+            try:
+                engine.run_daily_cycle()
+                logger.info("✅ Single cycle complete!")
+                sys.exit(0)
+            except Exception as e:
+                logger.error(f"Single cycle failed: {e}", exc_info=True)
+                sys.exit(1)
         
         elif args.analyse_only:
             logger.info("Running analysis only...")
-            engine.analyze_performance()
-            engine.optimize_strategy()
-            engine.check_shadow_ban()
-            logger.info("✅ Analysis complete!")
-            sys.exit(0)
+            try:
+                engine.analyze_performance()
+                engine.optimize_strategy()
+                engine.check_shadow_ban()
+                logger.info("✅ Analysis complete!")
+                sys.exit(0)
+            except Exception as e:
+                logger.error(f"Analysis failed: {e}", exc_info=True)
+                sys.exit(1)
         
         else:
             # Full scheduler mode
             logger.info("Starting scheduler (continuous mode)...")
-            engine.schedule_jobs()
+            try:
+                engine.schedule_jobs()
+            except KeyboardInterrupt:
+                logger.info("Scheduler interrupted by user")
+                sys.exit(0)
+            except Exception as e:
+                logger.error(f"Scheduler error: {e}", exc_info=True)
+                sys.exit(1)
 
     except KeyboardInterrupt:
         logger.info("🛑 Shutting down gracefully...")
+        sys.exit(0)
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         sys.exit(1)
