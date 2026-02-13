@@ -262,62 +262,65 @@ import subprocess
                                     fps: int = 30) -> str:
         """Build FFmpeg command for video composition"""
         try:
-            # Create filter graph
-            filter_parts = []
-            
-            # Hook
+            # Extract durations
             hook_duration = structure['hook_duration']
-            filter_parts.append(f"[0]scale=1080:1920,fps={fps},trim=0:{hook_duration}[hook]")
-            
-            # Question
             q_duration = structure['question_display_duration']
-            filter_parts.append(
-                f"[1]scale=1080:1920,fps={fps},trim=0:{q_duration}[question]"
+            timer_duration = structure['timer_duration']
+            a_duration = structure['answer_display_duration']
+            cta_duration = max(0.5, structure['total_length'] - hook_duration - q_duration - timer_duration - a_duration)
+            
+            # Build filter graph - create all video segments and concatenate
+            # Inputs: [0]=hook, [1]=question, [2]=answer, [3]=cta, [4]=music/silence
+            filter_graph = (
+                f"[0:v]scale=1080:1920,fps={fps},trim=0:{hook_duration}[hook];"
+                f"[1:v]scale=1080:1920,fps={fps},trim=0:{q_duration}[question];"
+                f"color=c=black:s=1080x1920:d={timer_duration}[timer];"
+                f"[2:v]scale=1080:1920,fps={fps},trim=0:{a_duration}[answer];"
+                f"[3:v]scale=1080:1920,fps={fps},trim=0:{cta_duration}[cta];"
+                f"[hook][question][timer][answer][cta]concat=n=5:v=1[video]"
             )
             
-            # Timer
-            timer_duration = structure['timer_duration']
-            # Create a timer background filter (no trailing semicolon)
-            timer_filter = f"color=c=black:s=1080x1920:d={timer_duration}[timer_bg]"
-            filter_parts.append(timer_filter)
+            # Build FFmpeg command as list for proper shell handling
+            cmd = ["ffmpeg", "-y", "-nostdin"]
             
-            # Answer
-            a_duration = structure['answer_display_duration']
-            filter_parts.append(f"[3]scale=1080:1920,fps={fps},trim=0:{a_duration}[answer]")
+            # Add video inputs (4 image frames)
+            cmd.extend(["-loop", "1", "-i", hook_frame])
+            cmd.extend(["-loop", "1", "-i", question_frame])
+            cmd.extend(["-loop", "1", "-i", answer_frame])
+            cmd.extend(["-loop", "1", "-i", cta_frame])
             
-            # CTA
-            cta_duration = max(0.5, structure['total_length'] - hook_duration - 
-                              q_duration - timer_duration - a_duration)
-            filter_parts.append(f"[4]scale=1080:1920,fps={fps},trim=0:{cta_duration}[cta]")
-            
-            # Concatenate segments
-            # Join filter parts and ensure no empty segments
-            filter_complex = ";".join(p.rstrip(';') for p in filter_parts if p)
-            filter_complex = filter_complex.strip(';')
-            filter_complex += f";[hook][question][timer_bg][answer][cta]concat=n=5:v=1[v]"
-            
-            # Build command
-            cmd = f"ffmpeg -y "
-            cmd += f"-loop 1 -i '{hook_frame}' "
-            cmd += f"-loop 1 -i '{question_frame}' "
-            cmd += f"-loop 1 -i '{answer_frame}' "
-            cmd += f"-loop 1 -i '{cta_frame}' "
-            
+            # Add audio input
             if music_path and os.path.exists(music_path):
-                cmd += f"-i '{music_path}' "
-                audio_filter = "-filter_complex \"[v]scale=1080:1920[video];[4]aformat=sample_rates=44100[audio]\" -map \"[video]\" -map \"[audio]\" "
+                cmd.extend(["-i", music_path])
+                # Will use audio input 4 (music)
+                audio_map = "4:a"
             else:
-                audio_filter = "-filter_complex \"[v]scale=1080:1920[video]\" -map \"[video]\" "
+                # Create silence as audio
+                total_seconds = structure['total_length']
+                cmd.extend(["-f", "lavfi", "-i", f"anullsrc=r=44100,atrim=0:{total_seconds}"])
+                audio_map = "4:a"
             
-            cmd += f"-f lavfi -i color=c=black:s=1080x1920:d=0.1 "
-            cmd += f"-filter_complex \"{filter_complex}\" "
-            cmd += audio_filter
-            cmd += f"-c:v libx264 -preset veryfast -crf 23 "
-            cmd += f"-c:a aac -b:a 128k "
-            cmd += f"-shortest "
-            cmd += f"'{output_path}'"
+            # Add filter complex for video
+            cmd.extend(["-filter_complex", filter_graph])
             
-            return cmd
+            # Map video and audio outputs
+            cmd.extend(["-map", "[video]", "-map", audio_map])
+            
+            # Encoding settings
+            cmd.extend([
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", "23",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-t", str(structure['total_length']),
+                output_path
+            ])
+            
+            # Build command string for shell execution (properly quoted)
+            import shlex
+            cmd_str = " ".join(shlex.quote(str(arg)) for arg in cmd)
+            return cmd_str
 
         except Exception as e:
             logger.error(f"Error building FFmpeg command: {e}")
