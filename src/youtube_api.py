@@ -255,6 +255,43 @@ class YouTubeManager:
         engagement_rate = self._estimate_ctr(analytics)
         return (engagement_rate / 100) * 30
 
+    def wait_until_public(self, video_id: str, timeout: int = 180, interval: int = 5) -> bool:
+        """Poll YouTube API until the video's privacy status is 'public' or timeout."""
+        try:
+            if not self.youtube:
+                if not self.authenticate():
+                    return False
+
+            elapsed = 0
+            while elapsed < timeout:
+                request = self.youtube.videos().list(part='status', id=video_id)
+                resp = request.execute()
+                items = resp.get('items', [])
+                if not items:
+                    time.sleep(interval)
+                    elapsed += interval
+                    continue
+
+                status = items[0].get('status', {})
+                privacy = status.get('privacyStatus')
+                upload_state = status.get('uploadStatus') or status.get('processingDetails', {}).get('processingStatus')
+
+                if privacy == 'public':
+                    return True
+
+                # If explicitly private or failed, stop early
+                if privacy in ('private', 'rejected'):
+                    return False
+
+                time.sleep(interval)
+                elapsed += interval
+
+            return False
+
+        except Exception as e:
+            logger.error(f"Error while waiting for video to become public: {e}")
+            return False
+
     def get_channel_analytics(self) -> Optional[Dict[str, Any]]:
         try:
             if not self.youtube:
