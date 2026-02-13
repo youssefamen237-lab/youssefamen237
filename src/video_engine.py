@@ -1,57 +1,56 @@
 import os
 import subprocess
-import logging
-from typing import Optional, Dict, Any, List
-from datetime import datetime
-import json
-from pathlib import Path
+            # Build filter graph with correct input indices
+            # Inputs order: hook_frame, question_frame, answer_frame, cta_frame, [music_path?], color(lavfi)
+            inputs = [hook_frame, question_frame, answer_frame, cta_frame]
+            has_music = bool(music_path and os.path.exists(music_path))
+            if has_music:
+                inputs.append(music_path)
 
-logger = logging.getLogger(__name__)
+            # color input will be last
+            color_index = len(inputs)
+            # prepare filter parts referencing correct input indices
+            hook_idx = 0
+            question_idx = 1
+            answer_idx = 2
+            cta_idx = 3
 
-class VideoEngine:
-    def __init__(self, output_dir: str = "/tmp/shorts"):
-        self.output_dir = output_dir
-        self.temp_dir = "/tmp/short_production"
-        os.makedirs(output_dir, exist_ok=True)
-        os.makedirs(self.temp_dir, exist_ok=True)
+            hook_duration = structure['hook_duration']
+            q_duration = structure['question_display_duration']
+            timer_duration = structure['timer_duration']
+            a_duration = structure['answer_display_duration']
+            cta_duration = max(0.5, structure['total_length'] - hook_duration - q_duration - timer_duration - a_duration)
 
-    def create_short(self, question_data: Dict[str, Any], audio_params: Dict[str, Any],
-                    bg_path: str, music_path: Optional[str], 
-                    video_structure: Dict[str, float]) -> Optional[str]:
-        """Create complete YouTube Short video"""
-        try:
-            video_path = self._generate_video_with_ffmpeg(
-                question_data, audio_params, bg_path, music_path, video_structure
-            )
-            
-            if video_path:
-                logger.info(f"Short created successfully: {video_path}")
-                return video_path
-            
-            return None
+            filter_parts = []
+            filter_parts.append(f"[{hook_idx}]scale=1080:1920,fps={fps},trim=0:{hook_duration}[hook]")
+            filter_parts.append(f"[{question_idx}]scale=1080:1920,fps={fps},trim=0:{q_duration}[question]")
+            filter_parts.append(f"color=c=black:s=1080x1920:d={timer_duration}[timer_bg]")
+            filter_parts.append(f"[{answer_idx}]scale=1080:1920,fps={fps},trim=0:{a_duration}[answer]")
+            filter_parts.append(f"[{cta_idx}]scale=1080:1920,fps={fps},trim=0:{cta_duration}[cta]")
 
-        except Exception as e:
-            logger.error(f"Error creating short: {e}")
-            return None
+            filter_complex = ";".join(filter_parts)
+            filter_complex += f";[hook][question][timer_bg][answer][cta]concat=n=5:v=1[v]"
 
-    def _generate_video_with_ffmpeg(self, question_data: Dict, audio_params: Dict,
-                                    bg_path: str, music_path: Optional[str],
-                                    structure: Dict[str, float]) -> Optional[str]:
-        """Generate video using FFmpeg"""
-        try:
-            from PIL import Image, ImageDraw, ImageFont
-            import io
-            
-            # Create frames for each segment
-            width, height = 1080, 1920
-            fps = 30
-            
-            output_video = os.path.join(
-                self.output_dir,
-                f"short_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
-            )
-            
-            # Create hook frame
+            # Build command with inputs
+            cmd_parts = ["ffmpeg", "-y"]
+            for inp in inputs:
+                cmd_parts += ["-loop", "1", "-i", f"{inp}"]
+
+            # add lavfi color input
+            cmd_parts += ["-f", "lavfi", "-i", f"color=c=black:s=1080x1920:d=0.1"]
+
+            # join cmd parts
+            cmd = " ".join(str(p) for p in cmd_parts) + " "
+
+            # audio filter mapping
+            if has_music:
+                music_input_idx = 4
+                audio_filter = f"-filter_complex \"{filter_complex};[v]scale=1080:1920[video];[{music_input_idx}]aformat=sample_rates=44100[audio]\" -map \"[video]\" -map \"[audio]\" "
+            else:
+                audio_filter = f"-filter_complex \"{filter_complex};[v]scale=1080:1920[video]\" -map \"[video]\" "
+
+            cmd += audio_filter
+            cmd += f"-c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 128k -shortest '{output_path}'"
             hook_frame = self._create_text_frame(
                 width, height,
                 question_data['hook'],
