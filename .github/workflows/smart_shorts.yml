@@ -1,0 +1,221 @@
+name: Smart Shorts Daily Production
+
+on:
+  schedule:
+    # Run at random times throughout the day ±30 minutes
+    - cron: '0 8 * * *'   # 8 AM UTC
+    - cron: '30 12 * * *' # 12:30 PM UTC
+    - cron: '0 17 * * *'  # 5 PM UTC
+    - cron: '30 21 * * *' # 9:30 PM UTC
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+  # Run on push to main (for testing)
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - '.github/workflows/smart_shorts.yml'
+
+jobs:
+  produce-and-upload:
+    runs-on: ubuntu-latest
+    
+    environment:
+      name: youtube-production
+    
+    timeout-minutes: 480 # 8 hours max
+    
+    strategy:
+      max-parallel: 1
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg ffprobe imagemagick
+          ffmpeg -version
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+
+      - name: Create necessary directories
+        run: |
+          mkdir -p db
+          mkdir -p logs
+          mkdir -p cache
+          mkdir -p assets/backgrounds
+          mkdir -p assets/music
+          mkdir -p /tmp/shorts
+
+      - name: Run Smart Shorts Engine (Single Cycle)
+        env:
+          # YouTube API Credentials
+          YT_CLIENT_ID_1: ${{ secrets.YT_CLIENT_ID_1 }}
+          YT_CLIENT_ID_2: ${{ secrets.YT_CLIENT_ID_2 }}
+          YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
+          YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
+          YT_CLIENT_SECRET_2: ${{ secrets.YT_CLIENT_SECRET_2 }}
+          YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
+          YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
+          YT_REFRESH_TOKEN_2: ${{ secrets.YT_REFRESH_TOKEN_2 }}
+          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          
+          # Content APIs
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          
+          # Audio/Voice APIs
+          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+          ASSEMBLYAI: ${{ secrets.ASSEMBLYAI }}
+          
+          # Image/Video APIs
+          GETIMG_API_KEY: ${{ secrets.GETIMG_API_KEY }}
+          REMOVE_BG_API: ${{ secrets.REMOVE_BG_API }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          
+          # Media Assets APIs
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          UNSPLASH_ID: ${{ secrets.UNSPLASH_ID }}
+          UNSPLASH_SECRET_KEY: ${{ secrets.UNSPLASH_SECRET_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          FREEPIK_API_KEY: ${{ secrets.FREEPIK_API_KEY }}
+          VECTEEZY_ID: ${{ secrets.VECTEEZY_ID }}
+          VECTEEZY_SECRET_KEY: ${{ secrets.VECTEEZY_SECRET_KEY }}
+          
+          # Audio Assets APIs
+          FREESOUND_API: ${{ secrets.FREESOUND_API }}
+          FREESOUND_ID: ${{ secrets.FREESOUND_ID }}
+          COVERR_API_ID: ${{ secrets.COVERR_API_ID }}
+          COVERR_API_KEY: ${{ secrets.COVERR_API_KEY }}
+          
+          # Trends/News APIs
+          SERPAPI: ${{ secrets.SERPAPI }}
+          NEWS_API: ${{ secrets.NEWS_API }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          
+          # Other APIs
+          NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
+          NOAA_API_KEY: ${{ secrets.NOAA_API_KEY }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          FOOTBALL_DATA_ORG: ${{ secrets.FOOTBALL_DATA_ORG }}
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+          
+          # Archive/Storage APIs
+          INTERNET_ARCHIVE_ACCESS_KEY: ${{ secrets.INTERNET_ARCHIVE_ACCESS_KEY }}
+          INTERNET_ARCHIVE_SECRET_KEY: ${{ secrets.INTERNET_ARCHIVE_SECRET_KEY }}
+          
+          # AI Model APIs
+          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+          OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
+          CAMB_AI_KEY_1: ${{ secrets.CAMB_AI_KEY_1 }}
+          
+          # Zenserp for specific geo
+          ZENSERP: ${{ secrets.ZENSERP }}
+        run: |
+          python -u src/brain.py --single-cycle 2>&1 | tee -a logs/production.log
+        timeout-minutes: 400
+        continue-on-error: true
+
+      - name: Upload logs to artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: production-logs
+          path: logs/
+          retention-days: 30
+
+      - name: Commit database and logs
+        if: always()
+        continue-on-error: true
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "Smart Shorts Bot"
+          
+          if [[ -n $(git status -s) ]]; then
+            git add db/ logs/ cache/ 2>/dev/null || true
+            git commit -m "🎬 Auto-update: Production cycle $(date +%Y-%m-%d\ %H:%M:%S)" || true
+            git push || true
+          fi
+
+      - name: Send Discord notification on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const discord_webhook = process.env.DISCORD_WEBHOOK;
+            if (discord_webhook) {
+              const fetch = require('node-fetch');
+              const message = {
+                content: `⚠️ Smart Shorts production cycle failed!\n\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+              };
+              
+              fetch(discord_webhook, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(message)
+              });
+            }
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
+  performance-analysis:
+    runs-on: ubuntu-latest
+    needs: produce-and-upload
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run performance analysis
+        env:
+          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+          YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
+          YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
+          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+        run: |
+          mkdir -p db logs
+          python src/analytics.py 2>&1 | tee -a logs/analytics.log || true
+        continue-on-error: true
+
+      - name: Generate report
+        if: always()
+        run: |
+          python src/report_generator.py 2>&1 | tee -a logs/report.log || true
+        env:
+          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+          YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
+          YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
+          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+        continue-on-error: true

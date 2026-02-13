@@ -1,0 +1,37 @@
+[Unit]
+Description=Smart Shorts YouTube Automation Engine
+Documentation=https://github.com/youssefamen237/youssefamen237
+After=network.target
+Wants=smart-shorts.timer
+
+[Service]
+Type=simple
+User=smart-shorts
+Group=smart-shorts
+WorkingDirectory=/opt/smart-shorts
+EnvironmentFile=/opt/smart-shorts/.env
+
+# Execute
+ExecStart=/usr/bin/python3 /opt/smart-shorts/src/brain.py --single-cycle
+
+# Restart policy
+Restart=on-failure
+RestartSec=300
+
+# Resource limits
+MemoryLimit=4G
+CPUQuota=200%
+
+# Logging
+StandardOutput=append:/var/log/smart-shorts/output.log
+StandardError=append:/var/log/smart-shorts/error.log
+
+# Security
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/smart-shorts/db /opt/smart-shorts/logs /opt/smart-shorts/cache
+
+[Install]
+WantedBy=multi-user.target

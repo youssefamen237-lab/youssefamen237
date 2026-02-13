@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  smart-shorts:
+    build: .
+    container_name: smart-shorts-engine
+    
+    # Environment from .env file
+    env_file:
+      - .env
+    
+    # Volumes for persistence
+    volumes:
+      - ./db:/app/db
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+      - ./assets/backgrounds:/app/assets/backgrounds
+      - ./assets/music:/app/assets/music
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+
+volumes:
+  db:
+  logs:
+  cache:

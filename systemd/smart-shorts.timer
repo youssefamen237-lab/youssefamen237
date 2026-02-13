@@ -1,0 +1,22 @@
+[Unit]
+Description=Smart Shorts Daily Production Timer
+Documentation=https://github.com/youssefamen237/youssefamen237
+Requires=smart-shorts.service
+
+[Timer]
+# Run at 8 AM, 12 PM, 5 PM, 9 PM UTC
+OnCalendar=*-*-* 08:00:00
+OnCalendar=*-*-* 12:00:00
+OnCalendar=*-*-* 17:00:00
+OnCalendar=*-*-* 21:00:00
+
+# Additional randomization (±30 minutes)
+RandomizedDelaySec=1800
+
+# Run immediately if missed
+Persistent=true
+
+Unit=smart-shorts.service
+
+[Install]
+WantedBy=timers.target
