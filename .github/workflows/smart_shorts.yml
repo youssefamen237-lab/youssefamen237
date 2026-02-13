@@ -134,6 +134,7 @@ jobs:
           # Zenserp for specific geo
           ZENSERP: ${{ secrets.ZENSERP }}
         run: |
+          set -o pipefail
           python -u src/brain.py --single-cycle 2>&1 | tee -a logs/production.log
         timeout-minutes: 400
 
