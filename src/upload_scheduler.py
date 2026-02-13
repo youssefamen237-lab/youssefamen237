@@ -194,46 +194,19 @@ class UploadScheduler:
                     )
                     
                     if video_id:
-                        logger.info(f"✅ Video upload initiated, ID: {video_id}")
-
-                        # Wait until the video is publicly available
+                        logger.info(f"✅ Video uploaded and verified public, ID: {video_id}")
+                        logger.info(f"   URL: https://www.youtube.com/shorts/{video_id}")
+                        
+                        # Record upload
                         try:
-                            public = False
-                            if hasattr(self.youtube, 'wait_until_public'):
-                                public = self.youtube.wait_until_public(video_id, timeout=240, interval=5)
-                            else:
-                                # Fallback: small sleep to allow processing
-                                time.sleep(10)
-                                public = True
-
-                            if not public:
-                                logger.error(f"❌ Video {video_id} did not become public in time")
-                                # Treat as failure and retry
-                                retry_count += 1
-                                if retry_count < max_retries:
-                                    delay = self.min_retry_delay + random.randint(0, 5 * 60)
-                                    logger.info(f"   Retrying in {delay}s ({delay/60:.1f}m)...")
-                                    time.sleep(delay)
-                                    continue
-                                else:
-                                    break
-
-                            # If public, record upload and return
-                            try:
-                                self.db.record_upload(video_id, title, description,
-                                                    content_data.get('type'), True)
-                                logger.info("✅ Upload recorded in database")
-                            except Exception as e:
-                                logger.warning(f"⚠️  Could not record upload: {e}")
-
-                            logger.info(f"✅ Video {video_id} is public and verified")
-                            return video_id
+                            self.db.record_upload(video_id, title, description,
+                                                content_data.get('type'), True)
+                            logger.info("✅ Upload recorded in database")
                         except Exception as e:
-                            logger.error(f"❌ Error verifying video public status: {e}")
-                            retry_count += 1
-                            if retry_count < max_retries:
-                                time.sleep(self.min_retry_delay)
-                            continue
+                            logger.warning(f"⚠️  Could not record upload: {e}")
+                        
+                        logger.info(f"✅ Video {video_id} successfully uploaded and is public!")
+                        return video_id
                     else:
                         logger.warning(f"⚠️  Upload returned no video ID")
                         retry_count += 1

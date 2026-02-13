@@ -178,9 +178,17 @@ class YouTubeManager:
                 return None
             
             video_id = response['id']
-            logger.info(f"✅ Video uploaded successfully!")
+            logger.info(f"✅ Video uploaded to YouTube!")
             logger.info(f"   Video ID: {video_id}")
             logger.info(f"   URL: https://www.youtube.com/shorts/{video_id}")
+            
+            # CRITICAL: Wait until video is actually public before returning
+            logger.info("   Waiting for video to become public...")
+            if not self.wait_until_public(video_id, timeout=300, interval=5):
+                logger.error(f"❌ Video {video_id} did not become public - upload failed")
+                return None
+            
+            logger.info(f"✅ Video {video_id} is PUBLICLY available!")
             return video_id
 
         except Exception as e:
@@ -264,28 +272,39 @@ class YouTubeManager:
 
             elapsed = 0
             while elapsed < timeout:
-                request = self.youtube.videos().list(part='status', id=video_id)
-                resp = request.execute()
-                items = resp.get('items', [])
-                if not items:
+                try:
+                    request = self.youtube.videos().list(part='status', id=video_id)
+                    resp = request.execute()
+                    items = resp.get('items', [])
+                    if not items:
+                        logger.info(f"   Waiting for video {video_id} to be indexed by YouTube ({elapsed}s/{timeout}s)...")
+                        time.sleep(interval)
+                        elapsed += interval
+                        continue
+
+                    status = items[0].get('status', {})
+                    privacy = status.get('privacyStatus')
+                    upload_state = status.get('uploadStatus')
+                    
+                    logger.info(f"   Video {video_id} status: privacy={privacy}, upload={upload_state} ({elapsed}s/{timeout}s)...")
+
+                    if privacy == 'public':
+                        logger.info(f"✅ Video {video_id} is PUBLIC!")
+                        return True
+
+                    # If explicitly private or failed, stop early
+                    if privacy in ('private', 'rejected'):
+                        logger.error(f"❌ Video {video_id} was rejected or set to private: {privacy}")
+                        return False
+
                     time.sleep(interval)
                     elapsed += interval
-                    continue
+                except Exception as e:
+                    logger.warning(f"   Error checking video status: {e}, retrying...")
+                    time.sleep(interval)
+                    elapsed += interval
 
-                status = items[0].get('status', {})
-                privacy = status.get('privacyStatus')
-                upload_state = status.get('uploadStatus') or status.get('processingDetails', {}).get('processingStatus')
-
-                if privacy == 'public':
-                    return True
-
-                # If explicitly private or failed, stop early
-                if privacy in ('private', 'rejected'):
-                    return False
-
-                time.sleep(interval)
-                elapsed += interval
-
+            logger.error(f"❌ Video {video_id} did not become public within {timeout}s")
             return False
 
         except Exception as e:
