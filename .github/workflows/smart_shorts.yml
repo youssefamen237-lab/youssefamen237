@@ -136,7 +136,6 @@ jobs:
         run: |
           python -u src/brain.py --single-cycle 2>&1 | tee -a logs/production.log
         timeout-minutes: 400
-        continue-on-error: true
 
       - name: Upload logs to artifacts
         if: always()

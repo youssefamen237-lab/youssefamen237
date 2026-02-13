@@ -577,6 +577,11 @@ For local testing:
             
             logger.info(f"✅ Daily cycle complete! Produced: {produced_count} video(s)")
             
+            # إذا لم يتم رفع أي فيديوهات أثناء الدورة، اعتبرها فشلًا حتى لا يتم وضع حالة "نجاح" في CI
+            if produced_count == 0:
+                logger.error("❌ No uploads succeeded during cycle")
+                raise RuntimeError("No uploads succeeded during production cycle")
+
             # Cleanup
             try:
                 self.cleanup_and_maintain()
