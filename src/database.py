@@ -9,7 +9,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 class DatabaseManager:
-    def __init__(self, db_path: str = "/workspaces/youssefamen237/db/system.db"):
+    def __init__(self, db_path: Optional[str] = None):
+        # Compute default DB path relative to workspace if not provided
+        if not db_path:
+            base_dir = os.getenv('GITHUB_WORKSPACE') or os.getcwd()
+            db_path = os.path.join(base_dir, 'db', 'system.db')
+
         self.db_path = db_path
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self.init_database()

@@ -64,13 +64,7 @@ class ReportGenerator:
             
             conn.close()
             
-            report = {
-                'date': datetime.now().isoformat(),
-                'daily': {
-                    'uploads': today_uploads,
-                    'avg_performance': round(today_perf['avg_score'] or 0, 3),
-                    'max_performance': round(today_perf['max_score'] or 0, 3),
-                    'min_performance': round(today_perf['min_score'] or 0, 3),
+            import sys
                     'avg_ctr': round(today_perf['avg_ctr'] or 0, 2),
                     'avg_completion': round(today_perf['avg_completion'] or 0, 2)
                 },

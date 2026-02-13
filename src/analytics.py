@@ -5,7 +5,9 @@ import logging
 import json
 from datetime import datetime, timedelta
 
-sys.path.insert(0, '/workspaces/youssefamen237/src')
+# Ensure module path and log locations work in Actions
+BASE_DIR = os.getenv('GITHUB_WORKSPACE') or os.getcwd()
+sys.path.insert(0, os.path.join(BASE_DIR, 'src'))
 
 from database import DatabaseManager
 from youtube_api import YouTubeManager
@@ -13,6 +15,7 @@ from upload_scheduler import PerformanceAnalyzer
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
 
 def run_analytics():
     """Run analytics and generate insights"""
@@ -57,7 +60,7 @@ def run_analytics():
             'trends': trends
         }
         
-        analytics_file = '/workspaces/youssefamen237/logs/analytics.json'
+        analytics_file = os.path.join(BASE_DIR, 'logs', 'analytics.json')
         os.makedirs(os.path.dirname(analytics_file), exist_ok=True)
         
         with open(analytics_file, 'w') as f:

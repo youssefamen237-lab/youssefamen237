@@ -9,6 +9,9 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+# Workspace base directory
+BASE_DIR = os.getenv('GITHUB_WORKSPACE') or os.getcwd()
+
 class QuestionType(Enum):
     TRUE_FALSE = "True/False"
     MULTIPLE_CHOICE = "Multiple Choice"
@@ -235,7 +238,7 @@ class ContentGenerator:
     def select_background(self) -> Optional[str]:
         """Select background intelligently"""
         try:
-            bg_dir = "/workspaces/youssefamen237/assets/backgrounds"
+            bg_dir = os.path.join(BASE_DIR, 'assets', 'backgrounds')
             
             if os.path.exists(bg_dir):
                 backgrounds = [f for f in os.listdir(bg_dir) 
@@ -291,7 +294,7 @@ class ContentGenerator:
     def select_music(self) -> Optional[str]:
         """Select music intelligently"""
         try:
-            music_dir = "/workspaces/youssefamen237/assets/music"
+            music_dir = os.path.join(BASE_DIR, 'assets', 'music')
             
             if os.path.exists(music_dir):
                 music_files = [f for f in os.listdir(music_dir) 

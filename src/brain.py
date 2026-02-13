@@ -36,8 +36,10 @@ from pathlib import Path
 from typing import Dict, Optional, List, Tuple, Any
 import schedule
 
+# Determine repository base (works in Codespaces and GitHub Actions)
+BASE_DIR = os.getenv('GITHUB_WORKSPACE') or os.getcwd()
 # Add src to path
-sys.path.insert(0, '/workspaces/youssefamen237/src')
+sys.path.insert(0, os.path.join(BASE_DIR, 'src'))
 
 from database import DatabaseManager
 from youtube_api import YouTubeManager
@@ -47,7 +49,7 @@ from upload_scheduler import UploadScheduler, PerformanceAnalyzer
 from content_safety import ContentSafetyChecker, AudioValidator, ContentOptimizer, TrendInjector
 
 # Setup logging
-log_dir = '/workspaces/youssefamen237/logs'
+log_dir = os.path.join(BASE_DIR, 'logs')
 os.makedirs(log_dir, exist_ok=True)
 
 logging.basicConfig(
@@ -82,7 +84,7 @@ class SmartShortsEngine:
             self.trend_injector = TrendInjector()
             
             # Configuration
-            self.production_dir = '/tmp/shorts'
+            self.production_dir = os.path.join(BASE_DIR, 'tmp', 'shorts')
             os.makedirs(self.production_dir, exist_ok=True)
             
             logger.info("✅ Engine initialization complete!")
