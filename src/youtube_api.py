@@ -19,6 +19,15 @@ class YouTubeManager:
         self.refresh_token = os.getenv('YT_REFRESH_TOKEN_3')
         self.channel_id = os.getenv('YT_CHANNEL_ID')
         self.youtube = None
+        
+        # Check if credentials are available
+        if not all([self.client_id, self.client_secret, self.refresh_token, self.channel_id]):
+            logger.warning(
+                "⚠️  YouTube API credentials incomplete. "
+                "Please set: YT_CLIENT_ID_3, YT_CLIENT_SECRET_3, YT_REFRESH_TOKEN_3, YT_CHANNEL_ID"
+            )
+            return
+        
         self.authenticate()
 
     def authenticate(self) -> bool:

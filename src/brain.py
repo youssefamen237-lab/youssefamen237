@@ -42,23 +42,46 @@ class SmartShortsEngine:
     def __init__(self):
         logger.info("🚀 Initializing Smart Shorts Engine...")
         
-        # Initialize managers
-        self.db = DatabaseManager()
-        self.youtube = YouTubeManager()
-        self.content_gen = ContentGenerator(self.db)
-        self.video_engine = VideoEngine()
-        self.scheduler = UploadScheduler(self.db, self.youtube)
-        self.analyzer = PerformanceAnalyzer(self.db, self.youtube)
-        self.safety_checker = ContentSafetyChecker()
-        self.audio_validator = AudioValidator(self.db)
-        self.content_optimizer = ContentOptimizer(self.db)
-        self.trend_injector = TrendInjector()
-        
-        # Configuration
-        self.production_dir = '/tmp/shorts'
-        os.makedirs(self.production_dir, exist_ok=True)
-        
-        logger.info("✅ Engine initialization complete!")
+        try:
+            # Initialize managers
+            self.db = DatabaseManager()
+            self.youtube = YouTubeManager()
+            self.content_gen = ContentGenerator(self.db)
+            self.video_engine = VideoEngine()
+            self.scheduler = UploadScheduler(self.db, self.youtube)
+            self.analyzer = PerformanceAnalyzer(self.db, self.youtube)
+            self.safety_checker = ContentSafetyChecker()
+            self.audio_validator = AudioValidator(self.db)
+            self.content_optimizer = ContentOptimizer(self.db)
+            self.trend_injector = TrendInjector()
+            
+            # Configuration
+            self.production_dir = '/tmp/shorts'
+            os.makedirs(self.production_dir, exist_ok=True)
+            
+            logger.info("✅ Engine initialization complete!")
+        except Exception as e:
+            logger.error(f"❌ Fatal initialization error: {e}")
+            logger.error("\n" + "="*60)
+            logger.error("SETUP REQUIRED: Add GitHub Secrets")
+            logger.error("="*60)
+            logger.error("""
+Missing API credentials. To fix this:
+
+1. Go to GitHub Repository Settings
+2. Click 'Secrets and variables' → 'Actions'
+3. Add these secrets:
+   - YT_CLIENT_ID_3
+   - YT_CLIENT_SECRET_3
+   - YT_REFRESH_TOKEN_3
+   - YT_CHANNEL_ID
+   - OPENAI_API_KEY (or GEMINI_API_KEY, GROQ_API_KEY)
+
+For local testing:
+   Create .env file with required keys
+   Then run: source .env && python src/brain.py --single-cycle
+""")
+            raise
 
     def should_produce_content(self) -> bool:
         """Check if conditions are right for content production"""

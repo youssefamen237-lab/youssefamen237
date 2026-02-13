@@ -1,25 +1,37 @@
-.PHONY: help install test run single-cycle analyse clean logs setup
+.PHONY: help install test run single-cycle analyse clean logs setup github-setup get-yt-token
 
 help:
 	@echo "🎬 Smart Shorts - Available Commands"
 	@echo ""
-	@echo "Setup:"
+	@echo "🚀 QUICK START:"
+	@echo "  make github-setup - Setup GitHub Actions (interactive)"
+	@echo "  make get-yt-token - Get YouTube Refresh Token"
+	@echo "  make quick-fix    - Show quick fix for errors"
+	@echo ""
+	@echo "⚙️  SETUP:"
 	@echo "  make setup        - Install all dependencies"
 	@echo "  make install      - Install Python dependencies only"
+	@echo "  make env-setup    - Create .env file from template"
 	@echo ""
-	@echo "Running:"
+	@echo "▶️  RUNNING:"
 	@echo "  make run          - Run full scheduler (continuous)"
 	@echo "  make single-cycle - Run one production cycle"
 	@echo "  make analyse      - Run analysis only"
 	@echo ""
-	@echo "Maintenance:"
+	@echo "🧹 MAINTENANCE:"
 	@echo "  make clean        - Clean cache and temp files"
 	@echo "  make logs         - Show recent logs"
 	@echo "  make db-reset     - Reset database (WARNING)"
+	@echo "  make verify       - Verify system setup"
 	@echo ""
-	@echo "Development:"
+	@echo "🐳 DOCKER:"
+	@echo "  make docker-build - Build Docker image"
+	@echo "  make docker-run   - Run with Docker"
+	@echo ""
+	@echo "🔧 DEVELOPMENT:"
 	@echo "  make test         - Run tests (if available)"
 	@echo "  make lint         - Lint Python code"
+	@echo "  make github-actions-test - Test workflow syntax"
 	@echo ""
 
 setup: install
@@ -112,3 +124,21 @@ requirements-update:
 	@echo "Review requirements_new.txt and replace requirements.txt if needed"
 
 all: setup run
+
+# New quick-start commands
+github-setup:
+	@echo "🚀 Interactive GitHub Setup"
+	bash setup-github.sh
+
+get-yt-token:
+	@echo "🎬 Getting YouTube Refresh Token"
+	python get-yt-token.py
+
+quick-fix:
+	@echo "📖 For quick fix, read: QUICK_FIX.md"
+	@echo "For detailed help, read: GITHUB_ACTIONS_FIX.md"
+	@cat QUICK_FIX.md
+
+verify:
+	@echo "🔍 Verifying system..."
+	python verify_system.py
