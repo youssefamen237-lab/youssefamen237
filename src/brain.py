@@ -287,9 +287,15 @@ For local testing:
             logger.info(f"   Title: {short_data['title'][:50]}...")
             
             # Add random delay to avoid detection (2-11 minutes)
-            delay = self.scheduler.get_random_upload_delay()
+            # In CI (GitHub Actions) we want immediate upload, so skip delay
+            if os.getenv('GITHUB_ACTIONS', 'false').lower() == 'true':
+                delay = 0
+            else:
+                delay = self.scheduler.get_random_upload_delay()
+
             logger.info(f"   Waiting {delay}s ({delay/60:.1f}m) before upload for anti-detection...")
-            await asyncio.sleep(delay)
+            if delay > 0:
+                await asyncio.sleep(delay)
             
             logger.info("   Starting upload to YouTube...")
             video_id = await self.scheduler.execute_upload(
