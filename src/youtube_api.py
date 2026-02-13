@@ -183,16 +183,20 @@ class YouTubeManager:
             logger.info(f"   URL: https://www.youtube.com/shorts/{video_id}")
             
             # CRITICAL: Wait until video is actually public before returning
-            logger.info("   Waiting for video to become public...")
+            logger.info("   🔍 CRITICAL VERIFICATION: Waiting for video to become PUBLIC...")
             if not self.wait_until_public(video_id, timeout=300, interval=5):
-                logger.error(f"❌ Video {video_id} did not become public - upload failed")
+                logger.error(f"❌❌❌ CRITICAL FAILURE: Video {video_id} did NOT become PUBLIC")
+                logger.error(f"   This video WILL NOT be counted as uploaded successfully")
+                logger.error(f"   Returning None to cause workflow to fail")
                 return None
             
-            logger.info(f"✅ Video {video_id} is PUBLICLY available!")
+            logger.info(f"✅✅✅ CRITICAL VERIFICATION PASSED: Video {video_id} IS PUBLIC!")
+            logger.info(f"   This video WILL be counted as successful upload")
             return video_id
 
         except Exception as e:
-            logger.error(f"❌ Error uploading video: {e}", exc_info=True)
+            logger.error(f"❌ ERROR uploading video: {e}", exc_info=True)
+            logger.error(f"   Returning None - this upload will not count")
             return None
 
     def get_video_analytics(self, video_id: str) -> Optional[Dict[str, Any]]:
@@ -267,17 +271,22 @@ class YouTubeManager:
         """Poll YouTube API until the video's privacy status is 'public' or timeout."""
         try:
             if not self.youtube:
+                logger.error(f"❌ YouTube API not authenticated - cannot verify public status")
                 if not self.authenticate():
+                    logger.error(f"❌ Authentication failed - wait_until_public returning FALSE")
                     return False
 
             elapsed = 0
-            while elapsed < timeout:
+            max_wait = timeout
+            logger.info(f"   Polling for video {video_id} to become PUBLIC (timeout={max_wait}s, interval={interval}s)")
+            
+            while elapsed < max_wait:
                 try:
                     request = self.youtube.videos().list(part='status', id=video_id)
                     resp = request.execute()
                     items = resp.get('items', [])
                     if not items:
-                        logger.info(f"   Waiting for video {video_id} to be indexed by YouTube ({elapsed}s/{timeout}s)...")
+                        logger.info(f"   Video not indexed yet ({elapsed}s/{max_wait}s), waiting...")
                         time.sleep(interval)
                         elapsed += interval
                         continue
@@ -286,29 +295,38 @@ class YouTubeManager:
                     privacy = status.get('privacyStatus')
                     upload_state = status.get('uploadStatus')
                     
-                    logger.info(f"   Video {video_id} status: privacy={privacy}, upload={upload_state} ({elapsed}s/{timeout}s)...")
-
+                    log_msg = f"   Status check: privacy='{privacy}' upload='{upload_state}' ({elapsed}s/{max_wait}s)"
+                    
                     if privacy == 'public':
-                        logger.info(f"✅ Video {video_id} is PUBLIC!")
+                        logger.info(f"✅ VIDEO IS PUBLIC! {log_msg}")
                         return True
 
-                    # If explicitly private or failed, stop early
+                    # If explicitly private or failed, stop early - MAJOR FAILURE
                     if privacy in ('private', 'rejected'):
-                        logger.error(f"❌ Video {video_id} was rejected or set to private: {privacy}")
+                        logger.error(f"❌ VIDEO REJECTED/PRIVATE: {log_msg}")
+                        logger.error(f"   Video {video_id} will NOT be counted as successful")
                         return False
-
+                    
+                    if privacy == 'unlisted':
+                        logger.warning(f"⚠️  UNLISTED: {log_msg}")
+                        # Keep waiting, it might become public
+                    
+                    logger.info(log_msg)
                     time.sleep(interval)
                     elapsed += interval
+                    
                 except Exception as e:
-                    logger.warning(f"   Error checking video status: {e}, retrying...")
+                    logger.warning(f"   Error checking video status: {e}")
                     time.sleep(interval)
                     elapsed += interval
 
-            logger.error(f"❌ Video {video_id} did not become public within {timeout}s")
+            logger.error(f"❌ TIMEOUT: Video {video_id} did not become PUBLIC within {max_wait}s")
+            logger.error(f"   This is a FAILURE - video will NOT be counted")
             return False
 
         except Exception as e:
-            logger.error(f"Error while waiting for video to become public: {e}")
+            logger.error(f"❌ FATAL ERROR in wait_until_public: {e}", exc_info=True)
+            logger.error(f"   Returning FALSE to fail the upload")
             return False
 
     def get_channel_analytics(self) -> Optional[Dict[str, Any]]:

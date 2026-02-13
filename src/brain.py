@@ -308,7 +308,7 @@ For local testing:
             
             if video_id:
                 logger.info(f"✅ Upload successful! Video ID: {video_id}")
-                logger.info(f"   YouTube URL: https://www.youtube.com/shorts/{video_id}")
+                logger.info(f"   😤 ✅ VERIFIED PUBLIC on YouTube: https://www.youtube.com/shorts/{video_id}")
                 
                 # Update database with video info
                 try:
@@ -336,7 +336,8 @@ For local testing:
                 
                 return True
             else:
-                logger.error("❌ Upload failed - no video ID returned")
+                logger.error("❌ UPLOAD FAILED - No video ID returned or video didn't become PUBLIC")
+                logger.error("This counts as a FAILED upload and will cause workflow to fail")
                 return False
 
         except asyncio.CancelledError:
@@ -586,7 +587,13 @@ For local testing:
             # إذا لم يتم رفع أي فيديوهات أثناء الدورة، اعتبرها فشلًا حتى لا يتم وضع حالة "نجاح" في CI
             if produced_count == 0:
                 logger.error("❌ No uploads succeeded during cycle")
-                raise RuntimeError("No uploads succeeded during production cycle")
+                logger.error("This means either:")
+                logger.error("  1. No content was generated")
+                logger.error("  2. Videos did not upload successfully") 
+                logger.error("  3. Videos did not become PUBLIC on YouTube within timeout")
+                logger.error("  4. YouTube API authentication failed")
+                logger.error("Raising RuntimeError to fail the workflow...")
+                raise RuntimeError("No uploads succeeded during production cycle - WORKFLOW MUST FAIL")
 
             # Cleanup
             try:
@@ -596,6 +603,7 @@ For local testing:
             
             logger.info("=" * 60)
             logger.info(f"Total time: {(time.time() - cycle_start)/60:.1f}m")
+            logger.info(f"✅ PRODUCTION CYCLE SUCCESS - {produced_count} public video(s) uploaded to YouTube")
 
             # Return number of successful uploads for caller validation
             return produced_count
@@ -687,16 +695,29 @@ def main():
         
         if args.single_cycle:
             logger.info("Running single production cycle...")
+            logger.info(f"Environment: GITHUB_ACTIONS={os.getenv('GITHUB_ACTIONS', 'false')}")
             try:
                 produced = engine.run_daily_cycle()
+                logger.info(f"Produced count: {produced}")
                 if produced and produced > 0:
-                    logger.info("✅ Single cycle complete!")
+                    logger.info(f"✅ Single cycle complete! {produced} video(s) uploaded and verified public")
+                    logger.info("=" * 60)
+                    logger.info("WORKFLOW SUCCESS - Videos are on YouTube")
+                    logger.info("=" * 60)
                     sys.exit(0)
                 else:
-                    logger.error("❌ Single cycle completed but no uploads verified public")
+                    logger.error("❌ Single cycle completed but produced_count = 0")
+                    logger.error(f"produced = {produced}")
+                    logger.error("No videos were verified public on YouTube")
+                    logger.error("=" * 60)
+                    logger.error("WORKFLOW FAILURE - Check logs for details")
+                    logger.error("=" * 60)
                     sys.exit(1)
             except Exception as e:
-                logger.error(f"Single cycle failed: {e}", exc_info=True)
+                logger.error(f"❌ Single cycle raised exception: {e}", exc_info=True)
+                logger.error("=" * 60)
+                logger.error("WORKFLOW FAILURE - Exception during production")
+                logger.error("=" * 60)
                 sys.exit(1)
         
         elif args.analyse_only:

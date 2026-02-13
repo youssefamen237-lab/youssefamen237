@@ -194,7 +194,8 @@ class UploadScheduler:
                     )
                     
                     if video_id:
-                        logger.info(f"✅ Video uploaded and verified public, ID: {video_id}")
+                        logger.info(f"✅ Video uploaded and verified PUBLIC on YouTube!")
+                        logger.info(f"   Video ID: {video_id}")
                         logger.info(f"   URL: https://www.youtube.com/shorts/{video_id}")
                         
                         # Record upload
@@ -205,10 +206,11 @@ class UploadScheduler:
                         except Exception as e:
                             logger.warning(f"⚠️  Could not record upload: {e}")
                         
-                        logger.info(f"✅ Video {video_id} successfully uploaded and is public!")
+                        logger.info(f"✅✅✅ VIDEO {video_id} IS PUBLIC ON YOUTUBE! THIS COUNTS AS SUCCESS!")
                         return video_id
                     else:
-                        logger.warning(f"⚠️  Upload returned no video ID")
+                        logger.warning(f"⚠️  Upload returned None (video didn't become public or upload failed)")
+                        logger.warning(f"   This will NOT count as a successful upload")
                         retry_count += 1
                         
                         if retry_count < max_retries:
