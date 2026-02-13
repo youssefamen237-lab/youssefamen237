@@ -1,4 +1,29 @@
 #!/usr/bin/env python3
+
+# First, verify critical dependencies before anything else
+def _verify_dependencies():
+    """Check critical packages are installed"""
+    import sys
+    critical = ['requests', 'schedule', 'database', 'youtube_api', 'content_generator']
+    missing = []
+    
+    for module in critical:
+        if module in ['database', 'youtube_api', 'content_generator', 'video_engine', 'upload_scheduler', 'content_safety', 'analytics', 'report_generator']:
+            # Local modules
+            continue
+        try:
+            __import__(module)
+        except ImportError:
+            missing.append(module)
+    
+    if missing:
+        print(f"❌ Missing critical packages: {missing}")
+        print("Run: pip install -r requirements.txt")
+        sys.exit(1)
+
+_verify_dependencies()
+
+# Now do imports
 import os
 import sys
 import logging

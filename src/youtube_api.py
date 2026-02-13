@@ -1,16 +1,36 @@
 import os
 import json
-import google.auth.transport.requests
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any
 import time
 
 logger = logging.getLogger(__name__)
+
+# Lazy imports - only import when needed to avoid failures if packages not installed
+def _lazy_import_google():
+    try:
+        import google.auth.transport.requests
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaFileUpload
+        return {
+            'google_auth': google.auth.transport.requests,
+            'Credentials': Credentials,
+            'Request': Request,
+            'build': build,
+            'MediaFileUpload': MediaFileUpload
+        }
+    except ImportError as e:
+        logger.error(f"Google API libraries not installed: {e}")
+        raise
+
+# Import on module load
+try:
+    _google_imports = _lazy_import_google()
+except ImportError:
+    _google_imports = None
 
 class YouTubeManager:
     def __init__(self):
@@ -32,6 +52,14 @@ class YouTubeManager:
 
     def authenticate(self) -> bool:
         try:
+            if not _google_imports:
+                logger.error("Google API libraries not available")
+                return False
+            
+            Credentials = _google_imports['Credentials']
+            Request = _google_imports['Request']
+            build = _google_imports['build']
+            
             creds = Credentials(
                 token=None,
                 refresh_token=self.refresh_token,
