@@ -18,6 +18,7 @@ on:
     paths:
       - 'src/**'
       - '.github/workflows/smart_shorts.yml'
+      - 'requirements.txt'
 
 jobs:
   produce-and-upload:
