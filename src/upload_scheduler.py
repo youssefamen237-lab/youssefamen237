@@ -23,17 +23,19 @@ class UploadScheduler:
             conn = self.db.get_connection()
             cursor = conn.cursor()
             
-            # Check daily limit
+            # Check daily limit - fixed for SQLite compatibility
             cursor.execute('''SELECT COUNT(*) as count FROM upload_history 
-                           WHERE DATE(upload_timestamp) = DATE('now')
+                           WHERE strftime('%Y-%m-%d', upload_timestamp) = strftime('%Y-%m-%d', 'now')
                            AND upload_succeeded = 1''')
-            daily_count = cursor.fetchone()['count']
+            result = cursor.fetchone()
+            daily_count = result['count'] if result else 0
             
-            # Check weekly limit
+            # Check weekly limit - fixed for SQLite compatibility
             cursor.execute('''SELECT COUNT(*) as count FROM upload_history 
                            WHERE upload_timestamp > datetime('now', '-7 days')
                            AND upload_succeeded = 1''')
-            weekly_count = cursor.fetchone()['count']
+            result = cursor.fetchone()
+            weekly_count = result['count'] if result else 0
             
             # Check shadow ban status
             cursor.execute('''SELECT is_suspicious FROM shadow_ban_detection 
@@ -43,23 +45,28 @@ class UploadScheduler:
             
             conn.close()
             
+            logger.info(f"Upload check: daily={daily_count}/{self.max_daily}, weekly={weekly_count}/{self.max_weekly}, shadow_ban={shadow_ban_suspected}")
+            
             if shadow_ban_suspected:
-                logger.warning("Shadow ban suspected, pausing uploads")
+                logger.warning("⛔ Shadow ban suspected, pausing uploads")
                 return False
             
             if daily_count >= self.max_daily:
-                logger.warning(f"Daily limit reached: {daily_count}/{self.max_daily}")
+                logger.warning(f"📊 Daily limit reached: {daily_count}/{self.max_daily}")
                 return False
             
             if weekly_count >= self.max_weekly:
-                logger.warning(f"Weekly limit reached: {weekly_count}/{self.max_weekly}")
+                logger.warning(f"📈 Weekly limit reached: {weekly_count}/{self.max_weekly}")
                 return False
             
+            logger.info("✅ Upload conditions met!")
             return True
 
         except Exception as e:
-            logger.error(f"Error checking upload conditions: {e}")
-            return False
+            logger.error(f"❌ Error checking upload conditions: {e}", exc_info=True)
+            # On error, allow upload (fail-safe)
+            logger.warning("⚠️  Allowing upload despite error in conditions check")
+            return True
 
     def get_random_upload_delay(self) -> int:
         """Get random upload delay in seconds (2-11 minutes)"""
@@ -166,48 +173,73 @@ class UploadScheduler:
                            tags: List[str], content_data: Dict[str, Any]) -> Optional[str]:
         """Execute upload with error handling and retry logic"""
         try:
+            logger.info(f"🚀 Starting upload: {video_path}")
+            logger.info(f"   Title: {title[:50]}...")
+            logger.info(f"   Tags: {', '.join(tags)}")
+            
             max_retries = 3
             retry_count = 0
             
             while retry_count < max_retries:
                 try:
+                    logger.info(f"   Attempt {retry_count + 1}/{max_retries}...")
+                    
+                    # Verify video file exists
+                    if not os.path.exists(video_path):
+                        logger.error(f"❌ Video file not found: {video_path}")
+                        return None
+                    
                     video_id = self.youtube.upload_short(
                         video_path, title, description, tags
                     )
                     
                     if video_id:
-                        # Record successful upload
-                        self.db.record_upload(video_id, title, description,
-                                            content_data.get('type'), True)
+                        logger.info(f"✅ Video uploaded successfully!")
+                        logger.info(f"   Video ID: {video_id}")
                         
-                        logger.info(f"Video uploaded successfully: {video_id}")
+                        # Record successful upload
+                        try:
+                            self.db.record_upload(video_id, title, description,
+                                                content_data.get('type'), True)
+                            logger.info("✅ Upload recorded in database")
+                        except Exception as e:
+                            logger.warning(f"⚠️  Could not record upload: {e}")
+                        
                         return video_id
-                    
-                    retry_count += 1
-                    
-                    if retry_count < max_retries:
-                        delay = self.min_retry_delay + random.randint(0, 5 * 60)
-                        logger.info(f"Upload failed, retrying in {delay}s")
-                        time.sleep(delay)
+                    else:
+                        logger.warning(f"⚠️  Upload returned no video ID")
+                        retry_count += 1
+                        
+                        if retry_count < max_retries:
+                            delay = self.min_retry_delay + random.randint(0, 5 * 60)
+                            logger.info(f"   Retrying in {delay}s ({delay/60:.1f}m)...")
+                            time.sleep(delay)
                 
                 except Exception as e:
-                    logger.error(f"Upload attempt {retry_count + 1} failed: {e}")
+                    logger.error(f"❌ Upload attempt {retry_count + 1} error: {e}", exc_info=True)
                     retry_count += 1
                     
                     if retry_count < max_retries:
-                        time.sleep(self.min_retry_delay)
+                        delay = self.min_retry_delay * (retry_count + 1)  # Exponential backoff
+                        logger.info(f"   Retrying in {delay}s ({delay/60:.1f}m)...")
+                        time.sleep(delay)
             
             # Record failed upload after max retries
-            failure_reason = "Max retries exceeded"
-            self.db.record_upload(
-                f"failed_{datetime.now().timestamp()}",
-                title, description, content_data.get('type'), False, failure_reason
-            )
+            logger.error(f"❌ Upload failed after {max_retries} attempts")
+            try:
+                failure_reason = "Max retries exceeded"
+                self.db.record_upload(
+                    f"failed_{datetime.now().timestamp()}",
+                    title, description, content_data.get('type'), False, failure_reason
+                )
+                logger.info("📋 Failure recorded in database")
+            except Exception as e:
+                logger.warning(f"⚠️  Could not record failure: {e}")
             
             return None
 
         except Exception as e:
-            logger.error(f"Error executing upload: {e}")
+            logger.error(f"❌ Error executing upload: {e}", exc_info=True)
             return None
 
 

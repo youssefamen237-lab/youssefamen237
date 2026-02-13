@@ -14,13 +14,14 @@ def _lazy_import_google():
         from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
         from googleapiclient.discovery import build
-        from googleapiclient.http import MediaFileUpload
+        from googleapiclient.http import MediaFileUpload, HttpError
         return {
             'google_auth': google.auth.transport.requests,
             'Credentials': Credentials,
             'Request': Request,
             'build': build,
-            'MediaFileUpload': MediaFileUpload
+            'MediaFileUpload': MediaFileUpload,
+            'HttpError': HttpError
         }
     except ImportError as e:
         logger.error(f"Google API libraries not installed: {e}")
@@ -82,8 +83,19 @@ class YouTubeManager:
     def upload_short(self, video_path: str, title: str, description: str,
                     tags: List[str] = None, made_for_kids: bool = False) -> Optional[str]:
         try:
+            logger.info(f"🎬 Uploading video: {video_path}")
+            
+            if not _google_imports:
+                logger.error("❌ Google API libraries not available")
+                return None
+            
+            MediaFileUpload = _google_imports['MediaFileUpload']
+            HttpError = _google_imports.get('HttpError')
+            
             if not self.youtube:
+                logger.warning("⚠️  YouTube not authenticated, attempting authentication...")
                 if not self.authenticate():
+                    logger.error("❌ Authentication failed")
                     return None
 
             if tags is None:
@@ -104,6 +116,18 @@ class YouTubeManager:
                 }
             }
 
+            logger.info(f"   Title: {title[:50]}...")
+            logger.info(f"   Description: {description[:50]}...")
+            logger.info(f"   Tags: {', '.join(tags)}")
+            
+            # Check if file exists and get size
+            if not os.path.exists(video_path):
+                logger.error(f"❌ Video file not found: {video_path}")
+                return None
+            
+            file_size = os.path.getsize(video_path)
+            logger.info(f"   File size: {file_size / (1024*1024):.2f} MB")
+            
             media = MediaFileUpload(video_path, mimetype='video/mp4', resumable=True)
             
             request = self.youtube.videos().insert(
@@ -113,22 +137,54 @@ class YouTubeManager:
             )
 
             response = None
-            while response is None:
+            max_retries = 5
+            retry_count = 0
+            chunk_count = 0
+            
+            logger.info("   Starting upload chunks...")
+            while response is None and retry_count < max_retries:
                 try:
                     status, response = request.next_chunk()
                     if status:
-                        logger.info(f"Upload progress: {int(status.progress() * 100)}%")
+                        progress = int(status.progress() * 100)
+                        logger.info(f"   Upload progress: {progress}%")
+                        chunk_count += 1
+                    
+                    if response:
+                        logger.info("   Upload complete!")
+                        break
+                        
                 except Exception as e:
-                    logger.warning(f"Upload chunk error: {e}")
-                    time.sleep(5)
-                    continue
-
+                    if HttpError and isinstance(e, HttpError):
+                        if hasattr(e, 'resp') and e.resp.status in [500, 502, 503, 504]:
+                            # Retryable errors
+                            retry_count += 1
+                            logger.warning(f"   ⚠️  Server error ({e.resp.status}), retry {retry_count}/{max_retries}...")
+                            time.sleep(5 * retry_count)
+                        else:
+                            logger.error(f"   ❌ YouTube API error: {e}")
+                            return None
+                    else:
+                        retry_count += 1
+                        logger.warning(f"   ⚠️  Chunk error: {e}, retry {retry_count}/{max_retries}...")
+                        time.sleep(5)
+            
+            if response is None:
+                logger.error(f"❌ Upload failed after {max_retries} retries")
+                return None
+            
+            if 'id' not in response:
+                logger.error(f"❌ Upload response missing video ID: {response}")
+                return None
+            
             video_id = response['id']
-            logger.info(f"Video uploaded successfully: {video_id}")
+            logger.info(f"✅ Video uploaded successfully!")
+            logger.info(f"   Video ID: {video_id}")
+            logger.info(f"   URL: https://www.youtube.com/shorts/{video_id}")
             return video_id
 
         except Exception as e:
-            logger.error(f"Error uploading video: {e}")
+            logger.error(f"❌ Error uploading video: {e}", exc_info=True)
             return None
 
     def get_video_analytics(self, video_id: str) -> Optional[Dict[str, Any]]:

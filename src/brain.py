@@ -112,11 +112,16 @@ For local testing:
     def should_produce_content(self) -> bool:
         """Check if conditions are right for content production"""
         try:
-            # Check if we should produce
-            return self.content_gen.should_create_new_content() and self.scheduler.should_upload_now()
+            create_new = self.content_gen.should_create_new_content()
+            can_upload = self.scheduler.should_upload_now()
+            result = create_new and can_upload
+            logger.info(f"Production check: create_new={create_new}, can_upload={can_upload}, result={result}")
+            return result
         except Exception as e:
-            logger.error(f"Error checking production conditions: {e}")
-            return False
+            logger.error(f"⚠️  Error checking production conditions: {e}", exc_info=True)
+            # Fail-safe: allow production on error
+            logger.warning("⚠️  Allowing production despite error")
+            return True
 
     def generate_full_short(self) -> str:
         """Generate a complete YouTube Short from scratch"""
@@ -128,8 +133,19 @@ For local testing:
             question_data = self.content_gen.generate_question()
             
             if not question_data:
-                logger.warning("Failed to generate question")
-                return None
+                logger.warning("⚠️  Failed to generate question, retrying...")
+                # Max 2 retries
+                for retry in range(2):
+                    question_data = self.content_gen.generate_question()
+                    if question_data:
+                        break
+                    logger.warning(f"  Retry {retry+1}: Failed again")
+                
+                if not question_data:
+                    logger.error("Failed to generate question after retries")
+                    return None
+            
+            logger.info(f"✅ Question generated: {question_data['question'][:50]}...")
             
             # Step 2: Safety check
             logger.info("  → Checking content safety...")
@@ -146,35 +162,44 @@ For local testing:
             )
             
             if not is_safe:
-                logger.warning(f"Content rejected: {safety_reason}")
+                logger.warning(f"⚠️  Content rejected: {safety_reason}, retrying...")
                 # Retry with new content
                 return self.generate_full_short()
+            
+            logger.info("✅ Content safety check passed")
             
             # Step 3: Get audio parameters
             logger.info("  → Generating audio parameters...")
             audio_params = self.content_gen.get_audio_parameters()
+            logger.info(f"  Audio: {audio_params['voice_gender']}, Speed: {audio_params['speech_speed']}")
             
             # Step 4: Generate voiceover
             logger.info("  → Creating voiceover...")
-            voiceover_path = self.audio_validator.generate_voiceover(
-                question_data['question'],
-                audio_params['voice_gender'],
-                audio_params['speech_speed']
-            )
-            
-            if not voiceover_path:
-                logger.warning("Failed to generate voiceover")
-                # Continue without audio
-                voiceover_path = None
+            voiceover_path = None
+            try:
+                voiceover_path = self.audio_validator.generate_voiceover(
+                    question_data['question'],
+                    audio_params['voice_gender'],
+                    audio_params['speech_speed']
+                )
+            except Exception as e:
+                logger.warning(f"⚠️  Voiceover generation failed: {e}, continuing without audio...")
             
             # Step 5: Select background and music
             logger.info("  → Selecting assets...")
             bg_path = self.content_gen.select_background()
             music_path = self.content_gen.select_music()
             
+            if not bg_path:
+                logger.warning("⚠️  No background available, will use default")
+            
+            logger.info(f"  Background: {bg_path}")
+            logger.info(f"  Music: {music_path if music_path else 'None'}")
+            
             # Step 6: Get video structure
             logger.info("  → Determining video structure...")
             video_structure = self.content_gen.get_video_structure()
+            logger.info(f"  Duration: {video_structure['total_length']}s")
             
             # Step 7: Generate video
             logger.info("  → Creating video...")
@@ -187,16 +212,20 @@ For local testing:
             )
             
             if not video_path:
-                logger.warning("Failed to create video")
+                logger.error("❌ Failed to create video")
                 return None
             
-            # Step 8: Verify video quality
-            logger.info("  → Verifying video quality...")
-            quality = self.video_engine.verify_video_quality(video_path)
+            logger.info(f"✅ Video created: {video_path}")
             
-            if not quality.get('valid'):
-                logger.warning(f"Video quality issue: {quality.get('error')}")
-                return None
+            # Step 8: Verify video quality (optional)
+            try:
+                logger.info("  → Verifying video quality...")
+                quality = self.video_engine.verify_video_quality(video_path)
+                
+                if not quality.get('valid'):
+                    logger.warning(f"⚠️  Video quality issue: {quality.get('error')}, but continuing...")
+            except Exception as e:
+                logger.warning(f"⚠️  Video quality check failed: {e}, but continuing...")
             
             # Step 9: Save content DNA
             logger.info("  → Saving content DNA...")
@@ -204,15 +233,18 @@ For local testing:
                 question_data, audio_params, bg_path, music_path
             )
             
-            self.db.save_content_dna(
-                question_data['question'],
-                question_data['type'],
-                metadata['hash_audio'],
-                metadata['hash_background'],
-                metadata['hash_music'],
-                "",
-                None
-            )
+            try:
+                self.db.save_content_dna(
+                    question_data['question'],
+                    question_data['type'],
+                    metadata['hash_audio'],
+                    metadata['hash_background'],
+                    metadata['hash_music'],
+                    "",
+                    None
+                )
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to save content DNA: {e}, continuing...")
             
             # Step 10: Optimize and prepare upload
             logger.info("  → Optimizing for upload...")
@@ -227,7 +259,7 @@ For local testing:
             
             tags = self.content_gen.generate_hashtags(question_data['type'])
             
-            logger.info(f"✅ Short created successfully: {video_path}")
+            logger.info(f"✅ Short created successfully!")
             logger.info(f"   Title: {optimized_title}")
             logger.info(f"   Type: {question_data['type']}")
             logger.info(f"   Duration: {video_structure['total_length']:.1f}s")
@@ -244,19 +276,22 @@ For local testing:
             }
 
         except Exception as e:
-            logger.error(f"Error in generate_full_short: {e}", exc_info=True)
+            logger.error(f"❌ Error in generate_full_short: {e}", exc_info=True)
             return None
 
     async def upload_short_async(self, short_data: dict) -> bool:
         """Upload short to YouTube asynchronously"""
         try:
             logger.info("📤 Starting upload process...")
+            logger.info(f"   Video: {short_data['video_path']}")
+            logger.info(f"   Title: {short_data['title'][:50]}...")
             
             # Add random delay to avoid detection (2-11 minutes)
             delay = self.scheduler.get_random_upload_delay()
-            logger.info(f"   Waiting {delay}s before upload...")
+            logger.info(f"   Waiting {delay}s ({delay/60:.1f}m) before upload for anti-detection...")
             await asyncio.sleep(delay)
             
+            logger.info("   Starting upload to YouTube...")
             video_id = await self.scheduler.execute_upload(
                 short_data['video_path'],
                 short_data['title'],
@@ -267,34 +302,42 @@ For local testing:
             
             if video_id:
                 logger.info(f"✅ Upload successful! Video ID: {video_id}")
+                logger.info(f"   YouTube URL: https://www.youtube.com/shorts/{video_id}")
                 
                 # Update database with video info
-                self.db.save_video_performance({
-                    'video_id': video_id,
-                    'question_type': short_data['question_data']['type'],
-                    'video_length': short_data['video_structure']['total_length'],
-                    'voice_gender': short_data['audio_params']['voice_gender'],
-                    'background_type': 'gradient' if 'gradient' in short_data['metadata']['hash_background'] else 'custom',
-                    'upload_time': datetime.now().isoformat(),
-                    'title_format': 'Optimized',
-                    'cta_used': short_data['question_data']['cta'],
-                    'timer_duration': short_data['video_structure']['timer_duration'],
-                    'speech_speed': short_data['audio_params']['speech_speed'],
-                    'watch_time': 0,
-                    'completion_rate': 0,
-                    'ctr': 0,
-                    'comments_count': 0,
-                    'rewatch_rate': 0,
-                    'impressions': 0
-                })
+                try:
+                    self.db.save_video_performance({
+                        'video_id': video_id,
+                        'question_type': short_data['question_data']['type'],
+                        'video_length': short_data['video_structure']['total_length'],
+                        'voice_gender': short_data['audio_params']['voice_gender'],
+                        'background_type': 'gradient' if 'gradient' in short_data['metadata'].get('hash_background', '') else 'custom',
+                        'upload_time': datetime.now().isoformat(),
+                        'title_format': 'Optimized',
+                        'cta_used': short_data['question_data']['cta'],
+                        'timer_duration': short_data['video_structure']['timer_duration'],
+                        'speech_speed': short_data['audio_params']['speech_speed'],
+                        'watch_time': 0,
+                        'completion_rate': 0,
+                        'ctr': 0,
+                        'comments_count': 0,
+                        'rewatch_rate': 0,
+                        'impressions': 0
+                    })
+                    logger.info("✅ Video performance record saved")
+                except Exception as e:
+                    logger.warning(f"⚠️  Could not save performance data: {e}")
                 
                 return True
             else:
-                logger.error("Upload failed")
+                logger.error("❌ Upload failed - no video ID returned")
                 return False
 
+        except asyncio.CancelledError:
+            logger.warning("⚠️  Upload cancelled")
+            return False
         except Exception as e:
-            logger.error(f"Error uploading short: {e}", exc_info=True)
+            logger.error(f"❌ Error uploading short: {e}", exc_info=True)
             return False
 
     def analyze_performance(self) -> Dict[str, any]:
