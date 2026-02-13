@@ -576,7 +576,7 @@ For local testing:
                     continue
             
             logger.info(f"✅ Daily cycle complete! Produced: {produced_count} video(s)")
-            
+
             # إذا لم يتم رفع أي فيديوهات أثناء الدورة، اعتبرها فشلًا حتى لا يتم وضع حالة "نجاح" في CI
             if produced_count == 0:
                 logger.error("❌ No uploads succeeded during cycle")
@@ -591,8 +591,12 @@ For local testing:
             logger.info("=" * 60)
             logger.info(f"Total time: {(time.time() - cycle_start)/60:.1f}m")
 
+            # Return number of successful uploads for caller validation
+            return produced_count
+
         except KeyboardInterrupt:
             logger.info("Cycle interrupted by user")
+            raise
         except Exception as e:
             logger.error(f"Fatal error in daily cycle: {e}", exc_info=True)
             logger.error("Attempting graceful shutdown...")
@@ -600,6 +604,7 @@ For local testing:
                 self.cleanup_and_maintain()
             except:
                 pass
+            raise
 
     def schedule_jobs(self):
         """Schedule recurring jobs"""
@@ -677,9 +682,13 @@ def main():
         if args.single_cycle:
             logger.info("Running single production cycle...")
             try:
-                engine.run_daily_cycle()
-                logger.info("✅ Single cycle complete!")
-                sys.exit(0)
+                produced = engine.run_daily_cycle()
+                if produced and produced > 0:
+                    logger.info("✅ Single cycle complete!")
+                    sys.exit(0)
+                else:
+                    logger.error("❌ Single cycle completed but no uploads verified public")
+                    sys.exit(1)
             except Exception as e:
                 logger.error(f"Single cycle failed: {e}", exc_info=True)
                 sys.exit(1)
