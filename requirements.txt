@@ -31,7 +31,7 @@ sqlalchemy==2.0.27
 psycopg2-binary==2.9.9
 redis==5.0.1
 youtube-dl==2021.12.17
-yt-dlp==2024.2.4
+yt-dlp>=2024.1.0
 pytube==15.0.0
 selenium-wire==5.1.0
 lxml==4.9.4
