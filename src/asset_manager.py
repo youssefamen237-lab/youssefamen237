@@ -2,14 +2,15 @@ import requests
 import os
 from PIL import Image, ImageFilter
 from io import BytesIO
-from elevenlabs import generate, set_api_key, Voice
-from src.config import ELEVEN_API_KEY, UNSPLASH_ACCESS_KEY, OPENAI_API_KEY
+from elevenlabs import ElevenLabs  # تم تحديث الاستيراد
 import random
+from src.config import ELEVEN_API_KEY, UNSPLASH_ACCESS_KEY, OPENAI_API_KEY
 
 class AssetManager:
     def __init__(self):
-        if ELEVEN_API_KEY:
-            set_api_key(ELEVEN_API_KEY)
+        # تهيئة عميل ElevenLabs بالطريقة الجديدة
+        self.eleven_client = ElevenLabs(api_key=ELEVEN_API_KEY) if ELEVEN_API_KEY else None
+        
         self.bg_folder = "assets/backgrounds"
         os.makedirs(self.bg_folder, exist_ok=True)
 
@@ -43,16 +44,19 @@ class AssetManager:
     def generate_audio(self, text, voice_type="default"):
         audio_path = "assets/temp_audio.mp3"
         
-        # Primary: ElevenLabs (Natural Voice)
-        if ELEVEN_API_KEY:
+        # Primary: ElevenLabs (Natural Voice) - Updated API
+        if self.eleven_client:
             try:
-                audio = generate(
+                # استخدام الطريقة الجديدة للعميل
+                audio_generator = self.eleven_client.generate(
                     text=text,
-                    voice=Voice(voice_id="21m00Tcm4TlvDq8ikWAM"), # Rachel (Standard Natural)
+                    voice="Rachel", # استخدام اسم الصوت مباشرة أو ID
                     model="eleven_monolingual_v1"
                 )
+                # حفظ البايتات في ملف
                 with open(audio_path, 'wb') as f:
-                    f.write(audio)
+                    for chunk in audio_generator:
+                        f.write(chunk)
                 return audio_path
             except Exception as e:
                 print(f"ElevenLabs failed: {e}")
