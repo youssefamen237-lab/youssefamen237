@@ -6,13 +6,18 @@ on:
     - cron: '0 10 * * 6'
   workflow_dispatch:
 
+# === الإصلاح: إعطاء صلاحيات الكتابة للبوت ===
+permissions:
+  contents: write
+
 jobs:
   build-and-upload:
     runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v3
-
+    
+    # باقي الخطوات كما هي...
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -41,13 +46,10 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        
-        # === الإصلاح: التحقق من وجود الملف وإنشاء ملف فارغ إذا لم يكن موجوداً ===
         mkdir -p data
         if [ ! -f data/history.json ]; then
           echo "{}" > data/history.json
         fi
-        
         git add data/history.json
         git commit -m "Update history" || echo "No changes to commit"
         git push
