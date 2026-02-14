@@ -232,6 +232,13 @@
       "question": "Which popular dessert's name comes from the French word for 'burnt cream'?",
       "answer": "Creme Brulee",
       "date_iso": "2026-01-17"
+    },
+    {
+      "fp": "2792e749497e29bd24d9526fa4c882ef83d4a25eab99b4c60a3fece9738572f0",
+      "q_norm": "which popular dessert s name translates to pick me up in italian",
+      "question": "Which popular dessert's name translates to 'pick-me-up' in Italian?",
+      "answer": "Tiramisu",
+      "date_iso": "2026-02-14"
     }
   ],
   "publishes": {
@@ -490,6 +497,16 @@
           "artifact": "short-20260117-slot2",
           "fp": "da09e32b3704ba0b9002b1c088962eb483cb0098a79aa70485b6ddacbf73b11b",
           "ts": "2026-01-17T07:36:19.807735+00:00"
+        }
+      }
+    },
+    "20260214": {
+      "shorts": {
+        "1": {
+          "video_id": "NUSuJYyJ8lI",
+          "artifact": "short-20260214-slot1",
+          "fp": "2792e749497e29bd24d9526fa4c882ef83d4a25eab99b4c60a3fece9738572f0",
+          "ts": "2026-02-14T10:59:19.617268+00:00"
         }
       }
     }
