@@ -1,10 +1,9 @@
+moviepy==1.0.3
+Pillow
+numpy
 google-generativeai
 groq
 elevenlabs
-moviepy
-Pillow
 google-api-python-client
 google-auth-oauthlib
 requests
-Pillow
-numpy
