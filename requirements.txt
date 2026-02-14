@@ -4,6 +4,8 @@ numpy
 google-generativeai
 groq
 elevenlabs
+openai
+gtts
 google-api-python-client
 google-auth-oauthlib
 requests
