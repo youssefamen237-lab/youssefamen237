@@ -42,14 +42,20 @@ jobs:
       run: |
         python main.py short
 
-    - name: Commit History Data
+        - name: Commit History Data
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
+        
         mkdir -p data
         if [ ! -f data/history.json ]; then
           echo "{}" > data/history.json
         fi
+        
         git add data/history.json
         git commit -m "Update history" || echo "No changes to commit"
-        git push
+        
+        # === الإصلاح: سحب التحديثات الجديدة من الريموت ودمجها قبل الرفع ===
+        git pull --rebase origin ${{ github.ref_name }}
+        
+        git push origin ${{ github.ref_name }}
