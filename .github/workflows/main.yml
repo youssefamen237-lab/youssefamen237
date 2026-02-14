@@ -1,0 +1,50 @@
+name: YouTube Automation Engine
+
+on:
+  schedule:
+    # 4 Shorts daily at variable times (UTC approx)
+    - cron: '0 8,12,16,20 * * *'
+    # 1 Long video weekly (e.g., Saturday)
+    - cron: '0 10 * * 6'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Dependencies
+      run: |
+        pip install -r requirements.txt
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg imagemagick
+
+    - name: Run Short Production
+      if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+        YT_CLIENT_ID_1: ${{ secrets.YT_CLIENT_ID_1 }}
+        YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
+        YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
+        UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+        # Add other keys here
+      run: |
+        # Logic to alternate between short and long based on cron
+        # For simplicity, triggering short generation:
+        python main.py short
+
+    - name: Commit History Data
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add data/history.json
+        git commit -m "Update history" || echo "No changes to commit"
+        git push
