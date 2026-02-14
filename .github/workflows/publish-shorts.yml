@@ -54,13 +54,13 @@ jobs:
       - name: Publish shorts
         run: |
           mkdir -p state data out
-          python MASTER_RUN.py || true
+          python publish_shorts.py
       
       - name: Commit changes
         run: |
           git config user.name "yt-auto[bot]"
           git config user.email "action@github.com"
           git add state/ data/ || true
-          git commit -m "chore: update state from shorts publishing" || true
+          git commit -m "chore: update state from shorts publishing - $(date -u +%Y-%m-%d)" || true
           git push || true
 

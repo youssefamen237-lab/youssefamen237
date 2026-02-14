@@ -19,6 +19,17 @@ def setup_environment():
         load_dotenv(env_file)
         print("  ✓ Loaded .env configuration")
     
+    # Check for YouTube credentials
+    required = ["YT_CLIENT_ID_1", "YT_CLIENT_SECRET_1", "YT_REFRESH_TOKEN_1"]
+    missing = [e for e in required if not os.getenv(e)]
+    if missing:
+        print(f"\n⚠️  WARNING: Missing YouTube credentials:")
+        for m in missing:
+            print(f"   - {m}")
+        print("\n➡️  To enable YouTube uploads, add these to .env or GitHub Secrets:")
+        print("   Settings → Secrets and variables → Actions")
+        print("\nℹ️  System will still generate videos without YouTube credentials.\n")
+    
     # تحقق من المجلدات
     for folder in ["state", "data", "out", "assets/backgrounds"]:
         Path(folder).mkdir(parents=True, exist_ok=True)

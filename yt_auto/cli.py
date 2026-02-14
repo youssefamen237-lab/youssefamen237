@@ -68,14 +68,11 @@ def _build_short_pipeline(cfg, state: StateStore, slot: int, date_yyyymmdd: str)
     if state.was_short_published(date_yyyymmdd, slot):
         return ("", "")
 
-    # Check if we have YouTube OAuth configured
+    # Require YouTube OAuth for actual uploads
     if not cfg.youtube_oauths:
-        print("⚠️ No YouTube OAuth configured. Running in demo mode.")
-        print("   Video will be generated but not uploaded.")
-        demo_mode = True
-    else:
-        demo_mode = False
-        uploader = YouTubeUploader(cfg.youtube_oauths)
+        raise RuntimeError("YouTube OAuth credentials required. Set YT_CLIENT_ID_1, YT_CLIENT_SECRET_1, YT_REFRESH_TOKEN_1 environment variables.")
+    
+    uploader = YouTubeUploader(cfg.youtube_oauths)
 
     base_seed = _seed_for(slot, date_yyyymmdd)
 
@@ -107,23 +104,19 @@ def _build_short_pipeline(cfg, state: StateStore, slot: int, date_yyyymmdd: str)
 
     desc = _final_short_description(quiz.description, quiz.hashtags)
 
-    # Upload only if OAuth is configured
-    if not demo_mode:
-        res = uploader.upload_video(
-            file_path=out_mp4,
-            title=quiz.title,
-            description=desc,
-            tags=quiz.tags,
-            category_id=cfg.category_id_short,
-            privacy_status=cfg.privacy_short,
-            made_for_kids=cfg.made_for_kids,
-            default_language=cfg.language,
-            default_audio_language=cfg.language,
-        )
-        video_id = res.video_id
-    else:
-        video_id = f"demo-{date_yyyymmdd}-slot{slot}"
-        print(f"✓ Video created (demo mode): {out_mp4}")
+    # Upload video to YouTube
+    res = uploader.upload_video(
+        file_path=out_mp4,
+        title=quiz.title,
+        description=desc,
+        tags=quiz.tags,
+        category_id=cfg.category_id_short,
+        privacy_status=cfg.privacy_short,
+        made_for_kids=cfg.made_for_kids,
+        default_language=cfg.language,
+        default_audio_language=cfg.language,
+    )
+    video_id = res.video_id
 
     date_iso = datetime.strptime(date_yyyymmdd, "%Y%m%d").strftime("%Y-%m-%d")
     state.add_used_question(quiz.question, quiz.answer, date_iso)
@@ -135,7 +128,8 @@ def _build_short_pipeline(cfg, state: StateStore, slot: int, date_yyyymmdd: str)
 
     tts_wav.unlink(missing_ok=True)
 
-    return (video_id, "demo" if demo_mode else "tts")
+    return (video_id, "youtube")
+
 
 
 def _build_long_pipeline(cfg, state: StateStore, date_yyyymmdd: str) -> str:
@@ -147,6 +141,10 @@ def _build_long_pipeline(cfg, state: StateStore, date_yyyymmdd: str) -> str:
     token = cfg.github_token.strip()
     if not token:
         return ""
+
+    # Require YouTube OAuth for uploads
+    if not cfg.youtube_oauths:
+        raise RuntimeError("YouTube OAuth credentials required. Set YT_CLIENT_ID_2, YT_CLIENT_SECRET_2, YT_REFRESH_TOKEN_2 environment variables.")
 
     owner_repo = _repo_full_name()
 

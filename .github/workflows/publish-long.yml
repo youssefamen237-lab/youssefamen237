@@ -52,13 +52,13 @@ jobs:
       - name: Publish long video
         run: |
           mkdir -p state data out
-          python -m yt_auto long || true
+          python publish_long.py
       
       - name: Commit changes
         run: |
           git config user.name "yt-auto[bot]"
           git config user.email "action@github.com"
           git add state/ data/ || true
-          git commit -m "chore: long video published" || true
+          git commit -m "chore: long video published - $(date -u +%Y-%m-%d)" || true
           git push || true
 
