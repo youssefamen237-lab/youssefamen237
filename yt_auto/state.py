@@ -54,6 +54,10 @@ class StateStore:
     def save(self) -> None:
         self._save()
 
+    def load_state(self) -> dict[str, Any]:
+        """Return current state data."""
+        return self.data
+
     def is_bootstrapped(self) -> bool:
         return bool(self.data.get("bootstrapped", False))
 

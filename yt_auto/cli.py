@@ -8,6 +8,7 @@ from yt_auto.config import load_config
 from yt_auto.github_artifacts import download_shorts_for_date
 from yt_auto.images import pick_background
 from yt_auto.llm import generate_quiz_item
+from yt_auto.manager import ContentAnalyzer, StrategyOptimizer, RiskManager
 from yt_auto.safety import validate_text_is_safe
 from yt_auto.state import StateStore
 from yt_auto.thumbnail import build_long_thumbnail
@@ -194,6 +195,62 @@ def _build_long_pipeline(cfg, state: StateStore, date_yyyymmdd: str) -> str:
     return res.video_id
 
 
+def _analyze_and_optimize(cfg, state: StateStore) -> None:
+    """Analyze video performance and optimize strategy."""
+    analyzer = ContentAnalyzer(cfg)
+    optimizer = StrategyOptimizer(cfg, analyzer)
+    risk_manager = RiskManager(cfg)
+
+    # Get recent published videos from state
+    state_data = state.load_state()
+    
+    print("Analyzing recent performance...")
+    shorts = state_data.get("shorts", {})
+    for date_key, date_shorts in shorts.items():
+        for slot_data in date_shorts.values():
+            if isinstance(slot_data, dict) and "video_id" in slot_data:
+                video_id = slot_data["video_id"]
+                metadata = {
+                    "template": "unknown",
+                    "voice": "elevenlabs",
+                    "posting_time": "auto",
+                    "background_id": "random",
+                    "cta_index": 0,
+                    "title_pattern": "varied",
+                }
+                _ = analyzer.analyze_short_performance(video_id, metadata)
+
+    # Get long videos
+    longs = state_data.get("longs", {})
+    for date_key, long_data in longs.items():
+        if isinstance(long_data, dict) and "video_id" in long_data:
+            video_id = long_data["video_id"]
+            metadata = {"length_seconds": 300}
+            _ = analyzer.analyze_long_performance(video_id, metadata)
+
+    # Get recommendations
+    recommendations = analyzer.get_recommendations()
+    print("\nOptimization Recommendations:")
+    print(f"Best templates: {recommendations['best_templates']}")
+    print(f"Best voices: {recommendations['best_voices']}")
+    print(f"Best posting times: {recommendations['best_posting_times']}")
+
+    # Update strategy
+    if optimizer.should_update_strategy():
+        optimizer.update_strategy()
+        print("\nStrategy updated based on analysis.")
+
+    # Check risk level
+    risk_level = risk_manager.get_risk_level()
+    print(f"\nCurrent risk level: {risk_level}")
+    if risk_level != "low":
+        print("Risk mitigation recommendations:")
+        for rec in risk_manager.get_recommendations():
+            print(f"  - {rec}")
+
+    print("\nAnalysis complete. Strategy optimized.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="yt_auto")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -207,6 +264,8 @@ def main() -> int:
 
     p_long = sub.add_parser("long")
     p_long.add_argument("--date", required=False, default="")
+
+    p_analyze = sub.add_parser("analyze")
 
     args = parser.parse_args()
     cfg = load_config()
@@ -237,6 +296,10 @@ def main() -> int:
         if not date_yyyymmdd:
             date_yyyymmdd = datetime.now(timezone.utc).strftime("%Y%m%d")
         _ = _build_long_pipeline(cfg, state, date_yyyymmdd=date_yyyymmdd)
+        return 0
+
+    if args.cmd == "analyze":
+        _analyze_and_optimize(cfg, state)
         return 0
 
     return 2

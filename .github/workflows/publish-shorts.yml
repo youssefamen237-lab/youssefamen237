@@ -1,0 +1,64 @@
+name: Publish YouTube Shorts
+
+on:
+  schedule:
+    # Run every hour to check if a short should be published
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: 'Slot number (1-4)'
+        required: false
+        default: '1'
+
+jobs:
+  publish-short:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+      YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
+      YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
+      YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+      YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          apt-get update && apt-get install -y ffmpeg fontconfig
+      
+      - name: Check and publish shorts
+        run: |
+          python -m yt_auto short --slot 1 || true
+          python -m yt_auto short --slot 2 || true
+          python -m yt_auto short --slot 3 || true
+          python -m yt_auto short --slot 4 || true
+      
+      - name: Commit state changes
+        run: |
+          git config user.name "yt-auto[bot]"
+          git config user.email "action@github.com"
+          git add state/ data/ || true
+          git commit -m "chore: update state after publishing" || true
+          git push || true

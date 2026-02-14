@@ -184,3 +184,51 @@ class YouTubeUploader:
                     time.sleep(backoff_sleep_s(attempt, policy))
 
         raise RuntimeError(f"youtube_set_thumbnail_failed: {last_err!r}")
+    def get_video_stats(self, video_id: str) -> dict[str, Any]:
+        """Get video analytics stats (views, likes, comments, etc)."""
+        for oauth in self.oauth_list:
+            try:
+                service = self._service_for(oauth)
+
+                # Get video statistics
+                request = service.videos().list(
+                    part="statistics,contentDetails",
+                    id=video_id,
+                    fields="items(id,statistics,contentDetails)"
+                )
+                response = request.execute()
+
+                if not response.get("items"):
+                    return {}
+
+                item = response["items"][0]
+                stats = item.get("statistics", {})
+                contents = item.get("contentDetails", {})
+
+                return {
+                    "views": int(stats.get("viewCount", 0)),
+                    "likes": int(stats.get("likeCount", 0)),
+                    "comments": int(stats.get("commentCount", 0)),
+                    "shares": 0,  # YouTube API doesn't expose shares
+                    "watch_time": 0,  # Requires analytics API
+                    "duration_seconds": self._parse_duration(contents.get("duration", "PT0S")),
+                    "average_view_duration": 0,  # Requires analytics API
+                }
+            except Exception:
+                continue
+
+        return {}
+
+    def _parse_duration(self, duration_str: str) -> int:
+        """Parse ISO 8601 duration string to seconds."""
+        try:
+            import re
+            match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration_str or "")
+            if not match:
+                return 0
+            hours = int(match.group(1) or 0)
+            minutes = int(match.group(2) or 0)
+            seconds = int(match.group(3) or 0)
+            return hours * 3600 + minutes * 60 + seconds
+        except Exception:
+            return 0
