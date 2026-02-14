@@ -1,3 +1,7 @@
+import warnings
+# Ignore the specific FutureWarning for google generativeai
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 import google.generativeai as genai
 from groq import Groq
 import random
@@ -39,8 +43,13 @@ class ContentEngine:
             try:
                 response = self.model.generate_content(prompt)
                 # Basic cleaning of response
-                text = response.text.strip().replace("```json", "").replace("```", "")
-                content = eval(text) # Use json.loads in production ideally
+                text = response.text.strip()
+                # Remove markdown code blocks if present
+                if text.startswith("```"):
+                    text = text.split("\n", 1)[1] # Remove first line
+                    text = text.rsplit("```", 1)[0] # Remove last line
+                
+                content = eval(text) 
             except Exception as e:
                 print(f"Gemini failed: {e}")
         
@@ -52,6 +61,9 @@ class ContentEngine:
                     model="llama3-8b-8192",
                 )
                 text = chat_completion.choices[0].message.content.strip()
+                if text.startswith("```"):
+                    text = text.split("\n", 1)[1]
+                    text = text.rsplit("```", 1)[0]
                 content = eval(text)
             except Exception as e:
                 print(f"Groq failed: {e}")
