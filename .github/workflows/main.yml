@@ -41,7 +41,7 @@ jobs:
         YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
         UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        # Add other keys here
+        # Add other keys from your list as needed (PEXELS, etc.)
       run: |
         python main.py short
 
