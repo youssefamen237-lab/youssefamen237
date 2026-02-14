@@ -1,11 +1,50 @@
-from moviepy.editor import *
-from PIL import Image
+import os
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
+from moviepy.editor import *
 from src.asset_manager import AssetManager
 
 class VideoProducer:
     def __init__(self):
         self.asset_manager = AssetManager()
+        self.width = 1080
+        self.height = 1920
+
+    def _create_text_image(self, text, bg_color=(0, 0, 0, 180), fontsize=60):
+        """Generates a transparent image with text using PIL to avoid ImageMagick issues."""
+        # Create a transparent image
+        img = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 0))
+        
+        # Load a default font
+        try:
+            font = ImageFont.truetype("arial.ttf", fontsize)
+        except IOError:
+            font = ImageFont.load_default()
+
+        draw = ImageDraw.Draw(img)
+        
+        # Calculate text size and position (Center)
+        # Use textbbox for newer Pillow versions
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        x = (self.width - text_width) / 2
+        y = (self.height - text_height) / 2
+        
+        # Draw background rectangle for readability (Safe Area)
+        padding = 20
+        rect_x0 = x - padding
+        rect_y0 = y - padding
+        rect_x1 = x + text_width + padding
+        rect_y1 = y + text_height + padding
+        draw.rectangle([rect_x0, rect_y0, rect_x1, rect_y1], fill=bg_color)
+        
+        # Draw text
+        draw.text((x, y), text, fill="white", font=font)
+        
+        # Convert to numpy array for MoviePy
+        return np.array(img)
 
     def create_short(self, content, cta):
         # 1. Prepare Assets
@@ -33,33 +72,35 @@ class VideoProducer:
         total_dur = q_dur + cta_dur + timer_dur + answer_dur
         
         # 2. Video Composition
-        bg_clip = ImageClip(bg_path).set_duration(total_dur).resize(height=1920).set_position("center")
-        
-        # Text Clips (Safe Area)
-        def create_text(txt, duration, start, fontsize=60):
-            return TextClip(txt, fontsize=fontsize, color='white', bg_color='rgba(0,0,0,0.6)', 
-                            size=(1000, None), method='caption', align='center', font='Arial-Bold') \
-                            .set_duration(duration).set_start(start).set_position("center")
+        # Background Clip
+        bg_clip = ImageClip(bg_path).set_duration(total_dur).resize(height=self.height)
+        # Ensure background covers area
+        bg_clip = bg_clip.resize(lambda t: 1 + 0.01*t) # Slight zoom effect to avoid static look (optional)
+        bg_clip = bg_clip.set_position("center").resize(height=self.height) # Reset resize logic to simple fit
+        bg_clip = ImageClip(bg_path).set_duration(total_dur).resize(newsize=(self.width, self.height))
 
-        txt_question = create_text(content['question'], q_dur, 0)
-        
-        # Timer Visual
-        txt_timer = TextClip("5", fontsize=150, color='red', font='Arial-Bold') \
-                    .set_duration(timer_dur).set_start(q_dur + cta_dur).set_position("center")
-        
-        # Answer Reveal
+        # Text Clips using PIL
+        # Question Text
+        q_img = self._create_text_image(content['question'], fontsize=50)
+        txt_question = ImageClip(q_img).set_duration(q_dur).set_start(0)
+
+        # Timer Text
+        timer_img = self._create_text_image("5", bg_color=(255, 0, 0, 150), fontsize=100)
+        txt_timer = ImageClip(timer_img).set_duration(timer_dur).set_start(q_dur + cta_dur)
+
+        # Answer Text
         ans_text = f"Answer: {content['answer']}"
-        txt_answer = TextClip(ans_text, fontsize=80, color='yellow', font='Arial-Bold') \
-                     .set_duration(answer_dur).set_start(q_dur + cta_dur + timer_dur).set_position("center")
+        ans_img = self._create_text_image(ans_text, bg_color=(0, 100, 0, 180), fontsize=70)
+        txt_answer = ImageClip(ans_img).set_duration(answer_dur).set_start(q_dur + cta_dur + timer_dur)
 
-        # Composite
+        # Composite Video
         video = CompositeVideoClip([bg_clip, txt_question, txt_timer, txt_answer])
         
-        # Audio Composite
+        # Composite Audio
         audio = CompositeAudioClip([
             q_audio.set_start(0),
-            cta_audio.set_start(q_dur),
-            # Silence for timer and answer
+            cta_audio.set_start(q_dur)
+            # Silence for timer and answer is implied by missing audio
         ])
         
         video = video.set_audio(audio)
@@ -67,14 +108,13 @@ class VideoProducer:
         # 3. Export
         output_path = "output/short.mp4"
         os.makedirs("output", exist_ok=True)
-        video.write_videofile(output_path, fps=24, codec='libx264', audio_codec='aac')
-        return output_path
-
-    def create_long_compilation(self, shorts_list):
-        # Logic to stitch shorts or generate long content
-        # Simplified: Concatenation of files
-        clips = [VideoFileClip(s) for s in shorts_list]
-        final_clip = concatenate_videoclips(clips)
-        output_path = "output/long_video.mp4"
-        final_clip.write_videofile(output_path, fps=24)
+        
+        # Use threads for faster export
+        video.write_videofile(output_path, fps=24, codec='libx264', audio_codec='aac', threads=4)
+        
+        # Clean up
+        q_audio.close()
+        cta_audio.close()
+        video.close()
+        
         return output_path
