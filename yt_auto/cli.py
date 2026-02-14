@@ -149,9 +149,27 @@ def _build_long_pipeline(cfg, state: StateStore, date_yyyymmdd: str) -> str:
 
     uploader = YouTubeUploader(cfg.youtube_oauths)
 
-    title = f"Quizzaro Daily Compilation ({date_yyyymmdd})"
-    desc = "Today's 10-second quizzes in one compilation.\n\nSubscribe to Quizzaro for more!"
-    tags = ["quiz", "trivia", "compilation", "daily quiz", "brain teaser", "knowledge", "quizzaro"]
+    # Generate dynamic titles for long compilations
+    title_options = [
+        f"🧠 Ultimate Quizzaro Daily Compilation - {date_yyyymmdd}",
+        f"📚 Today's Brain Teasers | Quizzaro Quiz Marathon {date_yyyymmdd}",
+        f"⚡ 10-Second Quiz Challenge Compilation - {date_yyyymmdd}",
+        f"🎯 Quizzaro Daily Trivia Dump - Can You Score Perfect? {date_yyyymmdd}",
+        f"🔥 Test Your Knowledge | Quizzaro Daily Shorts {date_yyyymmdd}",
+    ]
+    base_seed_long = abs(hash(date_yyyymmdd)) % (10**9)
+    import random as _r
+    title = _r.Random(base_seed_long).choice(title_options)
+    
+    desc = """🎯 Can you get them all right? Today's Quizzaro daily quiz compilation featuring 10-second brain teasers!
+
+⭐ Challenge yourself and comment your scores below!
+📺 Subscribe to Quizzaro for daily trivia, brain teasers, and quick knowledge challenges
+🧠 Perfect for testing your knowledge and learning fun facts
+
+#quizzaro #quiz #trivia #brainfteaser #shorts #daily #challenge #education"""
+    
+    tags = ["quiz", "trivia", "compilation", "daily quiz", "brain teaser", "knowledge", "quizzaro", "shorts", "challenge", "education", "learning", "viral", "educational content", "mind puzzle", "IQ test"]
 
     res = uploader.upload_video(
         file_path=out_long,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import random
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -20,18 +21,40 @@ def build_long_thumbnail(cfg: Config, bg_image: Path, out_jpg: Path, date_yyyymm
     font_big = ImageFont.truetype(cfg.fontfile, 78)
     font_small = ImageFont.truetype(cfg.fontfile, 46)
 
-    title = "Quizzaro Compilation"
+    # Generate dynamic titles and use random colors
+    r = random.Random(abs(hash(date_yyyymmdd)) % (10**9))
+    
+    titles = [
+        "Quizzaro",
+        "Brain Teasers",
+        "Quiz Challenge",
+        "Trivia Time",
+        "Think Fast",
+    ]
+    
+    colors = [
+        (255, 100, 100),  # Red
+        (100, 200, 255),  # Blue
+        (100, 255, 150),  # Green
+        (255, 200, 100),  # Orange
+        (200, 100, 255),  # Purple
+        (255, 255, 100),  # Yellow
+    ]
+    
+    title = r.choice(titles)
+    color = r.choice(colors)
     subtitle = date_yyyymmdd
 
-    _center_text(draw, (640, 300), title, font_big)
-    _center_text(draw, (640, 400), subtitle, font_small)
+    _center_text(draw, (640, 300), title, font_big, text_color=color)
+    _center_text(draw, (640, 400), subtitle, font_small, text_color=(255, 255, 255))
 
     base.save(out_jpg, quality=92)
 
 
-def _center_text(draw: ImageDraw.ImageDraw, center: tuple[int, int], text: str, font: ImageFont.FreeTypeFont) -> None:
+def _center_text(draw: ImageDraw.ImageDraw, center: tuple[int, int], text: str, font: ImageFont.FreeTypeFont, text_color: tuple[int, int, int] = (255, 255, 255)) -> None:
     w, h = draw.textbbox((0, 0), text, font=font)[2:]
     x = int(center[0] - w / 2)
     y = int(center[1] - h / 2)
     draw.rectangle([x - 28, y - 18, x + w + 28, y + h + 18], fill=(0, 0, 0, 160))
-    draw.text((x, y), text, font=font, fill=(255, 255, 255))
+    draw.text((x, y), text, font=font, fill=text_color)
+

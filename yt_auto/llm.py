@@ -105,8 +105,23 @@ def _prompt(seed: int) -> str:
         "Sports: general records (non-controversial, timeless)",
         "Tech: basic computing facts",
     ]
+    
+    title_styles = [
+        "Can you answer this in 10 seconds?",
+        "Test your knowledge!",
+        "Challenge yourself now!",
+        "How smart are you?",
+        "Brain teaser alert!",
+        "Can you solve this?",
+        "Bet you can't get this!",
+        "Quick brain challenge!",
+        "Think fast!",
+        "Knowledge check!",
+    ]
+    
     r = random.Random(seed)
     chosen = r.choice(formats)
+    title_style = r.choice(title_styles)
 
     return f"""
 Create ONE original YouTube Shorts quiz item for an English-speaking audience for the channel: {channel}
@@ -126,14 +141,16 @@ Return ONLY valid JSON with these keys:
   "question": "question text",
   "answer": "answer text",
   "cta": "VERY short call-to-action spoken after the question (max 60 chars)",
-  "title": "a strong SHORTS title (max 90 chars, include 'Quizzaro' if possible)",
-  "description": "SEO description (max 600 chars). Include: 1) one-line hook, 2) 'Comment your answer', 3) 'Subscribe to Quizzaro'.",
-  "tags": ["12-18 simple tags (no hashtags here)"],
-  "hashtags": ["#shorts", "#quizzaro", "#quiz", "#trivia", "#challenge", "... up to 8 total"]
+  "title": "a creative and engaging SHORTS title (max 90 chars). Style: {title_style}. Use emoji if fitting, include category, DO NOT repeat. Make it unique & shareable.",
+  "description": "SEO-optimized description (max 600 chars). MUST include: 1) Engaging hook about the topic, 2) 'Comment your answer below!', 3) 'Subscribe to Quizzaro for daily quizzes!', 4) Keywords for search: trivia, quiz, challenge, brain teaser.",
+  "tags": ["quiz", "trivia", "shorts", "challenge", "brain teaser", "educational", "knowledge", "quick quiz", "fun facts", "learn", "entertainment", "quizzaro", "viral", "education", "general knowledge", "IQ test", "riddle", "learning"],
+  "hashtags": ["#shorts", "#quizzaro", "#quiz", "#trivia", "#challenge", "#brainteaser", "#educational", "#viral"]
 }}
 
 Content style for this item: {chosen}
 Seed hint: {seed}
+
+CRITICAL: Make each title UNIQUE and CREATIVE. Vary the structure, tone, and appeal. Mix different call-to-actions. Never repeat the same title pattern.
 """.strip()
 
 
