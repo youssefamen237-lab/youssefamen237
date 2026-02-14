@@ -2,17 +2,12 @@ name: Publish YouTube Shorts
 
 on:
   schedule:
-    # Run every hour to check if a short should be published
-    - cron: '0 * * * *'
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
   workflow_dispatch:
-    inputs:
-      slot:
-        description: 'Slot number (1-4)'
-        required: false
-        default: '1'
 
 jobs:
-  publish-short:
+  publish:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
@@ -22,6 +17,12 @@ jobs:
       OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+      YT_CLIENT_ID_1: ${{ secrets.YT_CLIENT_ID_1 }}
+      YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
+      YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
+      YT_CLIENT_ID_2: ${{ secrets.YT_CLIENT_ID_2 }}
+      YT_CLIENT_SECRET_2: ${{ secrets.YT_CLIENT_SECRET_2 }}
+      YT_REFRESH_TOKEN_2: ${{ secrets.YT_REFRESH_TOKEN_2 }}
       YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
       YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
       YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
@@ -42,23 +43,24 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
       
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          apt-get update && apt-get install -y ffmpeg fontconfig
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fontconfig
       
-      - name: Check and publish shorts
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Publish shorts
         run: |
-          python -m yt_auto short --slot 1 || true
-          python -m yt_auto short --slot 2 || true
-          python -m yt_auto short --slot 3 || true
-          python -m yt_auto short --slot 4 || true
+          mkdir -p state data out
+          python MASTER_RUN.py || true
       
-      - name: Commit state changes
+      - name: Commit changes
         run: |
           git config user.name "yt-auto[bot]"
           git config user.email "action@github.com"
           git add state/ data/ || true
-          git commit -m "chore: update state after publishing" || true
+          git commit -m "chore: update state from shorts publishing" || true
           git push || true
+

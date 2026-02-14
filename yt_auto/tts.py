@@ -36,6 +36,13 @@ def synthesize_tts(cfg: Config, text: str, out_wav: Path) -> str:
             except Exception as e:
                 last_err = e
 
+        if p == "espeak":
+            try:
+                _espeak_to_wav(text, out_wav)
+                return "espeak"
+            except Exception as e:
+                last_err = e
+
     if last_err:
         raise last_err
     raise RuntimeError("no_tts_provider_available")
@@ -127,3 +134,19 @@ def _ffmpeg_convert_audio(in_path: Path, out_wav: Path) -> None:
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0:
         raise RuntimeError(f"ffmpeg_audio_convert_failed: {p.stderr[:500]}")
+
+def _espeak_to_wav(text: str, out_wav: Path) -> None:
+    import subprocess
+
+    ensure_dir(out_wav.parent)
+    cmd = [
+        "espeak",
+        "-w",
+        str(out_wav),
+        "-s",
+        "120",
+        text,
+    ]
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    if p.returncode != 0:
+        raise RuntimeError(f"espeak_failed: {p.stderr[:500]}")
