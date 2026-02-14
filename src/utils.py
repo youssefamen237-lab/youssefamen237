@@ -8,10 +8,15 @@ PERFORMANCE_FILE = "data/performance.json"
 def load_json(filepath):
     if not os.path.exists(filepath):
         return {}
-    with open(filepath, 'r') as f:
-        return json.load(f)
+    try:
+        with open(filepath, 'r') as f:
+            return json.load(f)
+    except:
+        return {}
 
 def save_json(filepath, data):
+    # === الإصلاح: إنشاء المجلد إذا لم يكن موجوداً ===
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w') as f:
         json.dump(data, f, indent=4)
 
@@ -29,10 +34,8 @@ def update_history(video_id, question, template, date_str):
 
 def is_question_used(question):
     history = get_history()
-    fifteen_days_ago = datetime.now() - timedelta(days=15)
-    
+    # Check last 15 days logic simplified
     for vid, data in history.items():
-        # Check exact match or high similarity (simplified here)
         if data['question'] == question:
             return True
     return False
