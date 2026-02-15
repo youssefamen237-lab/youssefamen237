@@ -1,0 +1,54 @@
+import json
+import random
+import datetime
+from config import QUESTIONS_FILE, CONTENT_TYPES
+
+class QuestionManager:
+    def __init__(self):
+        self.questions_file = QUESTIONS_FILE
+        self.load_questions()
+    
+    def load_questions(self):
+        try:
+            with open(self.questions_file, 'r', encoding='utf-8') as f:
+                self.questions = json.load(f)
+        except FileNotFoundError:
+            self.questions = []
+    
+    def save_questions(self):
+        with open(self.questions_file, 'w', encoding='utf-8') as f:
+            json.dump(self.questions, f, ensure_ascii=False, indent=2)
+    
+    def get_unique_question_template(self):
+        """Returns a template that hasn't been used recently"""
+        # Filter questions from last 15 days
+        fifteen_days_ago = datetime.datetime.now() - datetime.timedelta(days=15)
+        recent_questions = [
+            q for q in self.questions 
+            if datetime.datetime.fromisoformat(q['timestamp']) > fifteen_days_ago
+        ]
+        
+        recent_templates = [q['template'] for q in recent_questions]
+        
+        # Find an available template not used recently
+        available_templates = [t for t in CONTENT_TYPES if t not in recent_templates]
+        
+        if not available_templates:
+            # If all templates are recently used, pick randomly
+            selected_template = random.choice(CONTENT_TYPES)
+        else:
+            selected_template = random.choice(available_templates)
+        
+        return selected_template
+    
+    def add_question(self, question_text, answer, template_type):
+        new_question = {
+            'question': question_text,
+            'answer': answer,
+            'template': template_type,
+            'timestamp': datetime.datetime.now().isoformat(),
+            'used_count': 1
+        }
+        self.questions.append(new_question)
+        self.save_questions()
+        return new_question

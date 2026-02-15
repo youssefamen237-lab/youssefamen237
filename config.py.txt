@@ -1,0 +1,51 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# API Keys
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+ELEVEN_API_KEY = os.getenv('ELEVEN_API_KEY')
+YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
+YT_CHANNEL_ID = os.getenv('YT_CHANNEL_ID')
+YT_CLIENT_ID_1 = os.getenv('YT_CLIENT_ID_1')
+YT_CLIENT_SECRET_1 = os.getenv('YT_CLIENT_SECRET_1')
+YT_REFRESH_TOKEN_1 = os.getenv('YT_REFRESH_TOKEN_1')
+YT_CLIENT_ID_2 = os.getenv('YT_CLIENT_ID_2')
+YT_CLIENT_SECRET_2 = os.getenv('YT_CLIENT_SECRET_2')
+YT_REFRESH_TOKEN_2 = os.getenv('YT_REFRESH_TOKEN_2')
+YT_CLIENT_ID_3 = os.getenv('YT_CLIENT_ID_3')
+YT_CLIENT_SECRET_3 = os.getenv('YT_CLIENT_SECRET_3')
+YT_REFRESH_TOKEN_3 = os.getenv('YT_REFRESH_TOKEN_3')
+
+# Image APIs
+PEXELS_API_KEY = os.getenv('PEXELS_API_KEY')
+PIXABAY_API_KEY = os.getenv('PIXABAY_API_KEY')
+UNSPLASH_ACCESS_KEY = os.getenv('UNSPLASH_ACCESS_KEY')
+
+# Paths
+QUESTIONS_FILE = 'data/questions.json'
+THUMBNAILS_DIR = 'images/thumbnails/'
+BACKGROUND_DIR = 'images/backgrounds/'
+AUDIO_DIR = 'audio/'
+VIDEOS_DIR = 'videos/'
+LOGS_DIR = 'logs/'
+
+# Content settings
+CONTENT_TYPES = [
+    'True / False',
+    'Multiple Choice', 
+    'سؤال مباشر',
+    'Guess the Answer',
+    'Quick Challenge',
+    'Only Geniuses',
+    'Memory Test',
+    'Visual Question'
+]
+
+# Publishing schedule
+DAILY_SHORTS_COUNT = 4
+WEEKLY_LONG_VIDEOS = 4
+SHORT_DURATION = 5  # seconds countdown + answer
+LONG_VIDEO_MINUTES = 5

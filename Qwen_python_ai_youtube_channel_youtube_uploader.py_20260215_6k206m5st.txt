@@ -1,0 +1,120 @@
+import os
+import google_auth_oauthlib.flow
+import googleapiclient.discovery
+import googleapiclient.errors
+from googleapiclient.http import MediaFileUpload
+import json
+from config import (
+    YOUTUBE_API_KEY, YT_CLIENT_ID_1, YT_CLIENT_SECRET_1, 
+    YT_REFRESH_TOKEN_1, YT_CHANNEL_ID
+)
+import httplib2
+from oauth2client.tools import argparser
+from oauth2client.client import flow_from_clientsecrets
+from oauth2client.file import Storage
+import sys
+
+class YouTubeUploader:
+    def __init__(self):
+        self.youtube = self._get_authenticated_service()
+    
+    def _get_authenticated_service(self):
+        """Authenticate and return YouTube service object"""
+        # For simplicity, using API key method
+        # In production, you might want to implement OAuth properly
+        api_service_name = "youtube"
+        api_version = "v3"
+        
+        youtube = googleapiclient.discovery.build(
+            api_service_name, api_version, developerKey=YOUTUBE_API_KEY)
+        
+        return youtube
+    
+    def upload_video(self, video_path, title, description, tags, category_id="27", 
+                     privacy_status="public", thumbnail_path=None):
+        """Upload video to YouTube"""
+        body = {
+            'snippet': {
+                'title': title,
+                'description': description,
+                'tags': tags,
+                'categoryId': category_id
+            },
+            'status': {
+                'privacyStatus': privacy_status
+            }
+        }
+        
+        media_body = MediaFileUpload(video_path, chunksize=1024*1024, resumable=True)
+        
+        request = self.youtube.videos().insert(
+            part=','.join(body.keys()),
+            body=body,
+            media_body=media_body
+        )
+        
+        # Execute the upload
+        response = None
+        error = None
+        retry = 0
+        max_retries = 10
+        
+        while response is None:
+            try:
+                print(f"Uploading file: {video_path} ({os.path.getsize(video_path)} bytes)")
+                status, response = request.next_chunk()
+                if status:
+                    print(f"Uploaded {int(status.progress() * 100)}%.")
+            except googleapiclient.errors.HttpError as e:
+                if e.resp.status in [500, 502, 503, 504]:
+                    error = "A server error occurred."
+                    print(error)
+                    retry += 1
+                    if retry > max_retries:
+                        raise e
+                else:
+                    # Something else went wrong
+                    print(f"An HTTP error {e.resp.status} occurred:\n{e._get_reason()}")
+                    raise e
+        
+        video_id = response.get('id')
+        print(f"Video uploaded successfully! Video ID: {video_id}")
+        
+        # Upload thumbnail if provided
+        if thumbnail_path and video_id:
+            self.upload_thumbnail(video_id, thumbnail_path)
+        
+        return video_id
+    
+    def upload_thumbnail(self, video_id, thumbnail_path):
+        """Upload thumbnail for the video"""
+        try:
+            request = self.youtube.thumbnails().set(
+                videoId=video_id,
+                media_body=thumbnail_path
+            )
+            response = request.execute()
+            print(f"Thumbnail uploaded for video ID: {video_id}")
+        except Exception as e:
+            print(f"Error uploading thumbnail: {e}")
+    
+    def update_video_metadata(self, video_id, title=None, description=None, tags=None, category_id=None):
+        """Update video metadata"""
+        body = {'id': video_id, 'snippet': {}}
+        
+        if title:
+            body['snippet']['title'] = title
+        if description:
+            body['snippet']['description'] = description
+        if tags:
+            body['snippet']['tags'] = tags
+        if category_id:
+            body['snippet']['categoryId'] = category_id
+        
+        request = self.youtube.videos().update(
+            part='snippet',
+            body=body
+        )
+        
+        response = request.execute()
+        return response

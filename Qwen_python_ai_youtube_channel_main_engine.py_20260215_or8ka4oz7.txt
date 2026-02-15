@@ -1,0 +1,226 @@
+import os
+import random
+import datetime
+from question_manager import QuestionManager
+from ai_content_generator import AIContentGenerator
+from audio_generator import AudioGenerator
+from video_generator import VideoGenerator
+from image_manager import ImageManager
+from youtube_uploader import YouTubeUploader
+from config import *
+
+class YouTubeChannelEngine:
+    def __init__(self):
+        self.question_manager = QuestionManager()
+        self.ai_generator = AIContentGenerator()
+        self.audio_generator = AudioGenerator()
+        self.video_generator = VideoGenerator()
+        self.image_manager = ImageManager()
+        self.youtube_uploader = YouTubeUploader()
+    
+    def generate_daily_shorts(self, count=DAILY_SHORTS_COUNT):
+        """Generate and upload daily shorts"""
+        print(f"Starting generation of {count} daily shorts...")
+        
+        for i in range(count):
+            try:
+                print(f"Generating short #{i+1}...")
+                
+                # Select a template that hasn't been used recently
+                template_type = self.question_manager.get_unique_question_template()
+                
+                # Generate question and answer
+                question, answer = self.ai_generator.generate_question_and_answer(template_type)
+                
+                # Save the question to avoid repetition
+                self.question_manager.add_question(question, answer, template_type)
+                
+                # Generate filename
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"short_{timestamp}_{i+1}"
+                
+                # Download random background
+                background_path = self.image_manager.select_random_background()
+                if not background_path:
+                    background_path = self.image_manager.download_random_background()
+                
+                # Generate audio for question
+                question_audio = self.audio_generator.generate_question_audio(
+                    f"{question} Can you answer this?",
+                    f"{filename}_q"
+                )
+                
+                # Generate CTA audio
+                cta_variants = [
+                    "If you know the answer before the 5 seconds end, drop it in the comments.",
+                    "Comment your answer before the timer ends!",
+                    "Think you know this? Comment below before time runs out!",
+                    "What do you think the answer is? Tell us in the comments!",
+                    "Can you solve this in 5 seconds? Comment your guess!",
+                    "Time yourself - can you answer before the timer finishes?"
+                ]
+                cta_text = random.choice(cta_variants)
+                cta_audio = self.audio_generator.generate_cta_audio(cta_text, f"{filename}_cta")
+                
+                # Combine audio segments
+                combined_audio_path = os.path.join(AUDIO_DIR, f"{filename}_combined.mp3")
+                self.audio_generator.combine_audio_segments(
+                    [question_audio, cta_audio],
+                    combined_audio_path
+                )
+                
+                # Create video
+                video_path = os.path.join(VIDEOS_DIR, f"{filename}.mp4")
+                self.video_generator.create_short_video(
+                    question, answer, background_path, combined_audio_path, video_path
+                )
+                
+                # Create thumbnail
+                thumbnail_path = self.image_manager.create_thumbnail(question, template_type)
+                
+                # Create metadata
+                title_variants = [
+                    f"Can You Answer This? | {template_type}",
+                    f"Quick Quiz: {question[:50]}...",
+                    f"Only Geniuses Can Solve This! | {template_type}",
+                    f"5 Second Challenge: {question[:40]}...",
+                    f"Test Your Knowledge: {template_type}",
+                    f"Think Fast! {question[:45]}..."
+                ]
+                title = random.choice(title_variants)
+                
+                description = f"""Question: {question}
+
+Answer: {answer}
+
+Can you answer this before the timer ends?
+
+#quiz #trivia #brainTeaser #{template_type.replace(' ', '')} #knowledgeChallenge
+
+{cta_text}"""
+                
+                tags = [
+                    "quiz", "trivia", "brain teaser", "general knowledge",
+                    "guessing game", "riddle", "challenge", template_type.replace(' ', ''),
+                    "think fast", "quick quiz", "knowledge test"
+                ]
+                
+                # Upload to YouTube
+                video_id = self.youtube_uploader.upload_video(
+                    video_path, title, description, tags, 
+                    category_id="27", privacy_status="public", 
+                    thumbnail_path=thumbnail_path
+                )
+                
+                print(f"Successfully uploaded short #{i+1}, video ID: {video_id}")
+                
+            except Exception as e:
+                print(f"Error generating short #{i+1}: {e}")
+                continue
+    
+    def generate_weekly_long_videos(self, count=WEEKLY_LONG_VIDEOS):
+        """Generate and upload weekly long videos"""
+        print(f"Starting generation of {count} weekly long videos...")
+        
+        for i in range(count):
+            try:
+                print(f"Generating long video #{i+1}...")
+                
+                # For long videos, we'll create a compilation of several questions
+                questions_pack = []
+                for j in range(10):  # 10 questions per long video
+                    template_type = random.choice(CONTENT_TYPES)
+                    question, answer = self.ai_generator.generate_question_and_answer(template_type)
+                    questions_pack.append({
+                        'question': question,
+                        'answer': answer,
+                        'template': template_type
+                    })
+                    self.question_manager.add_question(question, answer, template_type)
+                
+                # Generate filename
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"long_{timestamp}_{i+1}"
+                
+                # Create a longer video with multiple questions
+                # This is a simplified version - in practice you'd make it more complex
+                background_path = self.image_manager.select_random_background()
+                if not background_path:
+                    background_path = self.image_manager.download_random_background()
+                
+                # For now, just take the first question as the main one
+                main_q = questions_pack[0]
+                question = main_q['question']
+                answer = main_q['answer']
+                
+                # Generate audio for the main question
+                question_audio = self.audio_generator.generate_question_audio(
+                    f"Let's start with this question: {question}",
+                    f"{filename}_q"
+                )
+                
+                # Create video
+                video_path = os.path.join(VIDEOS_DIR, f"{filename}_long.mp4")
+                self.video_generator.create_short_video(
+                    question, answer, background_path, question_audio, video_path
+                )  # Reusing function, would need expansion for full long videos
+                
+                # Create thumbnail
+                thumbnail_path = self.image_manager.create_thumbnail(question, main_q['template'])
+                
+                # Create metadata for long video
+                title = f"Brain Busters Challenge - {len(questions_pack)} Questions!"
+                description = f"""Welcome to our Brain Busters Challenge!
+
+In this video, we'll test your knowledge with {len(questions_pack)} different types of questions:
+
+"""
+                
+                for idx, q_data in enumerate(questions_pack, 1):
+                    description += f"{idx}. {q_data['question']}\n\n"
+                
+                description += f"""
+
+How many did you get right?
+
+Don't forget to like and subscribe for more challenges!
+"""
+                
+                tags = [
+                    "brain teasers", "trivia questions", "knowledge quiz", 
+                    "general knowledge", "challenging questions", "brain games",
+                    "mental challenge", "intelligence test"
+                ]
+                
+                # Upload to YouTube as long-form content
+                video_id = self.youtube_uploader.upload_video(
+                    video_path, title, description, tags,
+                    category_id="27", privacy_status="public",
+                    thumbnail_path=thumbnail_path
+                )
+                
+                print(f"Successfully uploaded long video #{i+1}, video ID: {video_id}")
+                
+            except Exception as e:
+                print(f"Error generating long video #{i+1}: {e}")
+                continue
+
+def run_daily_task():
+    """Main function to run daily tasks"""
+    print("Starting daily YouTube channel automation...")
+    
+    engine = YouTubeChannelEngine()
+    
+    # Generate daily shorts
+    engine.generate_daily_shorts()
+    
+    # Check if today is a day for long video (once per week)
+    today = datetime.date.today()
+    if today.weekday() == 0:  # Monday
+        print("It's Monday - generating weekly long videos...")
+        engine.generate_weekly_long_videos()
+    
+    print("Daily task completed!")
+
+if __name__ == "__main__":
+    run_daily_task()
