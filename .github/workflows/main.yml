@@ -1,0 +1,38 @@
+name: Daily Shorts
+on:
+  schedule:
+    - cron: 0 0 * * * *
+days: 0
+jobs:
+  daily-shorts:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Use Node.js 14
+      uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+    - name: Install dependencies
+      run: npm install
+    - name: Run daily Shorts
+      run: npm run daily-shorts
+
+name: Weekly Long
+on:
+  schedule:
+    - cron: 0 0 * * 0
+jobs:
+  weekly-long:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Use Node.js 14
+      uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+    - name: Install dependencies
+      run: npm install
+    - name: Run weekly Long
+      run: npm run weekly-long
