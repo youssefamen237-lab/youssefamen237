@@ -1,1 +1,0 @@
-# Self-Governing AI YouTube Channel System
