@@ -1,0 +1,24 @@
+name: Channel Manager Analysis
+
+on:
+  schedule:
+    - cron: '0 23 * * *' # Runs daily at 11 PM
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+      - name: Run Manager
+        env:
+          YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
+          YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
+          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+        run: python main_manager.py
