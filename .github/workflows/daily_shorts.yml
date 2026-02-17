@@ -2,7 +2,6 @@ name: Daily Shorts Automation
 
 on:
   schedule:
-    # Runs 4 times a day at random-ish intervals (0, 6, 12, 18 UTC)
     - cron: '0 0,6,12,18 * * *'
   workflow_dispatch:
 
@@ -17,10 +16,16 @@ jobs:
         with:
           python-version: '3.9'
       
-      - name: Install Dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
+          # Fix ImageMagick policy to allow text processing
+          sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml
+      
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip
           pip install -r requirements.txt
       
       - name: Run Shorts Engine
