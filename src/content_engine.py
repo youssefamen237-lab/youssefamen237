@@ -15,10 +15,14 @@ class ContentEngine:
     def load_history(self):
         if not os.path.exists(self.history_file):
             return {"published_questions": []}
-        with open(self.history_file, 'r') as f:
-            return json.load(f)
+        try:
+            with open(self.history_file, 'r') as f:
+                return json.load(f)
+        except:
+            return {"published_questions": []}
 
     def save_history(self, data):
+        os.makedirs(os.path.dirname(self.history_file), exist_ok=True)
         with open(self.history_file, 'w') as f:
             json.dump(data, f, indent=2)
 
@@ -26,13 +30,10 @@ class ContentEngine:
         history = self.load_history()
         used_questions = history.get("published_questions", [])
         
-        # Load prompts
         with open(self.prompts_file, 'r') as f:
             prompts = json.load(f)
         
         system_instruction = prompts["shorts_system"]
-        
-        # Anti-duplicate logic in prompt
         prompt = f"{system_instruction} Avoid these recent topics: {', '.join(used_questions[-5:])}"
         
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
@@ -44,16 +45,14 @@ class ContentEngine:
         }
         
         try:
-            response = requests.post(url, json=payload)
+            response = requests.post(url, json=payload, timeout=30)
             response.raise_for_status()
             data = response.json()
             content = json.loads(data['candidates'][0]['content']['parts'][0]['text'])
             
-            # Validate content
             if 'question' not in content or 'correct_answer_index' not in content:
                 raise ValueError("Invalid JSON structure from AI")
                 
-            # Update History
             history["published_questions"].append(content['question'])
             if len(history["published_questions"]) > 100:
                 history["published_questions"] = history["published_questions"][-100:]
@@ -62,7 +61,6 @@ class ContentEngine:
             return content
         except Exception as e:
             print(f"Content Generation Failed: {e}")
-            # Fallback to hardcoded safe question if API fails
             return {
                 "question": "What is the capital of France?",
                 "options": ["Berlin", "Paris", "Madrid"],
@@ -74,14 +72,14 @@ class ContentEngine:
         with open(self.prompts_file, 'r') as f:
             prompts = json.load(f)
         
-        prompt = prompts["seo_system"].replace("[TOPIC]", topic)
+        prompt = prompts["seo_system"].replace("[TOPIC]", str(topic))
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
         
         try:
             response = requests.post(url, json={
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {"response_mime_type": "application/json"}
-            })
+            }, timeout=30)
             return json.loads(response.json()['candidates'][0]['content']['parts'][0]['text'])
         except:
             return {
