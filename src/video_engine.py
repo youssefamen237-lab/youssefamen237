@@ -5,13 +5,17 @@ import random
 
 class VideoEngine:
     def __init__(self):
-        self.font = "Arial-Bold" # Ensure font exists or use default
-        self.safe_area_y = 800 # Bottom safe area for Shorts
+        # Use standard Ubuntu font path to avoid missing font errors
+        self.font = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if not os.path.exists(self.font):
+            self.font = "Arial-Bold" # Fallback
+            
+        self.safe_area_y = 800 
         
     def create_short(self, script, audio_path, bg_path, output_path):
         # 1. Load Audio
         audio = AudioFileClip(audio_path)
-        duration = audio.duration + 1.0 # Buffer
+        duration = audio.duration + 1.0 
         
         # 2. Load Background
         bg = ImageClip(bg_path).resize(height=1920)
@@ -31,7 +35,7 @@ class VideoEngine:
             size=(900, None), 
             method='caption'
         )
-        txt_clip = txt_clip.set_pos('center').set_duration(duration - 2) # Hide 2s before end
+        txt_clip = txt_clip.set_pos('center').set_duration(duration - 2)
         
         # 4. Create Timer (Countdown)
         timer_clips = []
@@ -41,7 +45,7 @@ class VideoEngine:
             timer_clips.append(t_clip)
         
         timer_seq = concatenate_videoclips(timer_clips)
-        timer_seq = timer_seq.set_start(duration - 7) # Start 5s before end + 2s buffer
+        timer_seq = timer_seq.set_start(duration - 7)
         
         # 5. Create Answer Overlay
         ans_text = f"Answer: {script['options'][script['correct_answer_index']]}"
