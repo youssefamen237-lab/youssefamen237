@@ -1,0 +1,12 @@
+python-dotenv==1.0.1
+requests==2.32.2
+google-api-python-client==2.138.0
+google-auth==2.31.0
+google-auth-oauthlib==1.2.0
+pillow==10.4.0
+moviepy==1.0.3
+apscheduler==3.10.4
+tenacity==9.0.0
+gtts==2.5.2
+elevenlabs==0.2.4
+sqlite3==2.6.0
