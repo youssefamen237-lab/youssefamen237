@@ -1,0 +1,30 @@
+# Python byte‑code
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual‑env / secrets
+venv/
+.env
+.env.*
+
+# Temporary / cache
+temp/
+*.log
+*.sqlite3
+*.db
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker & CI artifacts
+docker-compose.override.yml
+docker-compose.yml
+
+# IDE / editor
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
