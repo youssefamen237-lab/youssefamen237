@@ -1,0 +1,40 @@
+name: autonomous-longs
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '35 2 * * 1,3,5,6'
+
+jobs:
+  longs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PYTHONPATH: src
+      YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
+      YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
+      YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
+      ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+      UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - run: python src/main.py --mode long
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/state.json
+          git diff --staged --quiet || git commit -m "chore: update long scheduling state"
+          git push
