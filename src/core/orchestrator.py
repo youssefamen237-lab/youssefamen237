@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 from core.config import CONFIG
 from core.scheduler import Scheduler
@@ -12,7 +13,6 @@ from engines.thumbnail_engine import ThumbnailEngine
 from engines.video_engine import VideoEngine
 from integrations.llm_providers import LLMProviders
 from integrations.youtube_engine import YouTubeEngine
-from utils.retry import with_retry
 
 
 class Orchestrator:
@@ -41,11 +41,10 @@ class Orchestrator:
         seo = self.seo.build(q["question"], "short")
         thumb = self.thumb.create(bg, seo["title"], "short")
         video_id = self.youtube.upload(str(video_path), str(thumb), seo, is_short=True)
-        now = datetime.now(timezone.utc).isoformat()
         self.state.update(
             lambda s: (
-                s["uploads"].append({"video_id": video_id, "type": "short", "created_at": now}),
-                s.update({"last_short_at": now}),
+                s["uploads"].append({"video_id": video_id, "type": "short", "created_at": datetime.now(timezone.utc).isoformat()}),
+                s.update({"last_short_at": datetime.now(timezone.utc).isoformat()}),
             )
         )
 
@@ -63,57 +62,38 @@ class Orchestrator:
         seo = self.seo.build("Ultimate General Knowledge Quiz", "long")
         thumb = self.thumb.create(bg, seo["title"], "long")
         video_id = self.youtube.upload(str(video_path), str(thumb), seo, is_short=False)
-        now = datetime.now(timezone.utc).isoformat()
         self.state.update(
             lambda s: (
-                s["uploads"].append({"video_id": video_id, "type": "long", "created_at": now}),
-                s.update({"last_long_at": now}),
+                s["uploads"].append({"video_id": video_id, "type": "long", "created_at": datetime.now(timezone.utc).isoformat()}),
+                s.update({"last_long_at": datetime.now(timezone.utc).isoformat()}),
             )
         )
 
-    def _safe_publish_short(self) -> None:
-        with_retry(lambda: self._publish_short(), retries=3, delay=8)
-
-    def _safe_publish_long(self) -> None:
-        with_retry(lambda: self._publish_long(), retries=3, delay=8)
-
-    def _bootstrap_if_needed(self) -> None:
-        state = self.state.get()
-        if not state.get("initialized"):
-            self._safe_publish_short()
-            self._safe_publish_long()
-            self.state.update(lambda s: s.update({"initialized": True}))
-
-    def _scheduled_publish(self) -> None:
-        if self.scheduler.due_short():
-            self._safe_publish_short()
-        if self.scheduler.due_long():
-            self._safe_publish_long()
-
     def run(self, mode: str) -> None:
-        if mode == "autonomous":
-            self._bootstrap_if_needed()
-            self._scheduled_publish()
-            with_retry(lambda: AnalyticsEngine().run(), retries=2, delay=5)
-            return
-
         if mode == "bootstrap":
-            self._bootstrap_if_needed()
+            state = self.state.get()
+            if not state.get("initialized"):
+                self._publish_short()
+                self._publish_long()
+                self.state.update(lambda s: s.update({"initialized": True}))
             return
 
         if mode == "short":
             if self.scheduler.due_short():
-                self._safe_publish_short()
+                self._publish_short()
             return
 
         if mode == "long":
             if self.scheduler.due_long():
-                self._safe_publish_long()
+                self._publish_long()
             return
 
         if mode == "analytics":
-            with_retry(lambda: AnalyticsEngine().run(), retries=2, delay=5)
+            AnalyticsEngine().run()
             return
 
         if mode == "recovery":
-            self._scheduled_publish()
+            if self.scheduler.due_short():
+                self._publish_short()
+            if self.scheduler.due_long():
+                self._publish_long()

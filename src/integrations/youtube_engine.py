@@ -7,8 +7,6 @@ from core.config import CONFIG
 
 class YouTubeEngine:
     def __init__(self) -> None:
-        if not CONFIG.youtube_client_id or not CONFIG.youtube_client_secret or not CONFIG.youtube_refresh_token:
-            raise RuntimeError("Missing YouTube OAuth secrets (YT_CLIENT_ID_*, YT_CLIENT_SECRET_*, YT_REFRESH_TOKEN_*)")
         creds = Credentials(
             None,
             refresh_token=CONFIG.youtube_refresh_token,

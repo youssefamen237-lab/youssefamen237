@@ -1,12 +1,12 @@
-name: autonomous-ops
+name: bootstrap-first-run
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '50 */6 * * *'
+    - cron: '5 * * * *'
 
 jobs:
-  analytics:
+  bootstrap:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -15,26 +15,32 @@ jobs:
       YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
       YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
       YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
       UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: |
+      - name: Install FFmpeg and dependencies
+        run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - run: python src/main.py --mode analytics
-      - run: python src/main.py --mode recovery
-      - run: |
+      - name: Bootstrap first real short + long
+        run: python src/main.py --mode bootstrap
+      - name: Persist state
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/state.json data/analytics_report.json || true
-          git diff --staged --quiet || git commit -m "chore: update analytics and recovery state"
+          git diff --staged --quiet || git commit -m "chore: update autonomous state"
           git push
