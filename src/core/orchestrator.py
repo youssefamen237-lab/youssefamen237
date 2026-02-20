@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 from core.config import CONFIG
 from core.scheduler import Scheduler
@@ -40,11 +41,10 @@ class Orchestrator:
         seo = self.seo.build(q["question"], "short")
         thumb = self.thumb.create(bg, seo["title"], "short")
         video_id = self.youtube.upload(str(video_path), str(thumb), seo, is_short=True)
-        now = datetime.now(timezone.utc).isoformat()
         self.state.update(
             lambda s: (
-                s["uploads"].append({"video_id": video_id, "type": "short", "created_at": now}),
-                s.update({"last_short_at": now}),
+                s["uploads"].append({"video_id": video_id, "type": "short", "created_at": datetime.now(timezone.utc).isoformat()}),
+                s.update({"last_short_at": datetime.now(timezone.utc).isoformat()}),
             )
         )
 
@@ -62,36 +62,20 @@ class Orchestrator:
         seo = self.seo.build("Ultimate General Knowledge Quiz", "long")
         thumb = self.thumb.create(bg, seo["title"], "long")
         video_id = self.youtube.upload(str(video_path), str(thumb), seo, is_short=False)
-        now = datetime.now(timezone.utc).isoformat()
         self.state.update(
             lambda s: (
-                s["uploads"].append({"video_id": video_id, "type": "long", "created_at": now}),
-                s.update({"last_long_at": now}),
+                s["uploads"].append({"video_id": video_id, "type": "long", "created_at": datetime.now(timezone.utc).isoformat()}),
+                s.update({"last_long_at": datetime.now(timezone.utc).isoformat()}),
             )
         )
 
-    def _bootstrap_if_needed(self) -> None:
-        state = self.state.get()
-        if not state.get("initialized"):
-            self._publish_short()
-            self._publish_long()
-            self.state.update(lambda s: s.update({"initialized": True}))
-
-    def _scheduled_publish(self) -> None:
-        if self.scheduler.due_short():
-            self._publish_short()
-        if self.scheduler.due_long():
-            self._publish_long()
-
     def run(self, mode: str) -> None:
-        if mode == "autonomous":
-            self._bootstrap_if_needed()
-            self._scheduled_publish()
-            AnalyticsEngine().run()
-            return
-
         if mode == "bootstrap":
-            self._bootstrap_if_needed()
+            state = self.state.get()
+            if not state.get("initialized"):
+                self._publish_short()
+                self._publish_long()
+                self.state.update(lambda s: s.update({"initialized": True}))
             return
 
         if mode == "short":
@@ -109,4 +93,7 @@ class Orchestrator:
             return
 
         if mode == "recovery":
-            self._scheduled_publish()
+            if self.scheduler.due_short():
+                self._publish_short()
+            if self.scheduler.due_long():
+                self._publish_long()

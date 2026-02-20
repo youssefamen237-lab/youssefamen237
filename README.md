@@ -8,11 +8,14 @@ GitHub Actions-native autonomous system for generating, rendering, optimizing, a
 - YouTube Data API v3
 - Multi-provider LLM + TTS fallbacks
 
-## Workflow
-- Single master workflow: `.github/workflows/autonomous-ops.yml`
-- Runs on cron and workflow_dispatch
-- Bootstraps first Short + first Long automatically
-- Continues autonomous generation, upload, analytics, and recovery
-
 ## Required Secrets
-Add all API secrets referenced in `project_spec.md`.
+Add all API secrets referenced in `project_spec.md` and at minimum:
+- `YT_CLIENT_ID_3`
+- `YT_CLIENT_SECRET_3`
+- `YT_REFRESH_TOKEN_3`
+- `GEMINI_API_KEY`
+- `GROQ_API_KEY`
+- `OPENROUTER_KEY`
+- `ELEVEN_API_KEY` (optional fallback to gTTS if missing)
+
+After secrets are set, workflows run autonomously.
