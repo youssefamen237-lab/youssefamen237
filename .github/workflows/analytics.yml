@@ -1,0 +1,77 @@
+name: 📊 Daily Analytics & Strategy Update
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # Every day at 6:00 UTC
+  workflow_dispatch:
+
+jobs:
+  run-analytics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create Required Directories
+        run: |
+          mkdir -p data/analytics data/published data/dedup
+
+      - name: Restore Data from Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/
+          key: channel-data-analytics-${{ github.run_id }}
+          restore-keys: |
+            channel-data-analytics-
+            channel-data-long-
+            channel-data-
+
+      - name: Run Analytics Pipeline
+        env:
+          YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
+          YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
+          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: |
+          cd src
+          python analytics/manager.py
+
+      - name: Save Data Cache
+        uses: actions/cache@v4
+        if: always()
+        with:
+          path: |
+            data/
+          key: channel-data-analytics-${{ github.run_id }}
+
+      - name: Commit Updated Strategy
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/analytics/ data/published/ data/dedup/ || true
+          git diff --staged --quiet || git commit -m "📊 Auto: Update analytics & strategy [skip ci]"
+          git push || true
+
+      - name: Show Strategy Summary
+        run: |
+          echo "=== Current Strategy ==="
+          cat data/analytics/current_strategy.json 2>/dev/null || echo "No strategy file yet"

@@ -1,0 +1,13 @@
+{
+  "best_templates": ["True / False", "Direct Question", "Only Geniuses", "Guess the Answer"],
+  "best_posting_hours": [14, 16, 19, 21],
+  "best_categories": ["general knowledge", "science", "geography"],
+  "preferred_video_length_short": 15,
+  "preferred_video_length_long": 360,
+  "top_performing_ctas": [],
+  "last_updated": null,
+  "total_videos_analyzed": 0,
+  "top_views": 0,
+  "avg_ctr": 0.0,
+  "avg_watch_time": 0.0
+}
