@@ -124,10 +124,20 @@ def upload_video(service, video_path, seo_package, video_type="short"):
     tags = seo_package.get("tags", [])
     category_id = seo_package.get("category_id", "27")
 
+    # ── CRITICAL: Long videos must NOT have #Shorts in title/description
+    # YouTube determines Short vs Long by duration (>60s = Long video)
+    # But we also must avoid adding #Shorts tag to long videos
+    if video_type == "long":
+        # Remove any #Shorts hashtag that might have crept in
+        description = description.replace("#Shorts", "").replace("#shorts", "").replace("#short", "")
+        title = title.replace("#Shorts", "").replace("#shorts", "")
+        # Remove short from tags
+        tags = [t for t in tags if t.lower() not in ("shorts", "#shorts", "youtube shorts")]
+
     body = {
         "snippet": {
-            "title": title[:100],  # YouTube 100 char limit
-            "description": description[:5000],  # YouTube 5000 char limit
+            "title": title[:100],
+            "description": description[:5000],
             "tags": tags[:500],
             "categoryId": category_id,
             "defaultLanguage": "en",
@@ -136,6 +146,10 @@ def upload_video(service, video_path, seo_package, video_type="short"):
         "status": {
             "privacyStatus": "public",
             "selfDeclaredMadeForKids": seo_package.get("made_for_kids", False),
+            # Long videos: explicitly NOT made for kids to get monetization features
+            "license": "youtube",
+            "embeddable": True,
+            "publicStatsViewable": True,
         },
     }
 
@@ -143,7 +157,7 @@ def upload_video(service, video_path, seo_package, video_type="short"):
         video_path,
         mimetype="video/mp4",
         resumable=True,
-        chunksize=10 * 1024 * 1024,  # 10MB chunks
+        chunksize=10 * 1024 * 1024,
     )
 
     request = service.videos().insert(
@@ -152,16 +166,17 @@ def upload_video(service, video_path, seo_package, video_type="short"):
         media_body=media,
     )
 
-    print(f"[Publisher] Uploading: {title}")
+    print(f"[Publisher] Uploading ({video_type}): {title[:70]}")
     response = None
     while response is None:
         status, response = request.next_chunk()
         if status:
             pct = int(status.progress() * 100)
-            print(f"[Publisher] Upload progress: {pct}%")
+            print(f"[Publisher] Progress: {pct}%")
 
     video_id = response["id"]
-    print(f"[Publisher] Uploaded: https://youtube.com/watch?v={video_id}")
+    video_url = f"https://youtube.com/watch?v={video_id}" if video_type == "long" else f"https://youtube.com/shorts/{video_id}"
+    print(f"[Publisher] ✓ Uploaded: {video_url}")
     return video_id
 
 
