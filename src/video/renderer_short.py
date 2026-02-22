@@ -388,83 +388,84 @@ def render_short_video(question_data, background_path, output_path=None):
     total_frames = frame_num
     print(f"[Video] Total frames rendered: {total_frames}")
 
-    # Combine frames + audio with FFmpeg
-    audio_question = question_data.get("audio_question")
-    audio_cta = question_data.get("audio_cta")
-
+    # ── Step: Render silent video from frames ─────────────────────
     silent_mp4 = os.path.join(tmp_dir, "silent.mp4")
-    ffmpeg_cmd = [
+    ffmpeg_video = [
         "ffmpeg", "-y",
         "-framerate", str(FPS),
         "-i", os.path.join(frames_dir, "frame_%05d.jpg"),
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "22",
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "22",
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart",
         "-vf", f"scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}",
         silent_mp4
     ]
-    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+    result = subprocess.run(ffmpeg_video, capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"[Video] FFmpeg video error: {result.stderr}")
-        raise RuntimeError(f"FFmpeg failed: {result.stderr[:500]}")
+        raise RuntimeError(f"[Video] FFmpeg video render failed: {result.stderr[:300]}")
+    print(f"[Video] Silent video rendered: {os.path.getsize(silent_mp4)//1024}KB")
 
-    # Mix audio if available
-    if audio_question and audio_cta and os.path.exists(audio_question) and os.path.exists(audio_cta):
-        print("[Video] Mixing audio...")
-        mixed_audio = os.path.join(tmp_dir, "mixed.mp3")
-        # Concat question + silence + cta audio
-        silence_file = os.path.join(tmp_dir, "silence.mp3")
-        # 0.5s silence between question and CTA
-        subprocess.run([
-            "ffmpeg", "-y",
-            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-            "-t", "0.5",
-            "-b:a", "128k",
-            silence_file
-        ], capture_output=True)
+    # ── Step: Merge audio into video ──────────────────────────────
+    combined_audio = question_data.get("combined_audio")
+    audio_question  = question_data.get("audio_question")
 
-        concat_list = os.path.join(tmp_dir, "audio_concat.txt")
-        with open(concat_list, "w") as f:
-            f.write(f"file '{audio_question}'\n")
-            f.write(f"file '{silence_file}'\n")
-            f.write(f"file '{audio_cta}'\n")
+    audio_file = None
+    if combined_audio and os.path.exists(combined_audio) and os.path.getsize(combined_audio) > 1000:
+        audio_file = combined_audio
+        print(f"[Video] Using combined audio track: {os.path.getsize(audio_file)//1024}KB")
+    elif audio_question and os.path.exists(audio_question) and os.path.getsize(audio_question) > 1000:
+        audio_file = audio_question
+        print(f"[Video] Using question-only audio: {os.path.getsize(audio_file)//1024}KB")
 
-        subprocess.run([
-            "ffmpeg", "-y",
-            "-f", "concat", "-safe", "0",
-            "-i", concat_list,
-            "-c", "copy",
-            mixed_audio
-        ], capture_output=True)
-
-        # Merge video + audio
-        ffmpeg_merge = [
+    if audio_file:
+        merge_cmd = [
             "ffmpeg", "-y",
             "-i", silent_mp4,
-            "-i", mixed_audio,
+            "-i", audio_file,
             "-c:v", "copy",
-            "-c:a", "aac",
-            "-b:a", "192k",
+            "-c:a", "aac", "-b:a", "192k",
+            "-ar", "44100",
+            "-map", "0:v:0", "-map", "1:a:0",
+            # Audio plays from start; video is longer (countdown + answer) so pad audio with silence
+            "-af", "apad",
             "-shortest",
             output_path
         ]
-        result = subprocess.run(ffmpeg_merge, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"[Video] Audio merge error, using silent video: {result.stderr[:200]}")
-            import shutil
-            shutil.copy(silent_mp4, output_path)
+        merge_result = subprocess.run(merge_cmd, capture_output=True, text=True)
+        if merge_result.returncode != 0:
+            print(f"[Video] Audio merge failed: {merge_result.stderr[:200]}")
+            print("[Video] Falling back to video-only (checking if audio path issue)...")
+            # Try with explicit re-encode
+            merge_cmd2 = [
+                "ffmpeg", "-y",
+                "-i", silent_mp4,
+                "-i", audio_file,
+                "-c:v", "copy",
+                "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
+                "-map", "0:v", "-map", "1:a",
+                "-af", "apad",
+                "-shortest",
+                output_path
+            ]
+            merge_result2 = subprocess.run(merge_cmd2, capture_output=True, text=True)
+            if merge_result2.returncode != 0:
+                print(f"[Video] Second merge attempt failed: {merge_result2.stderr[:200]}")
+                import shutil
+                shutil.copy(silent_mp4, output_path)
+            else:
+                print("[Video] ✓ Audio merged on second attempt")
+        else:
+            print("[Video] ✓ Audio merged successfully")
     else:
         import shutil
+        print("[Video] ⚠ No audio file available — video will be silent")
         shutil.copy(silent_mp4, output_path)
 
-    # Cleanup temp frames
-    import shutil
-    shutil.rmtree(tmp_dir, ignore_errors=True)
+    # Cleanup temp files
+    import shutil as _shutil
+    _shutil.rmtree(tmp_dir, ignore_errors=True)
 
     file_size = os.path.getsize(output_path) / (1024 * 1024)
-    print(f"[Video] Short rendered: {output_path} ({file_size:.1f} MB)")
+    print(f"[Video] Short complete: {output_path} ({file_size:.1f} MB)")
     return output_path
 
 
