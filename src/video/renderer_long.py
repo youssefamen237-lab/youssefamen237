@@ -254,8 +254,8 @@ def create_answer_frame_16_9(question_text, answer_text, color_preset):
 
 def render_long_video(questions_list, title, output_path=None):
     """
-    Render a 5+ minute long-form compilation video.
-    questions_list: list of dicts with question/answer/template
+    Render a 5+ minute long-form compilation video WITH narration audio.
+    Each question is read aloud. Video goes in Videos feed (1920x1080, 16:9).
     """
     if output_path is None:
         output_path = str(OUTPUT_DIR / f"long_{int(time.time())}.mp4")
@@ -265,19 +265,34 @@ def render_long_video(questions_list, title, output_path=None):
 
     tmp_dir = tempfile.mkdtemp()
     frames_dir = os.path.join(tmp_dir, "frames")
+    audio_dir = os.path.join(tmp_dir, "audio")
     os.makedirs(frames_dir)
+    os.makedirs(audio_dir)
 
     frame_num = 0
+    audio_segments = []   # list of (start_frame, audio_path)
 
     def save_frames(frame_img, count):
         nonlocal frame_num
         for _ in range(count):
             frame_img.save(os.path.join(frames_dir, f"frame_{frame_num:06d}.jpg"), "JPEG", quality=88)
             frame_num += 1
+        return frame_num - count  # return start frame of this segment
 
     print(f"[LongVideo] Rendering intro...")
+    intro_start = frame_num
     intro_frame = create_intro_frame(title, n, color_preset)
     save_frames(intro_frame, INTRO_DURATION * FPS)
+
+    # Generate intro audio
+    try:
+        from audio.tts import generate_audio
+        intro_audio = os.path.join(audio_dir, "intro.mp3")
+        intro_text = f"Welcome! Today we have {n} trivia questions. Let's see how many you can get right!"
+        generate_audio(intro_text, intro_audio)
+        audio_segments.append((intro_start, intro_audio))
+    except Exception as e:
+        print(f"[LongVideo] Intro audio failed (non-fatal): {e}")
 
     for idx, q in enumerate(questions_list, start=1):
         print(f"[LongVideo] Question {idx}/{n}: {q['question'][:50]}")
@@ -286,56 +301,161 @@ def render_long_video(questions_list, title, output_path=None):
         sep = create_question_separator_frame(idx, n, color_preset)
         save_frames(sep, 1 * FPS)
 
-        # Question display
+        # Question display — generate audio for this question
         q_frame = create_question_frame_16_9(q["question"], q.get("template", "Trivia"), color_preset)
+        q_start = frame_num
         save_frames(q_frame, QUESTION_DURATION * FPS)
 
-        # Timer countdown 5→1
+        try:
+            from audio.tts import generate_audio
+            q_audio_path = os.path.join(audio_dir, f"q_{idx}.mp3")
+            generate_audio(q["question"], q_audio_path)
+            audio_segments.append((q_start, q_audio_path))
+        except Exception as e:
+            print(f"[LongVideo] Q{idx} audio failed (non-fatal): {e}")
+
+        # Timer countdown
         for sec in [5, 4, 3, 2, 1]:
             t_frame = create_timer_frame_16_9(sec, color_preset)
             save_frames(t_frame, 1 * FPS)
 
-        # Answer reveal
+        # Answer reveal — generate audio for answer
         a_frame = create_answer_frame_16_9(q["question"], q["answer"], color_preset)
+        a_start = frame_num
         save_frames(a_frame, ANSWER_DURATION * FPS)
 
-    # Outro frame
+        try:
+            from audio.tts import generate_audio
+            a_audio_path = os.path.join(audio_dir, f"a_{idx}.mp3")
+            answer_text = f"The answer is {q['answer']}!"
+            generate_audio(answer_text, a_audio_path)
+            audio_segments.append((a_start, a_audio_path))
+        except Exception as e:
+            print(f"[LongVideo] A{idx} audio failed (non-fatal): {e}")
+
+    # Outro
     outro_img = Image.new("RGB", (VIDEO_WIDTH, VIDEO_HEIGHT), color_preset["bg"])
     outro_draw = ImageDraw.Draw(outro_img)
-    outro_font = get_font(90)
-    draw_centered_text(outro_draw, "SUBSCRIBE", 300, VIDEO_WIDTH, outro_font, color_preset["accent"])
+    draw_centered_text(outro_draw, "SUBSCRIBE", 300, VIDEO_WIDTH, get_font(90), color_preset["accent"])
     draw_centered_text(outro_draw, "for daily trivia challenges!", 430, VIDEO_WIDTH, get_font(55), color_preset["text"])
     draw_centered_text(outro_draw, "Comment your score below! 🏆", 560, VIDEO_WIDTH, get_font(50), (200, 200, 200))
+    outro_start = frame_num
     save_frames(outro_img, 5 * FPS)
+
+    try:
+        from audio.tts import generate_audio
+        outro_audio = os.path.join(audio_dir, "outro.mp3")
+        generate_audio("How many did you get right? Comment below and subscribe for daily trivia!", outro_audio)
+        audio_segments.append((outro_start, outro_audio))
+    except Exception as e:
+        print(f"[LongVideo] Outro audio failed (non-fatal): {e}")
 
     total_frames = frame_num
     duration_seconds = total_frames / FPS
     print(f"[LongVideo] Total frames: {total_frames} ({duration_seconds:.1f}s = {duration_seconds/60:.1f}min)")
 
-    # Render video with FFmpeg
-    print("[LongVideo] Running FFmpeg...")
+    # ── Render silent video ───────────────────────────────────────
+    print("[LongVideo] Rendering video frames with FFmpeg...")
+    silent_mp4 = os.path.join(tmp_dir, "silent.mp4")
     ffmpeg_cmd = [
         "ffmpeg", "-y",
         "-framerate", str(FPS),
         "-i", os.path.join(frames_dir, "frame_%06d.jpg"),
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart",
         "-vf", f"scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}",
-        output_path,
+        silent_mp4,
     ]
     result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, timeout=1800)
     if result.returncode != 0:
         raise RuntimeError(f"FFmpeg long video failed: {result.stderr[:500]}")
+    print(f"[LongVideo] Silent video ready: {os.path.getsize(silent_mp4)//1024//1024}MB")
+
+    # ── Build audio track using filter_complex with timestamps ─────
+    if audio_segments:
+        print(f"[LongVideo] Building audio track from {len(audio_segments)} segments...")
+        try:
+            audio_track = _build_long_audio_track(audio_segments, total_frames, FPS, tmp_dir)
+            if audio_track and os.path.exists(audio_track):
+                # Merge audio into video
+                merge_cmd = [
+                    "ffmpeg", "-y",
+                    "-i", silent_mp4,
+                    "-i", audio_track,
+                    "-c:v", "copy",
+                    "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+                    "-map", "0:v", "-map", "1:a",
+                    "-shortest",
+                    output_path
+                ]
+                merge_result = subprocess.run(merge_cmd, capture_output=True, text=True)
+                if merge_result.returncode == 0:
+                    print("[LongVideo] ✓ Audio merged into long video")
+                else:
+                    print(f"[LongVideo] Merge failed: {merge_result.stderr[:150]}, saving silent")
+                    import shutil
+                    shutil.copy(silent_mp4, output_path)
+            else:
+                import shutil
+                shutil.copy(silent_mp4, output_path)
+        except Exception as e:
+            print(f"[LongVideo] Audio track build failed: {e}")
+            import shutil
+            shutil.copy(silent_mp4, output_path)
+    else:
+        import shutil
+        shutil.copy(silent_mp4, output_path)
 
     import shutil
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
     size_mb = os.path.getsize(output_path) / (1024 * 1024)
-    print(f"[LongVideo] Done: {output_path} ({size_mb:.1f} MB, {duration_seconds:.0f}s)")
+    print(f"[LongVideo] ✓ Done: {output_path} ({size_mb:.1f} MB, {duration_seconds:.0f}s = {duration_seconds/60:.1f}min)")
     return output_path
+
+
+def _build_long_audio_track(segments, total_frames, fps, tmp_dir):
+    """
+    Build a single AAC audio track for the entire long video.
+    Each segment audio is placed at its exact start frame timestamp.
+    Gaps between narration are filled with silence.
+    """
+    total_duration = total_frames / fps
+    audio_out = os.path.join(tmp_dir, "full_audio.aac")
+
+    # Build ffmpeg filter_complex with adelay for each segment
+    inputs = []
+    filter_parts = []
+    mix_inputs = ""
+
+    for i, (start_frame, audio_path) in enumerate(segments):
+        if not os.path.exists(audio_path) or os.path.getsize(audio_path) < 500:
+            continue
+        delay_ms = int((start_frame / fps) * 1000)
+        inputs.extend(["-i", audio_path])
+        filter_parts.append(f"[{i}:a]adelay={delay_ms}|{delay_ms}[a{i}]")
+        mix_inputs += f"[a{i}]"
+
+    if not inputs:
+        return None
+
+    n_streams = len(filter_parts)
+    filter_complex = ";".join(filter_parts) + f";{mix_inputs}amix=inputs={n_streams}:normalize=0[out]"
+
+    cmd = [
+        "ffmpeg", "-y",
+    ] + inputs + [
+        "-filter_complex", filter_complex,
+        "-map", "[out]",
+        "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+        "-t", str(total_duration),
+        audio_out
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    if result.returncode == 0 and os.path.exists(audio_out) and os.path.getsize(audio_out) > 1000:
+        return audio_out
+    print(f"[LongVideo] filter_complex audio build failed: {result.stderr[:200]}")
+    return None
 
 
 def generate_long_video_title(n):
