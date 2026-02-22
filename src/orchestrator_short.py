@@ -16,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from content.generator import generate_question_for_video, mark_as_used
-from audio.tts import generate_question_audio
+from audio.tts import generate_full_short_audio
 from video.background import get_background_image
 from video.renderer_short import render_short_video
 from video.thumbnail import create_shorts_thumbnail
@@ -89,17 +89,18 @@ def run_short_pipeline(dry_run=False):
     print("\n[Step 3/7] Generating audio (mandatory)...")
     try:
         audio_dir = str(work_dir / "audio")
-        audio_files = generate_question_audio(
+        audio_files = generate_full_short_audio(
             question_data["question"],
-            question_data.get("cta", "Drop your answer in the comments!"),
+            question_data.get("cta", "Drop your answer in the comments before time runs out!"),
             audio_dir,
         )
         question_data["audio_question"] = audio_files.get("question_audio")
         question_data["audio_cta"] = audio_files.get("cta_audio")
-        print(f"[Orchestrator] ✓ Audio ready: Q={question_data['audio_question']}, CTA={question_data['audio_cta']}")
+        question_data["combined_audio"] = audio_files.get("combined_audio")
+        print(f"[Orchestrator] ✓ Audio ready. Combined: {question_data['combined_audio']}")
     except Exception as e:
         print(f"[Orchestrator] ❌ Audio generation failed: {e}")
-        # Abort — we don't publish silent videos
+        # We do NOT publish silent videos
         return None
 
     # ── Step 4: Render Video ───────────────────────────────────────
