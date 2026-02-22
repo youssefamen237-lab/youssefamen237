@@ -1,157 +1,180 @@
-name: 🚀 FIRST RUN — Publish First Short + Long Video
+name: 🚀 FIRST RUN — Publish Now (Short + Long)
+
+# ─────────────────────────────────────────────────────────────────
+# Run this ONCE manually after uploading the repo and adding Secrets.
+# It publishes 1 Short + 1 Long Video immediately.
+# After this, the AUTO PUBLISHER runs everything automatically.
+# ─────────────────────────────────────────────────────────────────
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/first_run.yml'
   workflow_dispatch:
 
+env:
+  PYTHONPATH: src
+
 jobs:
+  # ── Job 1: First Short ──────────────────────────────────────────
   first-short:
+    name: 📱 Publish First Short
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    name: Publish First Short Video
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install System Dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-liberation --no-install-recommends
-          ffmpeg -version | head -1
+          sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-liberation fonts-ubuntu espeak --no-install-recommends
+          echo "FFmpeg: $(ffmpeg -version 2>&1 | head -1)"
 
       - name: Install Python Dependencies
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install gtts
+          pip install -q --upgrade pip
+          pip install -q -r requirements.txt
+          pip install -q gtts
 
-      - name: Create Required Directories
-        run: |
-          mkdir -p data/questions data/published data/analytics data/dedup
-          mkdir -p assets/backgrounds assets/thumbnails
-          mkdir -p output/shorts output/long
+      - name: Setup Directories
+        run: mkdir -p data/{questions,published,analytics,dedup} assets/{backgrounds,thumbnails} output/{shorts,long}
 
-      - name: Publish First Short
+      - name: Restore Cache
+        uses: actions/cache@v4
+        with:
+          path: data/
+          key: yt-data-${{ github.run_id }}
+          restore-keys: yt-data-
+
+      - name: 📱 Publish Short Video
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
-          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-          CAMB_AI_KEY_1: ${{ secrets.CAMB_AI_KEY_1 }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
-          NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
-          YT_CLIENT_ID_1: ${{ secrets.YT_CLIENT_ID_1 }}
-          YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
-          YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
-          YT_CLIENT_ID_2: ${{ secrets.YT_CLIENT_ID_2 }}
-          YT_CLIENT_SECRET_2: ${{ secrets.YT_CLIENT_SECRET_2 }}
-          YT_REFRESH_TOKEN_2: ${{ secrets.YT_REFRESH_TOKEN_2 }}
-          YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
-          YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
-          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
-          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          ELEVEN_API_KEY:       ${{ secrets.ELEVEN_API_KEY }}
+          OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
+          CAMB_AI_KEY_1:        ${{ secrets.CAMB_AI_KEY_1 }}
+          HF_API_TOKEN:         ${{ secrets.HF_API_TOKEN }}
+          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:         ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_KEY:       ${{ secrets.OPENROUTER_KEY }}
+          PEXELS_API_KEY:       ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY:      ${{ secrets.PIXABAY_API_KEY }}
+          UNSPLASH_ACCESS_KEY:  ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          NASA_API_KEY:         ${{ secrets.NASA_API_KEY }}
+          YT_CLIENT_ID_1:       ${{ secrets.YT_CLIENT_ID_1 }}
+          YT_CLIENT_SECRET_1:   ${{ secrets.YT_CLIENT_SECRET_1 }}
+          YT_REFRESH_TOKEN_1:   ${{ secrets.YT_REFRESH_TOKEN_1 }}
+          YT_CLIENT_ID_2:       ${{ secrets.YT_CLIENT_ID_2 }}
+          YT_CLIENT_SECRET_2:   ${{ secrets.YT_CLIENT_SECRET_2 }}
+          YT_REFRESH_TOKEN_2:   ${{ secrets.YT_REFRESH_TOKEN_2 }}
+          YT_CLIENT_ID_3:       ${{ secrets.YT_CLIENT_ID_3 }}
+          YT_CLIENT_SECRET_3:   ${{ secrets.YT_CLIENT_SECRET_3 }}
+          YT_REFRESH_TOKEN_3:   ${{ secrets.YT_REFRESH_TOKEN_3 }}
+          YT_CHANNEL_ID:        ${{ secrets.YT_CHANNEL_ID }}
+          YOUTUBE_API_KEY:      ${{ secrets.YOUTUBE_API_KEY }}
         run: |
-          echo "=== Publishing FIRST Short Video ==="
           cd src
           python orchestrator_short.py
 
-      - name: Upload Short Artifact
+      - name: Save Cache
+        uses: actions/cache@v4
+        if: always()
+        with:
+          path: data/
+          key: yt-data-${{ github.run_id }}
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: first-short
+          name: first-short-${{ github.run_number }}
           path: output/shorts/
-          retention-days: 7
+          retention-days: 3
 
+  # ── Job 2: First Long Video (runs after short succeeds) ─────────
   first-long:
+    name: 🎬 Publish First Long Video
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    name: Publish First Long Video
-    needs: first-short
+    needs: first-short   # Wait for short to finish first
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install System Dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-liberation --no-install-recommends
+          sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-liberation fonts-ubuntu espeak --no-install-recommends
+          echo "Disk space: $(df -h / | tail -1)"
 
       - name: Install Python Dependencies
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install gtts
+          pip install -q --upgrade pip
+          pip install -q -r requirements.txt
+          pip install -q gtts
 
-      - name: Create Required Directories
-        run: |
-          mkdir -p data/questions data/published data/analytics data/dedup
-          mkdir -p assets/backgrounds assets/thumbnails
-          mkdir -p output/shorts output/long
+      - name: Setup Directories
+        run: mkdir -p data/{questions,published,analytics,dedup} assets/{backgrounds,thumbnails} output/{shorts,long}
 
-      - name: Publish First Long Video
+      - name: Restore Cache
+        uses: actions/cache@v4
+        with:
+          path: data/
+          key: yt-data-long-${{ github.run_id }}
+          restore-keys: yt-data-
+
+      - name: 🎬 Publish Long Video
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
-          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
-          CAMB_AI_KEY_1: ${{ secrets.CAMB_AI_KEY_1 }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
-          NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
-          YT_CLIENT_ID_1: ${{ secrets.YT_CLIENT_ID_1 }}
-          YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
-          YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
-          YT_CLIENT_ID_2: ${{ secrets.YT_CLIENT_ID_2 }}
-          YT_CLIENT_SECRET_2: ${{ secrets.YT_CLIENT_SECRET_2 }}
-          YT_REFRESH_TOKEN_2: ${{ secrets.YT_REFRESH_TOKEN_2 }}
-          YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
-          YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
-          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
-          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          ELEVEN_API_KEY:       ${{ secrets.ELEVEN_API_KEY }}
+          OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
+          CAMB_AI_KEY_1:        ${{ secrets.CAMB_AI_KEY_1 }}
+          HF_API_TOKEN:         ${{ secrets.HF_API_TOKEN }}
+          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:         ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_KEY:       ${{ secrets.OPENROUTER_KEY }}
+          PEXELS_API_KEY:       ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY:      ${{ secrets.PIXABAY_API_KEY }}
+          UNSPLASH_ACCESS_KEY:  ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          NASA_API_KEY:         ${{ secrets.NASA_API_KEY }}
+          YT_CLIENT_ID_1:       ${{ secrets.YT_CLIENT_ID_1 }}
+          YT_CLIENT_SECRET_1:   ${{ secrets.YT_CLIENT_SECRET_1 }}
+          YT_REFRESH_TOKEN_1:   ${{ secrets.YT_REFRESH_TOKEN_1 }}
+          YT_CLIENT_ID_2:       ${{ secrets.YT_CLIENT_ID_2 }}
+          YT_CLIENT_SECRET_2:   ${{ secrets.YT_CLIENT_SECRET_2 }}
+          YT_REFRESH_TOKEN_2:   ${{ secrets.YT_REFRESH_TOKEN_2 }}
+          YT_CLIENT_ID_3:       ${{ secrets.YT_CLIENT_ID_3 }}
+          YT_CLIENT_SECRET_3:   ${{ secrets.YT_CLIENT_SECRET_3 }}
+          YT_REFRESH_TOKEN_3:   ${{ secrets.YT_REFRESH_TOKEN_3 }}
+          YT_CHANNEL_ID:        ${{ secrets.YT_CHANNEL_ID }}
+          YOUTUBE_API_KEY:      ${{ secrets.YOUTUBE_API_KEY }}
         run: |
-          echo "=== Publishing FIRST Long Video ==="
           cd src
-          # --force bypasses daily limit since this is first ever run
           python orchestrator_long.py --force
 
-      - name: Upload Long Artifact
+      - name: Save Cache
+        uses: actions/cache@v4
+        if: always()
+        with:
+          path: data/
+          key: yt-data-long-${{ github.run_id }}
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: first-long-video
+          name: first-long-${{ github.run_number }}
           path: output/long/
-          retention-days: 7
+          retention-days: 3
 
-      - name: First Run Complete
+      - name: 🎉 Done
         run: |
-          echo "======================================"
+          echo "============================================"
           echo "  FIRST RUN COMPLETE ✅"
-          echo "  Short + Long video published!"
-          echo "  Automatic daily publishing is now active."
-          echo "======================================"
+          echo "  - Short video published"
+          echo "  - Long video published to Videos feed"
+          echo "  - AUTO PUBLISHER is now running daily"
+          echo "============================================"
