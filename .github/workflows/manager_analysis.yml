@@ -1,0 +1,36 @@
+name: Manager Analysis Engine
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Daily at midnight
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Manager
+        env:
+          YT_CLIENT_ID_3: ${{ secrets.YT_CLIENT_ID_3 }}
+          YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
+          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+        run: python scripts/manager.py
+
+      - name: Commit Strategy Updates
+        run: |
+          git config --global user.name 'AI Manager'
+          git config --global user.email 'actions@github.com'
+          git add database.json
+          git commit -m "Update strategy [skip ci]" || echo "No changes"
+          git push
