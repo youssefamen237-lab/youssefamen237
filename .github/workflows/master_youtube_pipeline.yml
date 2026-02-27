@@ -1,0 +1,61 @@
+name: 🤖 Self-Governing AI YouTube System (Master Run)
+
+on:
+  schedule:
+    # سيحاول النظام التشغيل كل ساعتين تقريباً ليختار بذكاء 4 مرات فقط للرفع بشكل متغير ومخادع للخوارزمية.
+    - cron: '15 2,6,10,14,18,22 * * *'
+  workflow_dispatch:
+    inputs:
+      job_type:
+        description: 'Type of task to execute (short, long, poll, manager)'
+        required: true
+        default: 'short'
+
+jobs:
+  production_engine:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: System Dependencies for Video/Audio
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick fonts-noto fonts-lato
+          sudo rm -f /etc/ImageMagick-6/policy.xml 
+          sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"\/>/<!-- policy domain="path" rights="none" pattern="@*" -->/g' /etc/ImageMagick-6/policy.xml || true
+          mkdir -p assets/downloads
+
+      - name: Install Python Requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Execute Autonomous Run
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          YT_CLIENT_ID_1: ${{ secrets.YT_CLIENT_ID_1 }}
+          YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
+          YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
+        run: |
+          # If triggered by schedule, randomizing triggers to simulate human posting behavior.
+          python main.py run-auto --override="${{ github.event.inputs.job_type }}"
+
+      - name: Auto-Commit Database (Learning Model Tracking)
+        if: always()
+        run: |
+          git config --global user.name "AI Master Engine"
+          git config --global user.email "ai@bot.system"
+          git add database/
+          git commit -m "[System Auto-Update] - Synced used ideas & timings [skip ci]" || echo "No changes to commit"
+          git push origin main
