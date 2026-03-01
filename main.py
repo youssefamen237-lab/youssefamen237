@@ -133,6 +133,7 @@ def build_context() -> dict:
     scheduler = PublishScheduler()
 
     polls = PollsEngine(
+        ai=ai,
         client_id=secrets["YT_CLIENT_ID_2"],
         client_secret=secrets["YT_CLIENT_SECRET_2"],
         refresh_token=secrets["YT_REFRESH_TOKEN_2"],
