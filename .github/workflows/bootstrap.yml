@@ -73,7 +73,7 @@ jobs:
       - name: 📦 Install system dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg fonts-dejavu-core libsndfile1 libgl1-mesa-glx
+          sudo apt-get install -y ffmpeg fonts-dejavu-core libsndfile1 libgl1
 
       - name: 📦 Install Python dependencies
         run: |
