@@ -40,7 +40,7 @@ class AIEngine:
     def _call_gemini(self, prompt: str) -> str:
         import google.generativeai as genai
         genai.configure(api_key=self._gemini_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash-latest")
         resp = model.generate_content(prompt)
         return resp.text.strip()
 
@@ -48,7 +48,7 @@ class AIEngine:
         from groq import Groq
         client = Groq(api_key=self._groq_key)
         chat = client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.8,
             max_tokens=900,
@@ -64,7 +64,7 @@ class AIEngine:
                 "Content-Type": "application/json",
             },
             json={
-                "model": "mistralai/mistral-7b-instruct",
+                "model": "mistralai/mistral-7b-instruct:free",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.8,
                 "max_tokens": 900,
