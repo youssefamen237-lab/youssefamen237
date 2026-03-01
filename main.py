@@ -33,7 +33,7 @@ from core.ai_engine import AIEngine
 from core.content_fetcher import ContentFetcher
 from core.anti_duplicate import AntiDuplicate
 
-from audio.tts_engine import TTSEngine
+from audio.audio_engine import AudioEngine
 from audio.voice_humanizer import VoiceHumanizer
 from audio.sfx_manager import SFXManager
 
@@ -90,9 +90,10 @@ def build_context() -> dict:
         anti_duplicate=anti_dup,
     )
 
-    tts = TTSEngine(
+    tts = AudioEngine(
         hf_token=secrets["HF_API_TOKEN"],
-        fallback_manager=fallback,
+        freesound_api_key=secrets["FREESOUND_API"],
+        freesound_client_id=secrets["FREESOUND_ID"],
     )
     humanizer = VoiceHumanizer()
     sfx = SFXManager(
