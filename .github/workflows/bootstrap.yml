@@ -1,0 +1,117 @@
+name: 🚀 Bootstrap – First Run (Immediate Publish)
+
+on:
+  workflow_dispatch:   # Triggered ONCE manually to initialise the channel
+
+concurrency:
+  group: bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Produce & Upload First Short NOW
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      API_FOOTBALL_KEY:            ${{ secrets.API_FOOTBALL_KEY }}
+      ASSEMBLYAI:                  ${{ secrets.ASSEMBLYAI }}
+      CAMB_AI_KEY_1:               ${{ secrets.CAMB_AI_KEY_1 }}
+      COVERR_API_ID:               ${{ secrets.COVERR_API_ID }}
+      COVERR_API_KEY:              ${{ secrets.COVERR_API_KEY }}
+      ELEVEN_API_KEY:              ${{ secrets.ELEVEN_API_KEY }}
+      FOOTBALL_DATA_ORG:           ${{ secrets.FOOTBALL_DATA_ORG }}
+      FOOTBALL_DATA_TOKEN:         ${{ secrets.FOOTBALL_DATA_TOKEN }}
+      FREEPIK_API_KEY:             ${{ secrets.FREEPIK_API_KEY }}
+      FREESOUND_API:               ${{ secrets.FREESOUND_API }}
+      FREESOUND_ID:                ${{ secrets.FREESOUND_ID }}
+      GEMINI_API_KEY:              ${{ secrets.GEMINI_API_KEY }}
+      GETIMG_API_KEY:              ${{ secrets.GETIMG_API_KEY }}
+      GROQ_API_KEY:                ${{ secrets.GROQ_API_KEY }}
+      HF_API_TOKEN:                ${{ secrets.HF_API_TOKEN }}
+      INTERNET_ARCHIVE_ACCESS_KEY: ${{ secrets.INTERNET_ARCHIVE_ACCESS_KEY }}
+      INTERNET_ARCHIVE_SECRET_KEY: ${{ secrets.INTERNET_ARCHIVE_SECRET_KEY }}
+      NASA_API_KEY:                ${{ secrets.NASA_API_KEY }}
+      NEWS_API:                    ${{ secrets.NEWS_API }}
+      NOAA_API_KEY:                ${{ secrets.NOAA_API_KEY }}
+      OPENAI_API_KEY:              ${{ secrets.OPENAI_API_KEY }}
+      OPENROUTER_KEY:              ${{ secrets.OPENROUTER_KEY }}
+      PEXELS_API_KEY:              ${{ secrets.PEXELS_API_KEY }}
+      PIXABAY_API_KEY:             ${{ secrets.PIXABAY_API_KEY }}
+      REMOVE_BG_API:               ${{ secrets.REMOVE_BG_API }}
+      REPLICATE_API_TOKEN:         ${{ secrets.REPLICATE_API_TOKEN }}
+      SERPAPI:                     ${{ secrets.SERPAPI }}
+      TAVILY_API_KEY:              ${{ secrets.TAVILY_API_KEY }}
+      UNSPLASH_ACCESS_KEY:         ${{ secrets.UNSPLASH_ACCESS_KEY }}
+      UNSPLASH_ID:                 ${{ secrets.UNSPLASH_ID }}
+      UNSPLASH_SECRET_KEY:         ${{ secrets.UNSPLASH_SECRET_KEY }}
+      VECTEEZY_ID:                 ${{ secrets.VECTEEZY_ID }}
+      VECTEEZY_SECRET_KEY:         ${{ secrets.VECTEEZY_SECRET_KEY }}
+      YOUTUBE_API_KEY:             ${{ secrets.YOUTUBE_API_KEY }}
+      YT_CHANNEL_ID:               ${{ secrets.YT_CHANNEL_ID }}
+      YT_CLIENT_ID_1:              ${{ secrets.YT_CLIENT_ID_1 }}
+      YT_CLIENT_ID_2:              ${{ secrets.YT_CLIENT_ID_2 }}
+      YT_CLIENT_ID_3:              ${{ secrets.YT_CLIENT_ID_3 }}
+      YT_CLIENT_SECRET_1:          ${{ secrets.YT_CLIENT_SECRET_1 }}
+      YT_CLIENT_SECRET_2:          ${{ secrets.YT_CLIENT_SECRET_2 }}
+      YT_CLIENT_SECRET_3:          ${{ secrets.YT_CLIENT_SECRET_3 }}
+      YT_REFRESH_TOKEN_1:          ${{ secrets.YT_REFRESH_TOKEN_1 }}
+      YT_REFRESH_TOKEN_2:          ${{ secrets.YT_REFRESH_TOKEN_2 }}
+      YT_REFRESH_TOKEN_3:          ${{ secrets.YT_REFRESH_TOKEN_3 }}
+      ZENSERP:                     ${{ secrets.ZENSERP }}
+
+    steps:
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 📦 Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-dejavu-core libsndfile1 libgl1-mesa-glx
+
+      - name: 📦 Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 📂 Restore data cache (if exists)
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/questions_db.json
+            data/used_backgrounds.json
+            data/used_music.json
+            data/publish_log.json
+            data/quota_log.json
+            data/polls_log.json
+            data/strategy_config.json
+            data/sfx_cache/
+            data/fonts/
+          key: quizzaro-data-bootstrap
+          restore-keys: |
+            quizzaro-data-
+
+      - name: 🚀 Bootstrap – Publish first Short immediately
+        run: python main.py --mode bootstrap
+
+      - name: 💾 Save initial data cache
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/questions_db.json
+            data/used_backgrounds.json
+            data/used_music.json
+            data/publish_log.json
+            data/quota_log.json
+            data/polls_log.json
+            data/strategy_config.json
+            data/sfx_cache/
+            data/fonts/
+          key: quizzaro-data-bootstrap

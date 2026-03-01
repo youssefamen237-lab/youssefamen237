@@ -1,0 +1,16 @@
+2026-03-01 19:54:31.460 | INFO     | __main__:run:185 - [Init] Starting data initialisation …
+2026-03-01 19:54:31.479 | INFO     | __main__:_ensure_dirs:99 - [Init] Directories verified.
+2026-03-01 19:54:31.480 | INFO     | __main__:_write_if_missing:105 - [Init] Created: data\publish_log.json
+2026-03-01 19:54:31.482 | INFO     | __main__:_write_if_missing:105 - [Init] Created: data\quota_log.json
+2026-03-01 19:54:31.483 | INFO     | __main__:_write_if_missing:105 - [Init] Created: data\polls_log.json
+2026-03-01 19:54:31.484 | INFO     | __main__:_write_if_missing:105 - [Init] Created: data\strategy_config.json
+2026-03-01 19:54:31.486 | INFO     | __main__:_write_if_missing:105 - [Init] Created: data\anti_duplicate.json
+2026-03-01 19:54:31.486 | INFO     | __main__:_init_json_files:134 - [Init] JSON files verified.
+2026-03-01 19:54:31.488 | INFO     | __main__:_init_fonts:161 - [Init] Downloading font: montserrat_bold.ttf …
+2026-03-01 19:54:33.973 | SUCCESS  | __main__:_download_font:147 - [Init] Font downloaded: montserrat_bold.ttf
+2026-03-01 19:54:33.978 | INFO     | __main__:_init_fonts:161 - [Init] Downloading font: montserrat_extrabold.ttf …
+2026-03-01 19:54:36.316 | SUCCESS  | __main__:_download_font:147 - [Init] Font downloaded: montserrat_extrabold.ttf
+2026-03-01 19:54:36.321 | INFO     | __main__:_init_fonts:161 - [Init] Downloading font: montserrat_regular.ttf …
+2026-03-01 19:54:38.708 | SUCCESS  | __main__:_download_font:147 - [Init] Font downloaded: montserrat_regular.ttf
+2026-03-01 19:54:38.713 | WARNING  | __main__:_verify_tinydb:177 - [Init] TinyDB init warning: No module named 'tinydb'
+2026-03-01 19:54:38.713 | SUCCESS  | __main__:run:190 - [Init] ✅ All data files and directories are ready.

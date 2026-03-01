@@ -1,0 +1,51 @@
+{
+  "daily_video_count_min": 4,
+  "daily_video_count_max": 8,
+  "publish_hour_windows": [
+    [
+      7,
+      9
+    ],
+    [
+      12,
+      14
+    ],
+    [
+      18,
+      20
+    ],
+    [
+      21,
+      23
+    ]
+  ],
+  "top_templates": [],
+  "top_categories": [],
+  "top_voice_gender": "mixed",
+  "top_audiences": [
+    "American",
+    "British",
+    "Canadian",
+    "Australian"
+  ],
+  "target_video_duration_range": [
+    12.0,
+    16.0
+  ],
+  "best_cta_indices": [],
+  "underperforming_templates": [],
+  "underperforming_categories": [],
+  "last_updated": null,
+  "total_shorts_analysed": 0,
+  "channel_subscribers": 0,
+  "monetization_progress": {
+    "subscribers_needed": 1000,
+    "watch_hours_needed": 4000,
+    "current_subscribers": 0,
+    "current_watch_hours": 0.0,
+    "subscribers_remaining": 1000,
+    "watch_hours_remaining": 4000.0,
+    "sub_completion_pct": 0.0,
+    "watch_hours_completion_pct": 0.0
+  }
+}

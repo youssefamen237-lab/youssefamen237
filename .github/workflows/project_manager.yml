@@ -1,0 +1,76 @@
+name: 📊 Weekly Analytics & Strategy Optimizer
+
+on:
+  schedule:
+    # Every Monday at 03:00 UTC — after a full week of data has accumulated
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: project-manager
+  cancel-in-progress: false
+
+jobs:
+  analyse:
+    name: Analyse Performance & Update Strategy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY:        ${{ secrets.GROQ_API_KEY }}
+      OPENAI_API_KEY:      ${{ secrets.OPENAI_API_KEY }}
+      OPENROUTER_KEY:      ${{ secrets.OPENROUTER_KEY }}
+      YOUTUBE_API_KEY:     ${{ secrets.YOUTUBE_API_KEY }}
+      YT_CHANNEL_ID:       ${{ secrets.YT_CHANNEL_ID }}
+      YT_CLIENT_ID_3:      ${{ secrets.YT_CLIENT_ID_3 }}
+      YT_CLIENT_SECRET_3:  ${{ secrets.YT_CLIENT_SECRET_3 }}
+      YT_REFRESH_TOKEN_3:  ${{ secrets.YT_REFRESH_TOKEN_3 }}
+
+    steps:
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 📦 Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 📂 Restore full data cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/questions_db.json
+            data/publish_log.json
+            data/polls_log.json
+            data/strategy_config.json
+            data/quota_log.json
+          key: quizzaro-data-${{ github.run_number }}
+          restore-keys: |
+            quizzaro-data-
+
+      - name: 📊 Run project manager (analytics + strategy update)
+        run: python main.py --mode manager
+
+      - name: 📤 Upload weekly report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-report-${{ github.run_number }}
+          path: data/reports/
+          retention-days: 30
+
+      - name: 💾 Save updated strategy config
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/strategy_config.json
+            data/reports/
+          key: quizzaro-data-${{ github.run_number }}
