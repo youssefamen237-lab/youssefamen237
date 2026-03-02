@@ -23,6 +23,7 @@ import json
 import shutil
 import subprocess
 import uuid
+import random
 from dataclasses import asdict
 from pathlib import Path
 
@@ -91,10 +92,15 @@ class VideoComposer:
         """
         Full pipeline. Returns absolute path to the output .mp4 file.
         """
-        import random
         job_id = uuid.uuid4().hex[:12]
         job_dir = RENDER_DIR / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
+
+        # Fix the multiple choice order ONCE for the entire video
+        fixed_mc_options = []
+        if question.template == "multiple_choice" and question.wrong_answers:
+            fixed_mc_options = [question.correct_answer] + question.wrong_answers[:3]
+            random.shuffle(fixed_mc_options)
 
         # ── 1. Duration jitter (human-touch fingerprint) ───────────────────
         jitter = random.uniform(-1.0, 1.5)
@@ -139,7 +145,7 @@ class VideoComposer:
 
             if i < timer_start_f:
                 pil_img = self._draw_question_phase(
-                    pil_img, question, tmpl, i, font_path
+                    pil_img, question, tmpl, i, font_path, fixed_mc_options
                 )
             elif i < timer_end_f:
                 pil_img = self._draw_timer_phase(
@@ -167,9 +173,8 @@ class VideoComposer:
 
     # ── Phase drawers ──────────────────────────────────────────────────────
 
-    def _draw_question_phase(self, img, question, tmpl, frame_idx, font_path):
+    def _draw_question_phase(self, img, question, tmpl, frame_idx, font_path, fixed_mc_options):
         from PIL import Image, ImageDraw, ImageFont
-        import random
 
         anim = get_popup_frame(frame_idx, full_font_size=72)
         q_font_size = anim.font_size
@@ -195,9 +200,9 @@ class VideoComposer:
         draw.text((cx, (badge_y1 + badge_y2) // 2), tmpl.badge_label,
                   font=bf, fill=(0, 0, 0, 255), anchor="mm")
 
-        # Question text
+        # Question text (Moved slightly higher)
         lines = wrap_text(question.question_text, q_font, SAFE_W - 20)
-        self._draw_multiline(draw, lines, cx, HEIGHT // 2 - 60, q_font,
+        self._draw_multiline(draw, lines, cx, HEIGHT // 2 - 120, q_font,
                              (255, 255, 255, anim.alpha), stroke=5)
 
         # CTA text (appears after 15 frames)
@@ -207,12 +212,12 @@ class VideoComposer:
             except Exception:
                 cta_font = ImageFont.load_default()
             cta_lines = wrap_text(question.cta_text, cta_font, SAFE_W - 40)
-            self._draw_multiline(draw, cta_lines, cx, HEIGHT // 2 + 230, cta_font,
+            self._draw_multiline(draw, cta_lines, cx, HEIGHT // 2 + 350, cta_font,
                                  (255, 230, 100, 190), stroke=3)
 
         # Template-specific options
-        if tmpl.name == "multiple_choice" and frame_idx > 20 and question.wrong_answers:
-            self._draw_mc_options(draw, question, font_path)
+        if tmpl.name == "multiple_choice" and frame_idx > 20 and fixed_mc_options:
+            self._draw_mc_options(draw, fixed_mc_options, font_path)
 
         if tmpl.name == "true_false" and frame_idx > 20:
             self._draw_tf_buttons(draw, font_path)
@@ -320,20 +325,19 @@ class VideoComposer:
             draw.text((cx, y + lh // 2), line, font=font, fill=fill, anchor="mm")
             y += lh + spacing
 
-    def _draw_mc_options(self, draw, question, font_path):
-        from PIL import ImageFont, Image
-        import random as _r
-        all_opts = [question.correct_answer] + question.wrong_answers[:3]
-        _r.shuffle(all_opts)
+    def _draw_mc_options(self, draw, fixed_mc_options, font_path):
+        from PIL import ImageFont
         try:
             opt_font = (ImageFont.truetype(font_path, 36)
                         if font_path else ImageFont.load_default())
         except Exception:
             opt_font = ImageFont.load_default()
+        
         labels = ["A", "B", "C", "D"]
-        start_y = HEIGHT // 2 + 130
+        # Moved options lower to avoid overlap with question
+        start_y = HEIGHT // 2 + 70  
         spacing = 88
-        for i, (lbl, opt) in enumerate(zip(labels, all_opts)):
+        for i, (lbl, opt) in enumerate(zip(labels, fixed_mc_options)):
             oy = start_y + i * spacing
             draw.rounded_rectangle([SAFE_LEFT, oy - 28, SAFE_RIGHT, oy + 28],
                                     radius=14, fill=(255, 255, 255, 38))
@@ -347,7 +351,9 @@ class VideoComposer:
             tf_font = ImageFont.truetype(font_path, 50) if font_path else ImageFont.load_default()
         except Exception:
             tf_font = ImageFont.load_default()
-        y1, y2 = HEIGHT // 2 + 190, HEIGHT // 2 + 280
+        
+        # Moved T/F buttons lower to avoid overlap
+        y1, y2 = HEIGHT // 2 + 150, HEIGHT // 2 + 240
         draw.rounded_rectangle([SAFE_LEFT, y1, cx - 18, y2], radius=20,
                                 fill=(0, 200, 80, 200))
         draw.text(((SAFE_LEFT + cx - 18) // 2, (y1 + y2) // 2), "TRUE",
