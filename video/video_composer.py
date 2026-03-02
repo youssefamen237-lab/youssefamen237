@@ -33,7 +33,7 @@ from loguru import logger
 from pydub import AudioSegment
 
 from core.content_engine import QuestionObject
-from video.template_engine import TemplateEngine
+from video.template_engine import TemplateEngine, TEMPLATE_CONFIGS
 from video.background_manager import BackgroundManager
 from video.music_engine import MusicEngine
 from video.watermark import WatermarkEngine
@@ -113,9 +113,11 @@ class VideoComposer:
 
         logger.info(f"[Composer] {job_id} | dur={total_sec:.1f}s | frames={total_frames}")
 
-        # ── 2. Template selection ──────────────────────────────────────────
-        tmpl = self._templates.pick_template()
-        logger.info(f"[Composer] Template: {tmpl.name}")
+        # ── 2. Template selection (MATCH AI QUESTION EXACTLY) ──────────────
+        tmpl = TEMPLATE_CONFIGS.get(question.template)
+        if not tmpl:
+            tmpl = self._templates.pick_template()
+        logger.info(f"[Composer] Template matched: {tmpl.name}")
 
         # ── 3. Background frames ───────────────────────────────────────────
         bg_frames = self._bg.get_background_frames(total_sec, job_dir)
@@ -149,7 +151,7 @@ class VideoComposer:
                 )
             elif i < timer_end_f:
                 pil_img = self._draw_timer_phase(
-                    pil_img, question, i, timer_start_f, timer_end_f, font_path
+                    pil_img, question, i, timer_start_f, timer_end_f, font_path, tmpl, fixed_mc_options
                 )
             else:
                 pil_img = self._draw_answer_phase(
@@ -200,19 +202,19 @@ class VideoComposer:
         draw.text((cx, (badge_y1 + badge_y2) // 2), tmpl.badge_label,
                   font=bf, fill=(0, 0, 0, 255), anchor="mm")
 
-        # Question text (Moved slightly higher)
+        # Question text (Moved higher to leave room for options/buttons)
         lines = wrap_text(question.question_text, q_font, SAFE_W - 20)
-        self._draw_multiline(draw, lines, cx, HEIGHT // 2 - 120, q_font,
+        self._draw_multiline(draw, lines, cx, HEIGHT // 2 - 220, q_font,
                              (255, 255, 255, anim.alpha), stroke=5)
 
-        # CTA text (appears after 15 frames)
+        # CTA text (appears after 15 frames, moved to bottom)
         if frame_idx > 15:
             try:
                 cta_font = ImageFont.truetype(font_path, 30) if font_path else ImageFont.load_default()
             except Exception:
                 cta_font = ImageFont.load_default()
             cta_lines = wrap_text(question.cta_text, cta_font, SAFE_W - 40)
-            self._draw_multiline(draw, cta_lines, cx, HEIGHT // 2 + 350, cta_font,
+            self._draw_multiline(draw, cta_lines, cx, HEIGHT // 2 + 500, cta_font,
                                  (255, 230, 100, 190), stroke=3)
 
         # Template-specific options
@@ -224,26 +226,34 @@ class VideoComposer:
 
         return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
-    def _draw_timer_phase(self, img, question, frame_idx, timer_start_f, timer_end_f, font_path):
+    def _draw_timer_phase(self, img, question, frame_idx, timer_start_f, timer_end_f, font_path, tmpl, fixed_mc_options):
         from PIL import Image, ImageDraw, ImageFont
         timer_frame = frame_idx - timer_start_f
         timer_total = timer_end_f - timer_start_f
         progress = timer_frame / timer_total
 
-        # Dimmed question text stays visible
         overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
+        
+        # Dimmed question text stays visible
         try:
             q_font = ImageFont.truetype(font_path, 56) if font_path else ImageFont.load_default()
         except Exception:
             q_font = ImageFont.load_default()
         lines = wrap_text(question.question_text, q_font, SAFE_W - 20)
-        self._draw_multiline(draw, lines, WIDTH // 2, HEIGHT // 2 - 200,
+        self._draw_multiline(draw, lines, WIDTH // 2, HEIGHT // 2 - 220,
                              q_font, (255, 255, 255, 160), stroke=4)
+
+        # Draw options/buttons during timer phase so they don't disappear
+        if tmpl.name == "multiple_choice" and fixed_mc_options:
+            self._draw_mc_options(draw, fixed_mc_options, font_path)
+        if tmpl.name == "true_false":
+            self._draw_tf_buttons(draw, font_path)
+
         img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
-        # Circular timer
-        img = draw_timer(img, progress, center=(WIDTH // 2, HEIGHT // 2 + 100),
+        # Circular timer (Moved to the bottom so it doesn't overlap options)
+        img = draw_timer(img, progress, center=(WIDTH // 2, HEIGHT // 2 + 380),
                          font_path=font_path)
         return img
 
@@ -261,13 +271,13 @@ class VideoComposer:
             a_font = ImageFont.load_default()
 
         lines = wrap_text(question.correct_answer, a_font, SAFE_W - 30)
-        self._draw_multiline(gd, lines, WIDTH // 2, HEIGHT // 2 + 60,
+        self._draw_multiline(gd, lines, WIDTH // 2, HEIGHT // 2,
                              a_font, PHOSPHOR + (100,), stroke=0)
         glow = glow.filter(ImageFilter.GaussianBlur(radius=16))
 
         sharp = Image.new("RGBA", img.size, (0, 0, 0, 0))
         sd = ImageDraw.Draw(sharp)
-        self._draw_multiline(sd, lines, WIDTH // 2, HEIGHT // 2 + 60,
+        self._draw_multiline(sd, lines, WIDTH // 2, HEIGHT // 2,
                              a_font, PHOSPHOR + (255,), stroke=6)
 
         img = Image.alpha_composite(img.convert("RGBA"), glow)
@@ -284,11 +294,11 @@ class VideoComposer:
         by1, by2 = HEIGHT // 2 - 210, HEIGHT // 2 - 140
         bd.rounded_rectangle([cx - 190, by1, cx + 190, by2], radius=26,
                               fill=(57, 255, 20, 210))
-        bd.text((cx, (by1 + by2) // 2), "✓  CORRECT!", font=bfont,
+        bd.text((cx, (by1 + by2) // 2), "CORRECT!", font=bfont,
                 fill=(0, 0, 0, 255), anchor="mm")
         img = Image.alpha_composite(img.convert("RGBA"), badge).convert("RGB")
 
-        # Explanation (after 15 frames)
+        # Explanation
         if question.explanation and reveal_f > 15:
             try:
                 ef = ImageFont.truetype(font_path, 32) if font_path else ImageFont.load_default()
@@ -297,7 +307,7 @@ class VideoComposer:
             exp_overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
             ed = ImageDraw.Draw(exp_overlay)
             exp_lines = wrap_text(question.explanation, ef, SAFE_W - 40)
-            self._draw_multiline(ed, exp_lines, WIDTH // 2, HEIGHT // 2 + 270,
+            self._draw_multiline(ed, exp_lines, WIDTH // 2, HEIGHT // 2 + 200,
                                  ef, (200, 200, 200, 200), stroke=2)
             img = Image.alpha_composite(img.convert("RGBA"), exp_overlay).convert("RGB")
 
@@ -334,8 +344,7 @@ class VideoComposer:
             opt_font = ImageFont.load_default()
         
         labels = ["A", "B", "C", "D"]
-        # Moved options lower to avoid overlap with question
-        start_y = HEIGHT // 2 + 70  
+        start_y = HEIGHT // 2 - 20  
         spacing = 88
         for i, (lbl, opt) in enumerate(zip(labels, fixed_mc_options)):
             oy = start_y + i * spacing
@@ -352,8 +361,7 @@ class VideoComposer:
         except Exception:
             tf_font = ImageFont.load_default()
         
-        # Moved T/F buttons lower to avoid overlap
-        y1, y2 = HEIGHT // 2 + 150, HEIGHT // 2 + 240
+        y1, y2 = HEIGHT // 2 + 20, HEIGHT // 2 + 110
         draw.rounded_rectangle([SAFE_LEFT, y1, cx - 18, y2], radius=20,
                                 fill=(0, 200, 80, 200))
         draw.text(((SAFE_LEFT + cx - 18) // 2, (y1 + y2) // 2), "TRUE",
@@ -399,14 +407,12 @@ class VideoComposer:
     # ── Audio pipeline ─────────────────────────────────────────────────────
 
     def _tts_and_mix(self, question, job_dir, job_id, q_sec, total_sec) -> dict:
-        # Synthesise question + CTA voiceovers
         audio_result = self._tts.render_question_audio(
             question_text=question.question_text,
             cta_text=question.cta_text,
             job_id=job_id,
         )
 
-        # BGM
         bgm_path = str(job_dir / "bgm.wav")
         bgm = self._music.get_bgm(int(total_sec * 1000), bgm_path)
         if bgm is None:
@@ -448,7 +454,6 @@ class VideoComposer:
 
     @staticmethod
     def _patch_log_local_path(job_id: str, video_path: str, gender: str) -> None:
-        """Append local_video_path + gender to the most recent publish_log entry."""
         if not PUBLISH_LOG_PATH.exists():
             return
         try:
