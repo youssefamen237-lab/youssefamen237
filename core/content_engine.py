@@ -305,8 +305,10 @@ class AIQuestionGenerator:
 
         template_instructions = {
             "true_false": (
-                "Create a True/False question. "
-                "wrong_answers must be exactly ['False'] if correct is 'True', or ['True'] if correct is 'False'."
+                "Write a declarative STATEMENT that is either True or False. Do NOT write a question (no question marks). "
+                "The 'correct_answer' MUST be exactly the word 'True' or 'False'. "
+                "The 'wrong_answers' array MUST contain exactly one item: the opposite word. "
+                "Example question_text: 'The Great Wall of China is visible from the moon.'"
             ),
             "multiple_choice": (
                 "Create a multiple-choice question with exactly 4 options total (1 correct + 3 wrong distractors). "
