@@ -447,26 +447,24 @@ class AudioEngine:
         Returns the path to the raw (pre-humanization) audio file.
         Raises RuntimeError if all providers fail.
         """
-        raw_path = output_path.replace(".wav", "_raw.wav")
-
         # ── 1. EdgeTTS ─────────────────────────────────────────────────────
         if self._edge.available:
             voice = self._pick_edge_voice(gender)
             logger.info(f"[AudioEngine] EdgeTTS | voice={voice}")
-            if self._edge.synthesize(text, voice, raw_path):
-                return raw_path
+            if self._edge.synthesize(text, voice, output_path):
+                return output_path
 
         # ── 2. Kokoro ──────────────────────────────────────────────────────
         if self._kokoro.available:
             voice = self._kokoro.random_voice(gender)
             logger.info(f"[AudioEngine] Kokoro | voice={voice}")
-            if self._kokoro.synthesize(text, voice, raw_path):
-                return raw_path
+            if self._kokoro.synthesize(text, voice, output_path):
+                return output_path
 
         # ── 3. Bark (HF) ───────────────────────────────────────────────────
         logger.info(f"[AudioEngine] Bark | gender={gender}")
-        if self._bark.synthesize(text, gender, raw_path):
-            return raw_path
+        if self._bark.synthesize(text, gender, output_path):
+            return output_path
 
         raise RuntimeError(f"[AudioEngine] ALL TTS providers failed for text: {text[:80]}")
 
