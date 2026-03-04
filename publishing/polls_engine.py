@@ -41,7 +41,6 @@ class PublishLogReader:
         entries = self._load()
         if not entries:
             return []
-        # جلب أحدث الفيديوهات مباشرة بدون فحص التواريخ لتجنب أخطاء الوقت
         recent = entries[-limit:]
         random.shuffle(recent)
         return recent
@@ -144,7 +143,6 @@ class YouTubeCommunityClient:
         elif resp.status_code == 403:
             return self._post_text_fallback(post_text, token)
         else:
-            # هنا الكود هيعمل Crash متعمد عشان يطبع المشكلة الحقيقية في جيت هاب
             raise RuntimeError(f"YouTube API Error {resp.status_code}: {resp.text}")
 
     def _post_text_fallback(self, text: str, token: str) -> Optional[str]:
@@ -196,11 +194,13 @@ class PollsEngine:
 
         candidates = self._log_reader.get_recent_shorts(limit=count * 3)
         if not candidates:
-            raise RuntimeError("No shorts found in publish_log.json! Cannot create polls.")
+            logger.warning("[PollsEngine] No shorts found in publish_log.json! Skipping polls for today.")
+            return
 
         valid = [c for c in candidates if not self._guard.is_used(c.get("question_text", ""))]
         if not valid:
-            raise RuntimeError("All candidate shorts have already been posted as polls.")
+            logger.warning("[PollsEngine] All candidate shorts have already been posted as polls. Skipping.")
+            return
 
         selected = valid[:count]
         
