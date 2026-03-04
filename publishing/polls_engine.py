@@ -2,7 +2,7 @@
 publishing/polls_engine.py – Quizzaro Community Polls Engine
 =============================================================
 Responsibilities:
-  1. Read the publish_log.json to find Shorts published ~7 days ago
+  1. Read the publish_log.json to find Shorts published recently
   2. Reframe those questions as engaging community poll posts
   3. Post 1–4 polls per day to the YouTube Community tab via the Data API v3
   4. Vary post timing randomly to avoid bot-pattern detection
@@ -42,9 +42,9 @@ PUBLISH_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # ── Poll timing ───────────────────────────────────────────────────────────────
 MIN_POLLS_PER_DAY = 1
-MAX_POLLS_PER_DAY = 4
-SOURCE_LOOKBACK_DAYS_MIN = 6
-SOURCE_LOOKBACK_DAYS_MAX = 10
+MAX_POLLS_PER_DAY = 3
+SOURCE_LOOKBACK_DAYS_MIN = 0  # Changed to 0 so it finds recent videos immediately
+SOURCE_LOOKBACK_DAYS_MAX = 30 # Look back up to a month
 
 # ── YouTube API scope needed ──────────────────────────────────────────────────
 YT_SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
@@ -364,36 +364,18 @@ class PollDuplicateGuard:
 
 def _random_poll_delays(count: int) -> list[float]:
     """
-    Generate *count* delay values (in seconds from now) spread across the day.
-    Minimum gap between posts: 90 minutes. Avoids overnight hours (01:00–07:00 UTC).
+    Generate small delays in seconds to avoid GitHub Actions timing out,
+    instead of waiting for hours.
     """
-    day_seconds = 24 * 3600
-    quiet_start = 1 * 3600    # 01:00 UTC
-    quiet_end = 7 * 3600      # 07:00 UTC
-    now_sec = (datetime.utcnow().hour * 3600 + datetime.utcnow().minute * 60 + datetime.utcnow().second)
-
-    slots: list[float] = []
-    min_gap = 90 * 60     # 90 minutes minimum gap
-
-    attempts = 0
-    while len(slots) < count and attempts < 200:
-        attempts += 1
-        t = random.uniform(0, day_seconds - now_sec)
-
-        # Skip quiet hours
-        abs_t = (now_sec + t) % day_seconds
-        if quiet_start <= abs_t <= quiet_end:
-            continue
-
-        # Ensure minimum gap from existing slots
-        too_close = any(abs(t - s) < min_gap for s in slots)
-        if too_close:
-            continue
-
-        slots.append(t)
-
-    slots.sort()
-    return slots
+    if count == 0:
+        return []
+    
+    delays = [0.0]  # First poll posts immediately
+    for _ in range(count - 1):
+        # Wait between 15 and 45 seconds before posting the next poll
+        delays.append(float(random.randint(15, 45)))
+        
+    return delays
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -405,10 +387,10 @@ class PollsEngine:
     Top-level polls orchestrator. Called by main.py with --mode polls.
 
     Workflow:
-      1. Read publish log → find Shorts from 6–10 days ago
+      1. Read publish log → find Shorts from recent days
       2. For each selected Short: rephrase question via AI
       3. Post poll to YouTube Community tab
-      4. Wait random delay before next post
+      4. Wait random small delay before next post
     """
 
     def __init__(
@@ -456,11 +438,11 @@ class PollsEngine:
         delays = _random_poll_delays(len(selected))
 
         logger.info(f"[PollsEngine] Posting {len(selected)} poll(s) with delays: "
-                    f"{[f'{d/3600:.2f}h' for d in delays]}")
+                    f"{[f'{d:.0f}s' for d in delays]}")
 
         for i, (short_data, delay_sec) in enumerate(zip(selected, delays), start=1):
             if delay_sec > 0:
-                logger.info(f"[PollsEngine] Waiting {delay_sec/60:.1f} min before poll {i}/{len(selected)} …")
+                logger.info(f"[PollsEngine] Waiting {delay_sec:.0f} sec before poll {i}/{len(selected)} …")
                 time.sleep(delay_sec)
 
             self._post_one_poll(short_data, i, len(selected))
