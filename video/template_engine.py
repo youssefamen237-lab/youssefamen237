@@ -1,14 +1,11 @@
 """
 video/template_engine.py – Quizzaro Template Engine
 =====================================================
-Manages the 8 Short templates.  Responsibilities:
+Manages the templates. Responsibilities:
   1. Select the next template using weighted rotation (no streak > 2)
   2. Read strategy_config.json to weight top-performing templates higher
   3. Return a TemplateConfig object that VideoComposer uses to
      parameterise the frame renderer (which template-specific UI to draw)
-
-The actual pixel-level drawing happens inside video_renderer.py (_render_frame).
-This module owns the *selection logic* and *configuration contract*.
 """
 
 from __future__ import annotations
@@ -20,6 +17,7 @@ from pathlib import Path
 
 STRATEGY_CONFIG_PATH = Path("data/strategy_config.json")
 
+# 1. Added the new "visual_levels" template
 ALL_TEMPLATES = [
     "true_false",
     "multiple_choice",
@@ -29,10 +27,15 @@ ALL_TEMPLATES = [
     "only_geniuses",
     "memory_test",
     "visual_question",
+    "visual_levels",  # <-- القالب الجديد (تحدي المستويات)
 ]
 
-# Default weights (equal). Overridden by strategy_config.
+# 2. Adjusted Weights to favor successful templates
 BASE_WEIGHTS = {t: 1.0 for t in ALL_TEMPLATES}
+BASE_WEIGHTS["quick_challenge"] = 3.0  # الدايرة الكبيرة الناجحة
+BASE_WEIGHTS["direct_question"] = 3.0  # الدايرة الكبيرة الناجحة
+BASE_WEIGHTS["guess_answer"] = 2.0     # قالب سريع
+BASE_WEIGHTS["visual_levels"] = 3.0    # القالب الجديد عشان يبدأ يظهر بقوة
 
 
 @dataclass
@@ -77,6 +80,11 @@ TEMPLATE_CONFIGS: dict[str, TemplateConfig] = {
     "visual_question": TemplateConfig(
         name="visual_question", show_options=False, option_count=0,
         badge_label="👁 VISUAL QUIZ", timer_seconds=5, answer_seconds=5,
+    ),
+    # 3. Configuration for the new Visual Levels template
+    "visual_levels": TemplateConfig(
+        name="visual_levels", show_options=False, option_count=0,
+        badge_label="🎮 LEVEL UP QUIZ", timer_seconds=5, answer_seconds=5,
     ),
 }
 
