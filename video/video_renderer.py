@@ -11,8 +11,7 @@ Responsibilities:
   7. Random BGM slice (anti-Content-ID)
   8. Final FFmpeg assembly → MP4 (1080×1920, H.264, AAC)
   9. Random total duration tweak (±1.5s) for human-touch fingerprint
-
-Output: a single .mp4 file path ready for YouTubeUploader.
+  10. Gamified Level UI for "visual_levels" template
 """
 
 from __future__ import annotations
@@ -472,6 +471,48 @@ def _draw_dark_overlay(img: Image.Image, alpha: int = 160) -> Image.Image:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  Sidebar UI for Visual Levels Template
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _draw_levels_sidebar(img: Image.Image, active_idx: int) -> Image.Image:
+    """Draws a gamified left-sidebar showing EASY / MEDIUM / HARD / EXPERT levels."""
+    levels = [
+        ("EASY", (57, 255, 20)),     # Green
+        ("MEDIUM", (255, 255, 0)),   # Yellow
+        ("HARD", (255, 165, 0)),     # Orange
+        ("EXPERT", (255, 45, 45))    # Red
+    ]
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    
+    font = _get_font("extrabold", 38)
+    title_font = _get_font("bold", 32)
+    start_y = HEIGHT // 2 - 250
+    
+    # Draw Title
+    _draw_text_with_stroke(draw, "LEVEL", (SAFE_LEFT + 130, start_y - 60), title_font, WHITE, stroke_width=2)
+    
+    # Draw Levels
+    for i, (text, color) in enumerate(levels):
+        y = start_y + i * 110
+        if i == active_idx:
+            bg_color = color + (255,)
+            txt_color = BLACK
+        elif i < active_idx:
+            bg_color = color + (100,)
+            txt_color = WHITE
+        else:
+            bg_color = (40, 40, 40, 150)
+            txt_color = (200, 200, 200, 255)
+            
+        draw.rounded_rectangle([SAFE_LEFT, y, SAFE_LEFT + 260, y + 75], radius=20, fill=bg_color)
+        draw.text((SAFE_LEFT + 130, y + 37), text, font=font, fill=txt_color, anchor="mm")
+        
+    base = img.convert("RGBA")
+    return Image.alpha_composite(base, overlay).convert("RGB")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  Circular Timer renderer
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -565,7 +606,7 @@ def _popup_scale(frame_in_anim: int, anim_frames: int) -> float:
 #  Answer reveal glow
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _draw_answer_reveal(img: Image.Image, answer_text: str, frame_in_reveal: int) -> Image.Image:
+def _draw_answer_reveal(img: Image.Image, answer_text: str, frame_in_reveal: int, cx: int, wrap_w: int) -> Image.Image:
     """
     Draw phosphorescent green answer with bloom glow effect.
     frame_in_reveal=0 is the first frame of the reveal section.
@@ -578,8 +619,7 @@ def _draw_answer_reveal(img: Image.Image, answer_text: str, frame_in_reveal: int
     font_size = 80 if len(answer_text) < 15 else 60
     font = _get_font("extrabold", font_size)
 
-    lines = _wrap_text(answer_text, font, SAFE_W - 40)
-    cx = WIDTH // 2
+    lines = _wrap_text(answer_text, font, wrap_w)
     cy = HEIGHT // 2 + 80
 
     # Draw green text multiple times with blur to simulate glow
@@ -604,7 +644,7 @@ def _draw_answer_reveal(img: Image.Image, answer_text: str, frame_in_reveal: int
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Template renderers  (all 8 templates share the same base pipeline)
+#  Template renderers  (all templates share the same base pipeline)
 # ─────────────────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -627,9 +667,18 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
 
     # Dark overlay for readability
     img = _draw_dark_overlay(bg, alpha=155)
-
     q = job.question
-    cx = WIDTH // 2
+
+    # Dynamic Layout (Split screen for visual_levels template)
+    if q.template == "visual_levels":
+        # Deterministically choose a level based on question text length
+        active_lvl = (len(q.question_text) + len(q.correct_answer)) % 4
+        img = _draw_levels_sidebar(img, active_lvl)
+        layout_cx = 670         # Shift center to the right
+        layout_wrap = 620       # Narrower wrap width
+    else:
+        layout_cx = WIDTH // 2  # Dead center
+        layout_wrap = SAFE_W - 20
 
     # ── Phase 1: Question display ──────────────────────────────────────────
     if frame_idx < job.timer_start_frame:
@@ -641,36 +690,36 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
         # Template badge (top area)
         badge_font = _get_font("bold", 36)
         badge_text = q.template.replace("_", " ").upper()
+        if q.template == "visual_levels":
+            badge_text = "🎮 LEVEL UP QUIZ"
+            
         badge_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
         bd = ImageDraw.Draw(badge_img)
         # Rounded badge background
-        badge_x1, badge_y1 = cx - 160, SAFE_TOP + 30
-        badge_x2, badge_y2 = cx + 160, SAFE_TOP + 80
+        badge_x1, badge_y1 = layout_cx - 160, SAFE_TOP + 30
+        badge_x2, badge_y2 = layout_cx + 160, SAFE_TOP + 80
         bd.rounded_rectangle([badge_x1, badge_y1, badge_x2, badge_y2], radius=20, fill=(255, 200, 0, 220))
-        bd.text((cx, (badge_y1 + badge_y2) // 2), badge_text, font=badge_font, fill=(0, 0, 0), anchor="mm")
+        bd.text((layout_cx, (badge_y1 + badge_y2) // 2), badge_text, font=badge_font, fill=(0, 0, 0), anchor="mm")
         img = Image.alpha_composite(img.convert("RGBA"), badge_img).convert("RGB")
 
         # Question text with pop-up scale
         font_size = max(40, min(72, int(72 * scale)))
         q_font = _get_font("extrabold", font_size)
-        lines = _wrap_text(q.question_text, q_font, SAFE_W - 20)
-        draw = ImageDraw.Draw(img)
-
+        lines = _wrap_text(q.question_text, q_font, layout_wrap)
+        
         alpha_val = int(255 * min(1.0, scale * 1.5))
-        text_color = (255, 255, 255, alpha_val) if scale < 1.0 else WHITE
-
         text_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
         td = ImageDraw.Draw(text_img)
-        _draw_multiline_centered(td, lines, cx, HEIGHT // 2 - 60, q_font, (255, 255, 255, alpha_val), stroke_width=5)
+        _draw_multiline_centered(td, lines, layout_cx, HEIGHT // 2 - 60, q_font, (255, 255, 255, alpha_val), stroke_width=5)
         img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
 
         # CTA text (smaller, below question)
         if phase_frame > int(FPS * 0.5):
             cta_font = _get_font("regular", 32)
-            cta_lines = _wrap_text(q.cta_text, cta_font, SAFE_W - 40)
+            cta_lines = _wrap_text(q.cta_text, cta_font, layout_wrap)
             cta_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
             cd = ImageDraw.Draw(cta_img)
-            _draw_multiline_centered(cd, cta_lines, cx, HEIGHT // 2 + 220, cta_font, (255, 230, 100, 200), stroke_width=3)
+            _draw_multiline_centered(cd, cta_lines, layout_cx, HEIGHT // 2 + 220, cta_font, (255, 230, 100, 200), stroke_width=3)
             img = Image.alpha_composite(img.convert("RGBA"), cta_img).convert("RGB")
 
         # For multiple_choice: show options
@@ -696,15 +745,14 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
         # For true_false: show T/F buttons
         if q.template == "true_false" and phase_frame > int(FPS * 0.7):
             tf_font = _get_font("extrabold", 52)
-            draw = ImageDraw.Draw(img.convert("RGBA"))
             tf_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
             tfd = ImageDraw.Draw(tf_img)
             # TRUE button
-            tfd.rounded_rectangle([SAFE_LEFT, HEIGHT // 2 + 180, cx - 20, HEIGHT // 2 + 280], radius=20, fill=(0, 200, 80, 200))
-            tfd.text(((SAFE_LEFT + cx - 20) // 2, HEIGHT // 2 + 230), "TRUE", font=tf_font, fill=WHITE, anchor="mm")
+            tfd.rounded_rectangle([SAFE_LEFT, HEIGHT // 2 + 180, layout_cx - 20, HEIGHT // 2 + 280], radius=20, fill=(0, 200, 80, 200))
+            tfd.text(((SAFE_LEFT + layout_cx - 20) // 2, HEIGHT // 2 + 230), "TRUE", font=tf_font, fill=WHITE, anchor="mm")
             # FALSE button
-            tfd.rounded_rectangle([cx + 20, HEIGHT // 2 + 180, SAFE_RIGHT, HEIGHT // 2 + 280], radius=20, fill=(220, 50, 50, 200))
-            tfd.text(((cx + 20 + SAFE_RIGHT) // 2, HEIGHT // 2 + 230), "FALSE", font=tf_font, fill=WHITE, anchor="mm")
+            tfd.rounded_rectangle([layout_cx + 20, HEIGHT // 2 + 180, SAFE_RIGHT, HEIGHT // 2 + 280], radius=20, fill=(220, 50, 50, 200))
+            tfd.text(((layout_cx + 20 + SAFE_RIGHT) // 2, HEIGHT // 2 + 230), "FALSE", font=tf_font, fill=WHITE, anchor="mm")
             img = Image.alpha_composite(img.convert("RGBA"), tf_img).convert("RGB")
 
     # ── Phase 2: Timer countdown ───────────────────────────────────────────
@@ -715,14 +763,14 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
 
         # Keep question text visible but dimmer
         q_font = _get_font("extrabold", 60)
-        lines = _wrap_text(q.question_text, q_font, SAFE_W - 20)
+        lines = _wrap_text(q.question_text, q_font, layout_wrap)
         text_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
         td = ImageDraw.Draw(text_img)
-        _draw_multiline_centered(td, lines, cx, HEIGHT // 2 - 180, q_font, (255, 255, 255, 180), stroke_width=5)
+        _draw_multiline_centered(td, lines, layout_cx, HEIGHT // 2 - 180, q_font, (255, 255, 255, 180), stroke_width=5)
         img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
 
         # Circular timer centered
-        timer_center = (cx, HEIGHT // 2 + 100)
+        timer_center = (layout_cx, HEIGHT // 2 + 100)
         img_pil = img.convert("RGBA")
         img_pil = _draw_circular_timer(img_pil, progress, timer_center, radius=110, thickness=18)
         img = img_pil.convert("RGB")
@@ -733,22 +781,22 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
             p_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
             pd = ImageDraw.Draw(p_img)
             alpha_pulse = int(128 + 127 * math.sin(timer_frame * 0.4))
-            pd.text((cx, HEIGHT // 2 + 280), "⏳ Hurry up!", font=pulse_font,
+            pd.text((layout_cx, HEIGHT // 2 + 280), "⏳ Hurry up!", font=pulse_font,
                     fill=(255, 220, 50, alpha_pulse), anchor="mm")
             img = Image.alpha_composite(img.convert("RGBA"), p_img).convert("RGB")
 
     # ── Phase 3: Answer reveal ─────────────────────────────────────────────
     else:
         reveal_frame = frame_idx - job.answer_reveal_frame
-        img = _draw_answer_reveal(img, q.correct_answer, reveal_frame)
+        img = _draw_answer_reveal(img, q.correct_answer, reveal_frame, layout_cx, layout_wrap)
 
         # Explanation text below answer
         exp_font = _get_font("regular", 34)
         if q.explanation and reveal_frame > int(FPS * 0.5):
-            exp_lines = _wrap_text(q.explanation, exp_font, SAFE_W - 40)
+            exp_lines = _wrap_text(q.explanation, exp_font, layout_wrap)
             exp_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
             ed = ImageDraw.Draw(exp_img)
-            _draw_multiline_centered(ed, exp_lines, cx, HEIGHT // 2 + 260, exp_font,
+            _draw_multiline_centered(ed, exp_lines, layout_cx, HEIGHT // 2 + 260, exp_font,
                                      (200, 200, 200, 200), stroke_width=2)
             img = Image.alpha_composite(img.convert("RGBA"), exp_img).convert("RGB")
 
@@ -756,10 +804,10 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
         badge_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
         bd = ImageDraw.Draw(badge_img)
         badge_font = _get_font("extrabold", 52)
-        bx1, by1 = cx - 180, HEIGHT // 2 - 200
-        bx2, by2 = cx + 180, HEIGHT // 2 - 130
+        bx1, by1 = layout_cx - 180, HEIGHT // 2 - 200
+        bx2, by2 = layout_cx + 180, HEIGHT // 2 - 130
         bd.rounded_rectangle([bx1, by1, bx2, by2], radius=25, fill=(57, 255, 20, 200))
-        bd.text((cx, (by1 + by2) // 2), "✓  CORRECT!", font=badge_font, fill=BLACK, anchor="mm")
+        bd.text((layout_cx, (by1 + by2) // 2), "✓  CORRECT!", font=badge_font, fill=BLACK, anchor="mm")
         img = Image.alpha_composite(img.convert("RGBA"), badge_img).convert("RGB")
 
     # ── Watermark (every frame) ────────────────────────────────────────────
