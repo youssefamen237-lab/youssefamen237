@@ -1,15 +1,5 @@
 """
 core/content_engine.py – Quizzaro Question Generation Engine
-=============================================================
-Responsibilities:
-  1. Fetch raw trivia material from Wikipedia, Google Trends, YouTube, News APIs
-  2. Use AI (Gemini → Groq → OpenRouter fallback chain) to craft well-formed questions
-  3. Validate every question (correct answer verified, no ambiguity)
-  4. Enforce the 15-day no-repeat rule via TinyDB
-  5. Classify each question into one of the 8 Short templates
-  6. Return a fully structured QuestionObject ready for VideoComposer
-
-No placeholders. No mock data. Every function is production-ready.
 """
 
 from __future__ import annotations
@@ -31,11 +21,11 @@ from pytrends.request import TrendReq
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from tinydb import TinyDB, Query
 
-# ── Path to persistent question DB (lives in data/ inside the runner workspace) ─
+# ── Path to persistent question DB
 DB_PATH = Path("data/questions_db.json")
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-# ── Template IDs ──────────────────────────────────────────────────────────────
+# ── Template IDs
 TEMPLATES = [
     "true_false",
     "multiple_choice",
@@ -45,17 +35,17 @@ TEMPLATES = [
     "only_geniuses",
     "memory_test",
     "visual_question",
+    "visual_levels",
 ]
 
-# ── Category pool for diverse question generation ─────────────────────────────
+# ── Category pool for MODERN diverse question generation ───────────────────────
 CATEGORIES = [
-    "science", "history", "geography", "sports", "entertainment",
-    "technology", "nature", "food", "art", "literature",
-    "mathematics", "mythology", "space", "animals", "music",
-    "movies", "language", "inventions", "world records", "famous people",
+    "pop culture secrets", "mind-bending riddles", "famous movie mistakes", 
+    "gaming easter eggs", "crazy psychology facts", "bizarre history", 
+    "urban legends", "space mysteries", "superhero trivia", "internet mysteries",
+    "mandela effect", "impossible science", "hidden logos", "world records"
 ]
 
-# ── Supported English-speaking audiences ──────────────────────────────────────
 TARGET_AUDIENCES = ["American", "British", "Canadian", "Australian", "Irish"]
 
 
@@ -65,20 +55,19 @@ TARGET_AUDIENCES = ["American", "British", "Canadian", "Australian", "Irish"]
 
 @dataclass
 class QuestionObject:
-    """A fully validated, production-ready question for video rendering."""
-    question_id: str                      # SHA256 hash of the question text
-    template: str                         # one of TEMPLATES
-    question_text: str                    # the main question string
-    correct_answer: str                   # verified correct answer
-    wrong_answers: list[str]              # 3 distractors (empty for true/false)
-    explanation: str                      # brief explanation shown after answer
-    category: str                         # content category
-    difficulty: str                       # "easy" | "medium" | "hard"
-    target_audience: str                  # e.g. "American"
-    cta_text: str                         # call-to-action line for voiceover
-    created_at: str                       # ISO timestamp
-    source_hint: str                      # where the fact came from (wiki/trends/news)
-    fun_fact: str                         # optional extra fact for description SEO
+    question_id: str
+    template: str
+    question_text: str
+    correct_answer: str
+    wrong_answers: list[str]
+    explanation: str
+    category: str
+    difficulty: str
+    target_audience: str
+    cta_text: str
+    created_at: str
+    source_hint: str
+    fun_fact: str
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -86,8 +75,6 @@ class QuestionObject:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class WikipediaFetcher:
-    """Pull random interesting facts from Wikipedia."""
-
     def __init__(self) -> None:
         self._wiki = wikipediaapi.Wikipedia(
             language="en",
@@ -95,17 +82,13 @@ class WikipediaFetcher:
         )
 
     def fetch_random_facts(self, category: str, count: int = 5) -> list[str]:
-        """
-        Search Wikipedia for pages related to *category*, extract the first
-        meaningful paragraph of each, and return them as raw fact strings.
-        """
         facts: list[str] = []
         search_url = "https://en.wikipedia.org/w/api.php"
         params = {
             "action": "query",
             "list": "search",
             "srsearch": category,
-            "srlimit": count * 2,   # fetch extra in case some are too short
+            "srlimit": count * 2,
             "format": "json",
             "srnamespace": "0",
         }
@@ -119,7 +102,6 @@ class WikipediaFetcher:
                 title = item.get("title", "")
                 page = self._wiki.page(title)
                 if page.exists() and len(page.summary) > 100:
-                    # Take only the first 400 chars to keep context tight
                     facts.append(page.summary[:400].strip())
                     if len(facts) >= count:
                         break
@@ -131,13 +113,10 @@ class WikipediaFetcher:
 
 
 class GoogleTrendsFetcher:
-    """Pull currently trending topics to keep questions relevant and viral."""
-
     def __init__(self) -> None:
         self._pytrends = TrendReq(hl="en-US", tz=360)
 
     def fetch_trending_topics(self, country: str = "united_states") -> list[str]:
-        """Return list of trending search terms right now."""
         topics: list[str] = []
         try:
             trending_df = self._pytrends.trending_searches(pn=country)
@@ -148,8 +127,6 @@ class GoogleTrendsFetcher:
 
 
 class NewsFetcher:
-    """Pull current events headlines from NewsAPI for topical trivia."""
-
     def __init__(self, api_key: str) -> None:
         self._api_key = api_key
         self._base = "https://newsapi.org/v2/top-headlines"
@@ -175,8 +152,6 @@ class NewsFetcher:
 
 
 class YouTubeTrendsFetcher:
-    """Scrape trending YouTube video titles for culturally relevant topics."""
-
     def __init__(self, api_key: str) -> None:
         self._api_key = api_key
         self._base = "https://www.googleapis.com/youtube/v3/videos"
@@ -208,12 +183,6 @@ class YouTubeTrendsFetcher:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class AIQuestionGenerator:
-    """
-    Generates structured quiz questions using the Gemini → Groq → OpenRouter
-    fallback chain.  Every model call includes strict JSON output instructions.
-    """
-
-    # Ordered list of (provider_name, call_method)
     PROVIDER_ORDER = ["gemini", "groq", "openrouter"]
 
     def __init__(
@@ -226,8 +195,6 @@ class AIQuestionGenerator:
         self._groq_key = groq_key
         self._openrouter_key = openrouter_key
 
-    # ── Gemini ────────────────────────────────────────────────────────────────
-
     def _call_gemini(self, prompt: str) -> str:
         import google.generativeai as genai
         genai.configure(api_key=self._gemini_key)
@@ -235,20 +202,16 @@ class AIQuestionGenerator:
         response = model.generate_content(prompt)
         return response.text
 
-    # ── Groq ──────────────────────────────────────────────────────────────────
-
     def _call_groq(self, prompt: str) -> str:
         from groq import Groq
         client = Groq(api_key=self._groq_key)
         chat = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.8,
+            temperature=0.9, # slightly higher for creativity
             max_tokens=800,
         )
         return chat.choices[0].message.content
-
-    # ── OpenRouter ────────────────────────────────────────────────────────────
 
     def _call_openrouter(self, prompt: str) -> str:
         resp = requests.post(
@@ -260,7 +223,7 @@ class AIQuestionGenerator:
             json={
                 "model": "mistralai/mistral-7b-instruct:free",
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.8,
+                "temperature": 0.9,
                 "max_tokens": 800,
             },
             timeout=30,
@@ -268,10 +231,7 @@ class AIQuestionGenerator:
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
 
-    # ── Dispatcher with fallback ───────────────────────────────────────────────
-
     def generate_raw(self, prompt: str) -> str:
-        """Try each provider in order; return on first success."""
         callers = {
             "gemini": self._call_gemini,
             "groq": self._call_groq,
@@ -287,11 +247,9 @@ class AIQuestionGenerator:
             except Exception as exc:
                 logger.warning(f"[AIGen] Provider '{name}' failed: {exc}")
                 last_exc = exc
-                time.sleep(1)   # small back-off before next provider
+                time.sleep(1)
 
         raise RuntimeError(f"All AI providers failed. Last error: {last_exc}")
-
-    # ── Prompt builder ────────────────────────────────────────────────────────
 
     def _build_prompt(
         self,
@@ -301,81 +259,80 @@ class AIQuestionGenerator:
         audience: str,
         context_facts: list[str],
     ) -> str:
-        context_block = "\n".join(f"- {f}" for f in context_facts[:3]) if context_facts else "General knowledge."
+        context_block = "\n".join(f"- {f}" for f in context_facts[:3]) if context_facts else "Modern Gen-Z/Millennial culture."
 
         template_instructions = {
             "true_false": (
-                "Write a declarative STATEMENT that is either True or False. Do NOT write a question (no question marks). "
-                "The 'correct_answer' MUST be exactly the word 'True' or 'False'. "
-                "The 'wrong_answers' array MUST contain exactly one item: the opposite word. "
-                "Example question_text: 'The Great Wall of China is visible from the moon.'"
+                "Write a highly controversial or mind-blowing statement that sounds false but might be True (or vice versa). "
+                "Do NOT write a question. The 'correct_answer' MUST be exactly 'True' or 'False'. "
+                "The 'wrong_answers' array MUST contain exactly one item: the opposite word."
             ),
             "multiple_choice": (
-                "Create a multiple-choice question with exactly 4 options total (1 correct + 3 wrong distractors). "
-                "All distractors must be plausible but clearly wrong."
+                "Create a modern, surprising multiple-choice question. Start with a hook like 'Did you know?' or 'I bet you can't guess...'. "
+                "Exactly 4 options total (1 correct + 3 very tricky distractors)."
             ),
             "direct_question": (
-                "Create a direct question with a single short correct answer (1–5 words). "
-                "wrong_answers should be 3 plausible but incorrect answers."
+                "Create a fast, punchy question. Start with 'Quick!'. "
+                "Single short correct answer (1–3 words). 3 plausible distractors."
             ),
             "guess_answer": (
-                "Create a 'Guess the Answer' challenge. Give a description/clue without naming the subject. "
-                "The correct_answer is the name of the subject being described."
+                "Create a 'Guess Who/What' riddle. Describe something famous (movie, brand, celebrity) using emoji clues or vague descriptions. "
             ),
             "quick_challenge": (
-                "Create a fast-paced challenge question solvable in under 5 seconds. "
-                "May involve a simple calculation, a pattern, or a quick recall fact."
+                "Create a stressful, fast-paced challenge. Start with 'You have 5 seconds:'. "
+                "Make it a visual memory test or a trick question."
             ),
             "only_geniuses": (
-                "Create a hard trivia question that only 5% of people would know. "
-                "Start the question with 'Only geniuses can answer this:'"
+                "Start the question EXPLICITLY with '99% of people fail this:' or 'Only true geniuses know:'. "
+                "Make it a genuinely tricky logic or pop-culture riddle."
             ),
             "memory_test": (
-                "Create a memory/recall-based question referencing a fact from history, science, or pop culture "
-                "that most people once knew but have forgotten."
+                "Nostalgia challenge! Ask about a detail from a famous 2000s/2010s movie, song, or trend. "
+                "Start with 'Let's test your memory:'"
             ),
             "visual_question": (
-                "Create a question that describes a visual scenario (flags, maps, logos, shapes, colours) "
-                "even though the video will show text. Phrase it to trigger visual imagination."
+                "Describe a famous logo, flag, or movie scene perfectly, and ask them to name it."
+            ),
+            "visual_levels": (
+                "Create a question suitable for a LEVEL UP game (EASY/MEDIUM/HARD/EXPERT). Make it an escalating challenge. "
+                "E.g., 'What is the hardest language to learn?' or 'Which of these logos is fake?'"
             ),
         }
 
         t_instruction = template_instructions.get(template, template_instructions["multiple_choice"])
 
-        prompt = f"""You are a professional trivia quiz writer creating content for a YouTube Shorts channel targeting a {audience} audience.
+        prompt = f"""You are a viral TikTok/Shorts creator known for fast, modern, and highly engaging trivia. 
+Your audience has a short attention span, so you must use strong hooks.
 
 TEMPLATE: {template.replace('_', ' ').title()}
 CATEGORY: {category}
 DIFFICULTY: {difficulty}
-CONTEXT FACTS (use as inspiration, do NOT copy verbatim):
+CONTEXT (Optional inspiration):
 {context_block}
 
 INSTRUCTIONS:
 {t_instruction}
 
-STRICT OUTPUT FORMAT (valid JSON only, no extra text, no markdown fences):
+STRICT OUTPUT FORMAT (valid JSON only):
 {{
-  "question_text": "...",
+  "question_text": "YOUR_STRONG_HOOK_AND_QUESTION_HERE",
   "correct_answer": "...",
   "wrong_answers": ["...", "...", "..."],
-  "explanation": "A single sentence explaining why the answer is correct.",
+  "explanation": "One punchy sentence explaining the answer.",
   "difficulty": "{difficulty}",
   "category": "{category}",
-  "fun_fact": "A surprising related fact in one sentence.",
-  "source_hint": "wikipedia|trends|news|general"
+  "fun_fact": "A crazy related fact in one sentence.",
+  "source_hint": "viral_trends"
 }}
 
 RULES:
-- The correct answer MUST be 100% factually accurate.
-- The question must be engaging and surprising.
-- No offensive, political, religious, or controversial content.
+- The question_text MUST be catchy and start with a hook to stop people from swiping.
+- Tone: Exciting, modern, challenging.
 - English only. Target audience: {audience}.
-- Do NOT copy the context facts word for word.
+- No boring textbook questions.
 - Output ONLY the JSON object. Nothing else."""
 
         return prompt
-
-    # ── Main generation method ────────────────────────────────────────────────
 
     @retry(
         stop=stop_after_attempt(3),
@@ -392,11 +349,8 @@ RULES:
     ) -> dict:
         prompt = self._build_prompt(template, category, difficulty, audience, context_facts)
         raw = self.generate_raw(prompt)
-
-        # Strip any accidental markdown fences
         raw = re.sub(r"```json|```", "", raw).strip()
 
-        # Extract JSON block if wrapped in extra text
         json_match = re.search(r"\{.*\}", raw, re.DOTALL)
         if not json_match:
             raise ValueError(f"No JSON found in AI response: {raw[:200]}")
@@ -410,11 +364,6 @@ RULES:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class QuestionDeduplicator:
-    """
-    Stores question fingerprints in TinyDB.
-    Enforces the 15-day no-repeat rule.
-    """
-
     REPEAT_DAYS = 15
 
     def __init__(self, db_path: Path = DB_PATH) -> None:
@@ -453,18 +402,12 @@ class QuestionDeduplicator:
 # ─────────────────────────────────────────────────────────────────────────────
 
 CTA_POOL = [
-    "If you know the answer before the 5 seconds end, drop it in the comments!",
-    "Think you're smart enough? Comment your answer before time runs out!",
-    "Pause and think — can you get this before the timer hits zero?",
-    "Drop your answer in the comments — let's see who gets it right!",
-    "Only 1 in 10 people get this right. Are you one of them?",
-    "Comment your answer NOW before you see it! No cheating!",
-    "How fast can you answer this? Comment before the reveal!",
-    "Test yourself — comment your best guess before the answer appears!",
-    "Geniuses answer in 3 seconds. Can you? Drop it in the comments!",
-    "Don't overthink it — go with your gut and comment your answer!",
+    "I bet you didn't get this! Prove me wrong in the comments 👇",
+    "Did you beat the timer? Tell me your score! ⏱️",
+    "Drop your answer before the reveal! No cheating 👀",
+    "Only true legends got this right. Are you one of them? 🧠",
+    "Send this to a friend to test their brain! 🚀",
 ]
-
 
 def pick_cta() -> str:
     return random.choice(CTA_POOL)
@@ -475,11 +418,6 @@ def pick_cta() -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class ContentEngine:
-    """
-    Top-level orchestrator.  Called by main.py's build_context() and from
-    the QuestionBank to produce a fully validated QuestionObject.
-    """
-
     def __init__(
         self,
         gemini_key: str,
@@ -498,58 +436,38 @@ class ContentEngine:
         self._news = NewsFetcher(api_key=news_api_key)
         self._yt = YouTubeTrendsFetcher(api_key=youtube_api_key)
         self._dedup = QuestionDeduplicator()
-
-        # Track which templates were used recently to force rotation
         self._recent_templates: list[str] = []
 
-    # ── Template selector (prevents long streaks of same template) ─────────────
-
     def _pick_template(self) -> str:
-        """
-        Weighted random selection that avoids repeating the same template
-        more than twice in the last 8 picks.
-        """
         recent_counts: dict[str, int] = {}
         for t in self._recent_templates[-8:]:
             recent_counts[t] = recent_counts.get(t, 0) + 1
 
         available = [t for t in TEMPLATES if recent_counts.get(t, 0) < 2]
         if not available:
-            available = TEMPLATES  # reset if all exhausted
+            available = TEMPLATES
 
         chosen = random.choice(available)
         self._recent_templates.append(chosen)
         return chosen
 
-    # ── Context assembler ─────────────────────────────────────────────────────
-
     def _gather_context(self, category: str) -> list[str]:
-        """
-        Pull raw facts from multiple sources for the AI to draw inspiration from.
-        Uses Wikipedia as primary, supplements with trending context.
-        """
         facts: list[str] = []
-
-        # Wikipedia (most reliable)
-        wiki_facts = self._wiki.fetch_random_facts(category, count=4)
+        wiki_facts = self._wiki.fetch_random_facts(category, count=2)
         facts.extend(wiki_facts)
 
-        # Google Trends (adds cultural relevance)
-        if random.random() < 0.4:   # 40% of questions get trending flavor
+        if random.random() < 0.6:
             trends = self._trends.fetch_trending_topics()
             if trends:
                 facts.append(f"Trending topic for inspiration: {random.choice(trends)}")
 
-        return facts[:5]    # cap at 5 context items
-
-    # ── Core question builder ─────────────────────────────────────────────────
+        return facts[:4]
 
     def _build_question_object(self, raw: dict, template: str, category: str, audience: str) -> QuestionObject:
         question_text = raw["question_text"].strip()
         correct_answer = str(raw["correct_answer"]).strip()
         wrong_answers = [str(w).strip() for w in raw.get("wrong_answers", [])]
 
-        # Ensure wrong_answers is always a list, even for true/false
         if not wrong_answers:
             wrong_answers = ["False"] if correct_answer.lower() == "true" else ["True"]
 
@@ -571,14 +489,7 @@ class ContentEngine:
             fun_fact=raw.get("fun_fact", "").strip(),
         )
 
-    # ── Public interface ──────────────────────────────────────────────────────
-
     def get_next_question(self, max_attempts: int = 10) -> QuestionObject:
-        """
-        Produce a unique, validated QuestionObject.
-        Retries up to *max_attempts* times if a duplicate is detected.
-        Raises RuntimeError if unable to produce a unique question after all attempts.
-        """
         audience = random.choice(TARGET_AUDIENCES)
 
         for attempt in range(1, max_attempts + 1):
@@ -586,7 +497,7 @@ class ContentEngine:
             template = self._pick_template()
             difficulty = random.choices(
                 ["easy", "medium", "hard"],
-                weights=[0.3, 0.5, 0.2],
+                weights=[0.2, 0.5, 0.3],
             )[0]
 
             logger.info(
@@ -606,11 +517,9 @@ class ContentEngine:
 
                 question_text = raw.get("question_text", "")
                 if not question_text or len(question_text) < 10:
-                    logger.warning(f"[ContentEngine] AI returned empty question on attempt {attempt}")
                     continue
 
                 if self._dedup.is_duplicate(question_text):
-                    logger.warning(f"[ContentEngine] Duplicate detected on attempt {attempt}, retrying …")
                     continue
 
                 qobj = self._build_question_object(raw, template, category, audience)
