@@ -17,7 +17,6 @@ from pathlib import Path
 
 STRATEGY_CONFIG_PATH = Path("data/strategy_config.json")
 
-# 1. Added the new "visual_levels" template
 ALL_TEMPLATES = [
     "true_false",
     "multiple_choice",
@@ -27,25 +26,26 @@ ALL_TEMPLATES = [
     "only_geniuses",
     "memory_test",
     "visual_question",
-    "visual_levels",  # <-- القالب الجديد (تحدي المستويات)
+    "visual_levels",
+    "rapid_list",
 ]
 
-# 2. Adjusted Weights to favor successful templates
 BASE_WEIGHTS = {t: 1.0 for t in ALL_TEMPLATES}
-BASE_WEIGHTS["quick_challenge"] = 3.0  # الدايرة الكبيرة الناجحة
-BASE_WEIGHTS["direct_question"] = 3.0  # الدايرة الكبيرة الناجحة
-BASE_WEIGHTS["guess_answer"] = 2.0     # قالب سريع
-BASE_WEIGHTS["visual_levels"] = 3.0    # القالب الجديد عشان يبدأ يظهر بقوة
+BASE_WEIGHTS["quick_challenge"] = 3.0
+BASE_WEIGHTS["direct_question"] = 3.0
+BASE_WEIGHTS["guess_answer"] = 2.0
+BASE_WEIGHTS["visual_levels"] = 3.0
+BASE_WEIGHTS["rapid_list"] = 4.0
 
 
 @dataclass
 class TemplateConfig:
-    name: str               # e.g. "multiple_choice"
-    show_options: bool      # True for multiple_choice, true_false
-    option_count: int       # 4 for MC, 2 for T/F, 0 for others
-    badge_label: str        # Text shown in the top badge
-    timer_seconds: int      # Always 5 in this project
-    answer_seconds: int     # Always 5 in this project
+    name: str
+    show_options: bool
+    option_count: int
+    badge_label: str
+    timer_seconds: int
+    answer_seconds: int
 
 
 TEMPLATE_CONFIGS: dict[str, TemplateConfig] = {
@@ -81,10 +81,13 @@ TEMPLATE_CONFIGS: dict[str, TemplateConfig] = {
         name="visual_question", show_options=False, option_count=0,
         badge_label="👁 VISUAL QUIZ", timer_seconds=5, answer_seconds=5,
     ),
-    # 3. Configuration for the new Visual Levels template
     "visual_levels": TemplateConfig(
         name="visual_levels", show_options=False, option_count=0,
         badge_label="🎮 LEVEL UP QUIZ", timer_seconds=5, answer_seconds=5,
+    ),
+    "rapid_list": TemplateConfig(
+        name="rapid_list", show_options=False, option_count=0,
+        badge_label="🔥 RAPID 5 QUIZ", timer_seconds=5, answer_seconds=5,
     ),
 }
 
@@ -103,32 +106,26 @@ class TemplateEngine:
                 bad = set(cfg.get("underperforming_templates", []))
                 for t in top[:3]:
                     if t in weights:
-                        weights[t] = 3.0     # 3× boost for top performers
+                        weights[t] = 3.0
                 for t in bad:
                     if t in weights:
-                        weights[t] = 0.3     # suppress underperformers
+                        weights[t] = 0.3
             except Exception:
                 pass
         return weights
 
     def pick_template(self) -> TemplateConfig:
-        """
-        Weighted random selection that suppresses any template used
-        more than twice in the last 8 picks (streak prevention).
-        """
         weights = self._load_weights()
         recent = self._history[-8:]
         streak_counts: dict[str, int] = {}
         for t in recent:
             streak_counts[t] = streak_counts.get(t, 0) + 1
 
-        # Zero-weight any template at streak ≥ 2
         adjusted = {
             t: (w if streak_counts.get(t, 0) < 2 else 0.0)
             for t, w in weights.items()
         }
 
-        # If all zeroed (shouldn't happen), reset
         if sum(adjusted.values()) == 0:
             adjusted = weights.copy()
 
