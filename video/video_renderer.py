@@ -7,6 +7,7 @@ from __future__ import annotations
 import math
 import os
 import random
+import re
 import shutil
 import subprocess
 import tempfile
@@ -26,7 +27,6 @@ from tinydb import TinyDB, Query
 
 from core.content_engine import QuestionObject
 
-# ── Output dirs
 RENDER_DIR = Path("data/render_tmp")
 RENDER_DIR.mkdir(parents=True, exist_ok=True)
 BG_CACHE_DIR = Path("data/bg_cache")
@@ -36,7 +36,6 @@ MUSIC_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 FONT_DIR = Path("data/fonts")
 FONT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── Video spec
 WIDTH = 1080
 HEIGHT = 1920
 FPS = 30
@@ -47,28 +46,24 @@ SAFE_BOTTOM = int(HEIGHT * 0.88)
 SAFE_W = SAFE_RIGHT - SAFE_LEFT
 SAFE_H = SAFE_BOTTOM - SAFE_TOP
 
-# ── Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 PHOSPHOR_GREEN = (57, 255, 20)
 TIMER_GREEN = (0, 230, 64)
 TIMER_RED = (255, 45, 45)
-OVERLAY_DARK = (0, 0, 0, 140) # خففت الضلمة شوية عشان الألوان تبان
+OVERLAY_DARK = (0, 0, 0, 140)
 WATERMARK_COLOR = (255, 255, 255, 77)
 
-# ── Font URLs
 FONT_URLS = {
     "bold": "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf",
     "extrabold": "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-ExtraBold.ttf",
     "regular": "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Regular.ttf",
 }
 
-# ── Anti-repeat DB
 USED_DB = TinyDB("data/used_backgrounds.json")
 USED_MUSIC_DB = TinyDB("data/used_music.json")
 BG_REPEAT_DAYS = 10
 MUSIC_REPEAT_DAYS = 7
-
 
 def _ensure_fonts() -> dict[str, Path]:
     paths: dict[str, Path] = {}
@@ -76,11 +71,8 @@ def _ensure_fonts() -> dict[str, Path]:
         dest = FONT_DIR / f"montserrat_{name}.ttf"
         if not dest.exists():
             logger.info(f"[Font] Downloading {name} font …")
-            try:
-                urllib.request.urlretrieve(url, dest)
-            except Exception as exc:
-                logger.warning(f"[Font] Download failed for {name}: {exc}")
-                dest = None
+            try: urllib.request.urlretrieve(url, dest)
+            except Exception as exc: dest = None
         paths[name] = dest
     return paths
 
@@ -88,16 +80,13 @@ FONTS = _ensure_fonts()
 
 def _get_font(style: str = "bold", size: int = 60) -> ImageFont.FreeTypeFont:
     path = FONTS.get(style)
-    if path and path.exists():
-        return ImageFont.truetype(str(path), size)
+    if path and path.exists(): return ImageFont.truetype(str(path), size)
     return ImageFont.load_default()
-
 
 class BackgroundManager:
     PEXELS_BASE = "https://api.pexels.com/videos/search"
     PIXABAY_BASE = "https://pixabay.com/api/videos/"
 
-    # ── MODERN BACKGROUNDS (No boring nature) ──
     BG_QUERIES = [
         "cyberpunk city", "neon abstract loop", "fast motion graphics", 
         "satisfying loop 3d", "gaming background abstract", "futuristic tech tunnel",
@@ -113,71 +102,43 @@ class BackgroundManager:
         from datetime import datetime
         Q = Query()
         rows = self._db.search(Q.video_id == video_id)
-        if not rows:
-            return False
-        delta = datetime.utcnow() - datetime.fromisoformat(rows[0]["used_at"])
-        return delta.days < BG_REPEAT_DAYS
+        if not rows: return False
+        return (datetime.utcnow() - datetime.fromisoformat(rows[0]["used_at"])).days < BG_REPEAT_DAYS
 
     def _mark_used(self, video_id: str) -> None:
         from datetime import datetime
         Q = Query()
         entry = {"video_id": video_id, "used_at": datetime.utcnow().isoformat()}
-        if self._db.search(Q.video_id == video_id):
-            self._db.update(entry, Q.video_id == video_id)
-        else:
-            self._db.insert(entry)
+        if self._db.search(Q.video_id == video_id): self._db.update(entry, Q.video_id == video_id)
+        else: self._db.insert(entry)
 
     def _fetch_pexels(self, query: str) -> Optional[dict]:
         try:
-            resp = requests.get(
-                self.PEXELS_BASE,
-                headers={"Authorization": self._pexels_key},
-                params={"query": query, "per_page": 15, "size": "medium", "orientation": "portrait"},
-                timeout=15,
-            )
+            resp = requests.get(self.PEXELS_BASE, headers={"Authorization": self._pexels_key}, params={"query": query, "per_page": 15, "size": "medium", "orientation": "portrait"}, timeout=15)
             resp.raise_for_status()
             videos = resp.json().get("videos", [])
             random.shuffle(videos)
             for v in videos:
                 vid_id = str(v["id"])
-                if self._is_used(vid_id):
-                    continue
-                files = v.get("video_files", [])
-                files_sorted = sorted(files, key=lambda f: f.get("height", 0), reverse=True)
-                for f in files_sorted:
-                    if f.get("width", 0) <= f.get("height", 1):
-                        return {"id": vid_id, "url": f["link"], "source": "pexels"}
-        except Exception as exc:
-            logger.warning(f"[BG] Pexels failed: {exc}")
+                if self._is_used(vid_id): continue
+                for f in sorted(v.get("video_files", []), key=lambda x: x.get("height", 0), reverse=True):
+                    if f.get("width", 0) <= f.get("height", 1): return {"id": vid_id, "url": f["link"], "source": "pexels"}
+        except Exception: pass
         return None
 
     def _fetch_pixabay(self, query: str) -> Optional[dict]:
         try:
-            resp = requests.get(
-                self.PIXABAY_BASE,
-                params={
-                    "key": self._pixabay_key,
-                    "q": query,
-                    "video_type": "animation",
-                    "per_page": 15,
-                    "safesearch": "true",
-                },
-                timeout=15,
-            )
+            resp = requests.get(self.PIXABAY_BASE, params={"key": self._pixabay_key, "q": query, "video_type": "animation", "per_page": 15, "safesearch": "true"}, timeout=15)
             resp.raise_for_status()
             hits = resp.json().get("hits", [])
             random.shuffle(hits)
             for h in hits:
                 vid_id = str(h["id"])
-                if self._is_used(vid_id):
-                    continue
+                if self._is_used(vid_id): continue
                 videos = h.get("videos", {})
                 for quality in ("large", "medium", "small", "tiny"):
-                    v = videos.get(quality, {})
-                    if v.get("url"):
-                        return {"id": vid_id, "url": v["url"], "source": "pixabay"}
-        except Exception as exc:
-            logger.warning(f"[BG] Pixabay failed: {exc}")
+                    if videos.get(quality, {}).get("url"): return {"id": vid_id, "url": videos[quality]["url"], "source": "pixabay"}
+        except Exception: pass
         return None
 
     def _download_video(self, url: str, dest: str) -> bool:
@@ -185,27 +146,18 @@ class BackgroundManager:
             resp = requests.get(url, timeout=60, stream=True)
             resp.raise_for_status()
             with open(dest, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=65536):
-                    f.write(chunk)
+                for chunk in resp.iter_content(chunk_size=65536): f.write(chunk)
             return True
-        except Exception as exc:
-            logger.error(f"[BG] Download error: {exc}")
-            return False
+        except Exception: return False
 
     def get_background_frames(self, duration_sec: float, job_dir: Path) -> list[np.ndarray]:
         query = random.choice(self.BG_QUERIES)
         bg_path = str(job_dir / "background.mp4")
         meta = self._fetch_pexels(query) or self._fetch_pixabay(query)
-
         if meta and self._download_video(meta["url"], bg_path):
             self._mark_used(meta["id"])
             frames = self._extract_frames(bg_path, duration_sec)
-            if frames:
-                return [self._blur_and_resize(f) for f in frames]
-            logger.warning("[BG] Frame extraction failed. Using gradient fallback.")
-        else:
-            logger.warning("[BG] No background video obtained. Using gradient fallback.")
-
+            if frames: return [self._blur_and_resize(f) for f in frames]
         return self._make_gradient_frames(duration_sec)
 
     @staticmethod
@@ -214,29 +166,18 @@ class BackgroundManager:
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         video_fps = cap.get(cv2.CAP_PROP_FPS) or 30
         needed = int(duration_sec * FPS)
-        frames: list[np.ndarray] = []
-
         if total_frames == 0:
             cap.release()
-            return frames
-
-        max_start = max(0, total_frames - int(duration_sec * video_fps) - 1)
-        start_frame = random.randint(0, max_start) if max_start > 0 else 0
+            return []
+        start_frame = random.randint(0, max(0, total_frames - int(duration_sec * video_fps) - 1))
         cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-
-        indices = np.linspace(0, int(duration_sec * video_fps) - 1, needed, dtype=int)
         raw: list[np.ndarray] = []
         for _ in range(int(duration_sec * video_fps)):
             ret, frame = cap.read()
-            if not ret:
-                break
+            if not ret: break
             raw.append(frame)
         cap.release()
-
-        for i in indices:
-            idx = min(i, len(raw) - 1)
-            frames.append(raw[idx])
-        return frames
+        return [raw[min(i, len(raw) - 1)] for i in np.linspace(0, len(raw) - 1, needed, dtype=int)]
 
     @staticmethod
     def _blur_and_resize(frame: np.ndarray) -> np.ndarray:
@@ -244,12 +185,8 @@ class BackgroundManager:
         scale = max(WIDTH / w, HEIGHT / h)
         new_w, new_h = int(w * scale), int(h * scale)
         resized = cv2.resize(frame, (new_w, new_h))
-        x = (new_w - WIDTH) // 2
-        y = (new_h - HEIGHT) // 2
-        cropped = resized[y:y + HEIGHT, x:x + WIDTH]
-        # خففت الـ Blur شوية عشان النيون يظهر بشكل أحلى
-        blurred = cv2.GaussianBlur(cropped, (35, 35), 0)
-        return blurred
+        x, y = (new_w - WIDTH) // 2, (new_h - HEIGHT) // 2
+        return cv2.GaussianBlur(resized[y:y + HEIGHT, x:x + WIDTH], (35, 35), 0)
 
     @staticmethod
     def _make_gradient_frames(duration_sec: float) -> list[np.ndarray]:
@@ -257,16 +194,11 @@ class BackgroundManager:
         base = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
         for y in range(HEIGHT):
             t = y / HEIGHT
-            base[y, :] = [
-                int(20 + t * 10),
-                int(10 + t * 20),
-                int(40 + t * 60),
-            ]
+            base[y, :] = [int(20 + t * 10), int(10 + t * 20), int(40 + t * 60)]
         return [base.copy() for _ in range(needed)]
 
 
 class MusicEngine:
-    # ── MODERN MUSIC (Suspense, Fast, Phonk) ──
     MUSIC_QUERIES = [
         "suspense clock ticking", "fast electronic beat", "phonk instrumental", 
         "epic quiz timer", "intense cinematic loop", "cyberpunk synthwave fast"
@@ -280,120 +212,74 @@ class MusicEngine:
         from datetime import datetime
         Q = Query()
         rows = self._db.search(Q.sound_id == sound_id)
-        if not rows:
-            return False
-        delta = datetime.utcnow() - datetime.fromisoformat(rows[0]["used_at"])
-        return delta.days < MUSIC_REPEAT_DAYS
+        if not rows: return False
+        return (datetime.utcnow() - datetime.fromisoformat(rows[0]["used_at"])).days < MUSIC_REPEAT_DAYS
 
     def _mark_used(self, sound_id: str) -> None:
         from datetime import datetime
         Q = Query()
         entry = {"sound_id": sound_id, "used_at": datetime.utcnow().isoformat()}
-        if self._db.search(Q.sound_id == sound_id):
-            self._db.update(entry, Q.sound_id == sound_id)
-        else:
-            self._db.insert(entry)
+        if self._db.search(Q.sound_id == sound_id): self._db.update(entry, Q.sound_id == sound_id)
+        else: self._db.insert(entry)
 
     def get_bgm(self, duration_ms: int, dest_path: str) -> Optional[str]:
         query = random.choice(self.MUSIC_QUERIES)
         try:
             resp = requests.get(
                 "https://freesound.org/apiv2/search/text/",
-                params={
-                    "query": query,
-                    "filter": 'duration:[15 TO 300] license:"Creative Commons 0"',
-                    "fields": "id,name,previews,duration",
-                    "page_size": 15,
-                    "token": self._api_key,
-                },
+                params={"query": query, "filter": 'duration:[15 TO 300] license:"Creative Commons 0"', "fields": "id,name,previews,duration", "page_size": 15, "token": self._api_key},
                 timeout=15,
             )
             resp.raise_for_status()
             results = resp.json().get("results", [])
             random.shuffle(results)
-
             for sound in results:
                 sid = str(sound["id"])
-                if self._is_used(sid):
-                    continue
-                preview_url = sound.get("previews", {}).get("preview-hq-mp3") or \
-                              sound.get("previews", {}).get("preview-lq-mp3")
-                if not preview_url:
-                    continue
+                if self._is_used(sid): continue
+                preview_url = sound.get("previews", {}).get("preview-hq-mp3") or sound.get("previews", {}).get("preview-lq-mp3")
+                if not preview_url: continue
                 dl_resp = requests.get(preview_url, timeout=30)
                 dl_resp.raise_for_status()
                 raw_path = dest_path.replace(".wav", "_raw.mp3")
-                with open(raw_path, "wb") as f:
-                    f.write(dl_resp.content)
-
+                with open(raw_path, "wb") as f: f.write(dl_resp.content)
                 audio = AudioSegment.from_file(raw_path)
                 if len(audio) > duration_ms + 5000:
-                    max_start = len(audio) - duration_ms - 1000
-                    start = random.randint(0, max_start)
+                    start = random.randint(0, len(audio) - duration_ms - 1000)
                     audio = audio[start: start + duration_ms + 2000]
-
-                audio = audio.fade_in(500).fade_out(1000)
-                audio = audio.set_frame_rate(44100).set_channels(2)
-                audio.export(dest_path, format="wav")
+                audio.fade_in(500).fade_out(1000).set_frame_rate(44100).set_channels(2).export(dest_path, format="wav")
                 self._mark_used(sid)
                 return dest_path
-
-        except Exception as exc:
-            logger.warning(f"[Music] Failed: {exc}")
+        except Exception: pass
         return None
 
+def _pil_from_bgr(frame: np.ndarray) -> Image.Image: return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+def _bgr_from_pil(img: Image.Image) -> np.ndarray: return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
-def _pil_from_bgr(frame: np.ndarray) -> Image.Image:
-    return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
-def _bgr_from_pil(img: Image.Image) -> np.ndarray:
-    return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-
-def _draw_text_with_stroke(
-    draw: ImageDraw.Draw, text: str, position: tuple[int, int],
-    font: ImageFont.FreeTypeFont, fill: tuple, stroke_width: int = 4,
-    stroke_fill: tuple = BLACK, align: str = "center"
-) -> None:
+def _draw_text_with_stroke(draw: ImageDraw.Draw, text: str, position: tuple[int, int], font: ImageFont.FreeTypeFont, fill: tuple, stroke_width: int = 4, stroke_fill: tuple = BLACK, align: str = "center", anchor="mm") -> None:
     x, y = position
     for dx in range(-stroke_width, stroke_width + 1):
         for dy in range(-stroke_width, stroke_width + 1):
             if dx != 0 or dy != 0:
-                draw.text((x + dx, y + dy), text, font=font, fill=stroke_fill, anchor="mm", align=align)
-    draw.text((x, y), text, font=font, fill=fill, anchor="mm", align=align)
+                draw.text((x + dx, y + dy), text, font=font, fill=stroke_fill, anchor=anchor, align=align)
+    draw.text((x, y), text, font=font, fill=fill, anchor=anchor, align=align)
 
 def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
     words = text.split()
-    lines: list[str] = []
-    current = ""
-    dummy_img = Image.new("RGB", (1, 1))
-    dummy_draw = ImageDraw.Draw(dummy_img)
-
+    lines, current = [], ""
+    dummy_draw = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     for word in words:
         test = f"{current} {word}".strip()
-        bbox = dummy_draw.textbbox((0, 0), test, font=font)
-        if bbox[2] - bbox[0] <= max_width:
-            current = test
+        if dummy_draw.textbbox((0, 0), test, font=font)[2] <= max_width: current = test
         else:
-            if current:
-                lines.append(current)
+            if current: lines.append(current)
             current = word
-    if current:
-        lines.append(current)
+    if current: lines.append(current)
     return lines
 
-def _draw_multiline_centered(
-    draw: ImageDraw.Draw, lines: list[str], center_x: int, center_y: int,
-    font: ImageFont.FreeTypeFont, fill: tuple, stroke_width: int = 4, line_spacing: int = 12
-) -> int:
-    dummy_img = Image.new("RGB", (1, 1))
-    dummy_draw = ImageDraw.Draw(dummy_img)
-    line_heights = []
-    for line in lines:
-        bbox = dummy_draw.textbbox((0, 0), line, font=font)
-        line_heights.append(bbox[3] - bbox[1])
-
-    total_h = sum(line_heights) + line_spacing * (len(lines) - 1)
-    y = center_y - total_h // 2
+def _draw_multiline_centered(draw: ImageDraw.Draw, lines: list[str], center_x: int, center_y: int, font: ImageFont.FreeTypeFont, fill: tuple, stroke_width: int = 4, line_spacing: int = 12) -> int:
+    dummy_draw = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    line_heights = [dummy_draw.textbbox((0, 0), line, font=font)[3] - dummy_draw.textbbox((0, 0), line, font=font)[1] for line in lines]
+    y = center_y - (sum(line_heights) + line_spacing * (len(lines) - 1)) // 2
     for i, line in enumerate(lines):
         _draw_text_with_stroke(draw, line, (center_x, y + line_heights[i] // 2), font, fill, stroke_width)
         y += line_heights[i] + line_spacing
@@ -401,123 +287,60 @@ def _draw_multiline_centered(
 
 def _draw_dark_overlay(img: Image.Image, alpha: int = 160) -> Image.Image:
     overlay = Image.new("RGBA", img.size, (0, 0, 0, alpha))
-    base = img.convert("RGBA")
-    combined = Image.alpha_composite(base, overlay)
-    return combined.convert("RGB")
+    return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
 def _draw_levels_sidebar(img: Image.Image, active_idx: int) -> Image.Image:
-    levels = [
-        ("EASY", (57, 255, 20)),
-        ("MEDIUM", (255, 255, 0)),
-        ("HARD", (255, 165, 0)),
-        ("EXPERT", (255, 45, 45))
-    ]
+    levels = [("EASY", (57, 255, 20)), ("MEDIUM", (255, 255, 0)), ("HARD", (255, 165, 0)), ("EXPERT", (255, 45, 45))]
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
-    
-    font = _get_font("extrabold", 38)
-    title_font = _get_font("bold", 32)
+    font, title_font = _get_font("extrabold", 38), _get_font("bold", 32)
     start_y = HEIGHT // 2 - 250
-    
     _draw_text_with_stroke(draw, "LEVEL", (SAFE_LEFT + 130, start_y - 60), title_font, WHITE, stroke_width=2)
-    
     for i, (text, color) in enumerate(levels):
         y = start_y + i * 110
-        if i == active_idx:
-            bg_color = color + (255,)
-            txt_color = BLACK
-        elif i < active_idx:
-            bg_color = color + (100,)
-            txt_color = WHITE
-        else:
-            bg_color = (40, 40, 40, 150)
-            txt_color = (200, 200, 200, 255)
-            
+        bg_color, txt_color = (color + (255,), BLACK) if i == active_idx else (color + (100,), WHITE) if i < active_idx else ((40, 40, 40, 150), (200, 200, 200, 255))
         draw.rounded_rectangle([SAFE_LEFT, y, SAFE_LEFT + 260, y + 75], radius=20, fill=bg_color)
         draw.text((SAFE_LEFT + 130, y + 37), text, font=font, fill=txt_color, anchor="mm")
-        
-    base = img.convert("RGBA")
-    return Image.alpha_composite(base, overlay).convert("RGB")
+    return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
-def _draw_circular_timer(
-    img: Image.Image, progress: float, center: tuple[int, int], radius: int = 90, thickness: int = 14
-) -> Image.Image:
+def _draw_circular_timer(img: Image.Image, progress: float, center: tuple[int, int], radius: int = 90, thickness: int = 14) -> Image.Image:
     draw = ImageDraw.Draw(img, "RGBA")
     cx, cy = center
-    bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
-    draw.arc(bbox, start=0, end=360, fill=(60, 60, 60, 200), width=thickness)
-
-    if progress < 0.5:
-        t = progress / 0.5
-        r = int(TIMER_GREEN[0] + t * (255 - TIMER_GREEN[0]))
-        g = int(TIMER_GREEN[1] + t * (200 - TIMER_GREEN[1]))
-        b = int(TIMER_GREEN[2])
-    else:
-        t = (progress - 0.5) / 0.5
-        r = 255
-        g = int(200 - t * 155)
-        b = int(TIMER_GREEN[2])
-    arc_color = (r, g, b, 255)
-
+    draw.arc([cx - radius, cy - radius, cx + radius, cy + radius], start=0, end=360, fill=(60, 60, 60, 200), width=thickness)
+    if progress < 0.5: t = progress / 0.5; r, g, b = int(TIMER_GREEN[0] + t * (255 - TIMER_GREEN[0])), int(TIMER_GREEN[1] + t * (200 - TIMER_GREEN[1])), int(TIMER_GREEN[2])
+    else: t = (progress - 0.5) / 0.5; r, g, b = 255, int(200 - t * 155), int(TIMER_GREEN[2])
     remaining_angle = 360 * (1.0 - progress)
-    end_angle = -90 + remaining_angle
-    if remaining_angle > 0.5:
-        draw.arc(bbox, start=-90, end=end_angle, fill=arc_color, width=thickness)
-
-    seconds_left = max(0, math.ceil(5 * (1.0 - progress)))
-    font = _get_font("extrabold", size=int(radius * 0.9))
-    _draw_text_with_stroke(draw, str(seconds_left), center, font, WHITE, stroke_width=3)
-
+    if remaining_angle > 0.5: draw.arc([cx - radius, cy - radius, cx + radius, cy + radius], start=-90, end=-90 + remaining_angle, fill=(r, g, b, 255), width=thickness)
+    _draw_text_with_stroke(draw, str(max(0, math.ceil(5 * (1.0 - progress)))), center, _get_font("extrabold", size=int(radius * 0.9)), WHITE, stroke_width=3)
     return img
-
 
 class WatermarkEngine:
     def __init__(self, handle: str = "@Quizzaro_1") -> None:
         self._handle = handle
         self._font = _get_font("regular", size=32)
-
     def apply(self, img: Image.Image, frame_index: int, total_frames: int) -> Image.Image:
         t = frame_index / max(total_frames - 1, 1)
-        x = int(SAFE_LEFT + t * (SAFE_W - 200))
-        y = int(HEIGHT * 0.08 + math.sin(t * math.pi) * HEIGHT * 0.05)
-
+        x, y = int(SAFE_LEFT + t * (SAFE_W - 200)), int(HEIGHT * 0.08 + math.sin(t * math.pi) * HEIGHT * 0.05)
         overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
-        draw.text((x, y), self._handle, font=self._font, fill=WATERMARK_COLOR)
-        base = img.convert("RGBA")
-        combined = Image.alpha_composite(base, overlay)
-        return combined.convert("RGB")
+        ImageDraw.Draw(overlay).text((x, y), self._handle, font=self._font, fill=WATERMARK_COLOR)
+        return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
 def _popup_scale(frame_in_anim: int, anim_frames: int) -> float:
-    t = min(frame_in_anim / anim_frames, 1.0)
-    return 1.0 - (1.0 - t) ** 3
+    return 1.0 - (1.0 - min(frame_in_anim / anim_frames, 1.0)) ** 3
 
 def _draw_answer_reveal(img: Image.Image, answer_text: str, frame_in_reveal: int, cx: int, wrap_w: int) -> Image.Image:
     draw_img = img.copy().convert("RGBA")
     glow_layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow_layer)
-    font_size = 80 if len(answer_text) < 15 else 60
-    font = _get_font("extrabold", font_size)
-
+    font = _get_font("extrabold", 80 if len(answer_text) < 15 else 60)
     lines = _wrap_text(answer_text, font, wrap_w)
     cy = HEIGHT // 2 + 80
-
-    for _ in range(3):
-        _draw_multiline_centered(gd, lines, cx, cy, font, PHOSPHOR_GREEN + (120,), stroke_width=0)
-
+    for _ in range(3): _draw_multiline_centered(gd, lines, cx, cy, font, PHOSPHOR_GREEN + (120,), stroke_width=0)
     glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(radius=18))
-
     sharp_layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(sharp_layer)
-    _draw_multiline_centered(sd, lines, cx, cy, font, PHOSPHOR_GREEN + (255,), stroke_width=5)
-
-    pulse = min(1.0, frame_in_reveal / 6)
-    glow_alpha = int(255 * pulse)
+    _draw_multiline_centered(ImageDraw.Draw(sharp_layer), lines, cx, cy, font, PHOSPHOR_GREEN + (255,), stroke_width=5)
     glow_layer.putalpha(ImageDraw.ImageDraw(glow_layer))
-
-    result = Image.alpha_composite(draw_img, glow_layer)
-    result = Image.alpha_composite(result, sharp_layer)
-    return result.convert("RGB")
+    return Image.alpha_composite(Image.alpha_composite(draw_img, glow_layer), sharp_layer).convert("RGB")
 
 @dataclass
 class RenderJob:
@@ -531,139 +354,124 @@ class RenderJob:
     job_dir: Path
     watermark: WatermarkEngine
 
-
 def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
-    bg_idx = min(frame_idx, len(job.bg_frames) - 1)
-    bg = _pil_from_bgr(job.bg_frames[bg_idx])
-
+    bg = _pil_from_bgr(job.bg_frames[min(frame_idx, len(job.bg_frames) - 1)])
     img = _draw_dark_overlay(bg, alpha=155)
     q = job.question
 
-    if q.template == "visual_levels":
-        active_lvl = (len(q.question_text) + len(q.correct_answer)) % 4
-        img = _draw_levels_sidebar(img, active_lvl)
-        layout_cx = 670
-        layout_wrap = 620
-    else:
+    is_rapid = (q.template == "rapid_list")
+
+    if is_rapid:
+        q_lines = [l.strip() for l in q.question_text.split('|') if l.strip()][:5]
+        a_lines = [l.strip() for l in q.correct_answer.split('|') if l.strip()][:5]
         layout_cx = WIDTH // 2
         layout_wrap = SAFE_W - 20
+    elif q.template == "visual_levels":
+        img = _draw_levels_sidebar(img, (len(q.question_text) + len(q.correct_answer)) % 4)
+        layout_cx, layout_wrap = 670, 620
+    else:
+        layout_cx, layout_wrap = WIDTH // 2, SAFE_W - 20
 
     if frame_idx < job.timer_start_frame:
         phase_frame = frame_idx
-        anim_dur = int(FPS * 0.35)
+        scale = _popup_scale(phase_frame, int(FPS * 0.35))
+        alpha_val = int(255 * min(1.0, scale * 1.5))
 
-        scale = _popup_scale(phase_frame, anim_dur)
-
-        badge_font = _get_font("bold", 36)
-        badge_text = q.template.replace("_", " ").upper()
-        if q.template == "visual_levels":
-            badge_text = "🎮 LEVEL UP QUIZ"
-            
+        badge_text = "🔥 RAPID 5 QUIZ" if is_rapid else "🎮 LEVEL UP QUIZ" if q.template == "visual_levels" else q.template.replace("_", " ").upper()
         badge_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
         bd = ImageDraw.Draw(badge_img)
-        badge_x1, badge_y1 = layout_cx - 160, SAFE_TOP + 30
-        badge_x2, badge_y2 = layout_cx + 160, SAFE_TOP + 80
-        bd.rounded_rectangle([badge_x1, badge_y1, badge_x2, badge_y2], radius=20, fill=(255, 200, 0, 220))
-        bd.text((layout_cx, (badge_y1 + badge_y2) // 2), badge_text, font=badge_font, fill=(0, 0, 0), anchor="mm")
+        bd.rounded_rectangle([layout_cx - 160, SAFE_TOP + 30, layout_cx + 160, SAFE_TOP + 80], radius=20, fill=(255, 200, 0, 220))
+        bd.text((layout_cx, SAFE_TOP + 55), badge_text, font=_get_font("bold", 36), fill=(0, 0, 0), anchor="mm")
         img = Image.alpha_composite(img.convert("RGBA"), badge_img).convert("RGB")
 
-        font_size = max(40, min(72, int(72 * scale)))
-        q_font = _get_font("extrabold", font_size)
-        lines = _wrap_text(q.question_text, q_font, layout_wrap)
-        
-        alpha_val = int(255 * min(1.0, scale * 1.5))
         text_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
         td = ImageDraw.Draw(text_img)
-        _draw_multiline_centered(td, lines, layout_cx, HEIGHT // 2 - 60, q_font, (255, 255, 255, alpha_val), stroke_width=5)
+        
+        if is_rapid:
+            # رسم القائمة السريعة
+            list_font = _get_font("extrabold", 45)
+            start_y = HEIGHT // 2 - 250
+            for i, line in enumerate(q_lines):
+                y = start_y + i * 110
+                td.rounded_rectangle([SAFE_LEFT, y - 40, SAFE_LEFT + 400, y + 40], radius=15, fill=(0, 0, 0, int(150 * min(1.0, scale))))
+                _draw_text_with_stroke(td, line, (SAFE_LEFT + 20, y), list_font, (255, 255, 255, alpha_val), anchor="lm", align="left")
+        else:
+            q_font = _get_font("extrabold", max(40, min(72, int(72 * scale))))
+            _draw_multiline_centered(td, _wrap_text(q.question_text, q_font, layout_wrap), layout_cx, HEIGHT // 2 - 60, q_font, (255, 255, 255, alpha_val), stroke_width=5)
+        
         img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
 
-        if phase_frame > int(FPS * 0.5):
+        if phase_frame > int(FPS * 0.5) and not is_rapid:
             cta_font = _get_font("regular", 32)
-            cta_lines = _wrap_text(q.cta_text, cta_font, layout_wrap)
             cta_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
-            cd = ImageDraw.Draw(cta_img)
-            _draw_multiline_centered(cd, cta_lines, layout_cx, HEIGHT // 2 + 220, cta_font, (255, 230, 100, 200), stroke_width=3)
+            _draw_multiline_centered(ImageDraw.Draw(cta_img), _wrap_text(q.cta_text, cta_font, layout_wrap), layout_cx, HEIGHT // 2 + 220, cta_font, (255, 230, 100, 200), stroke_width=3)
             img = Image.alpha_composite(img.convert("RGBA"), cta_img).convert("RGB")
 
+        # الاختيارات للقوالب القديمة
         if q.template == "multiple_choice" and phase_frame > int(FPS * 0.7) and q.wrong_answers:
             all_options = [q.correct_answer] + q.wrong_answers[:3]
             random.shuffle(all_options)
-            opt_font = _get_font("bold", 38)
-            labels = ["A", "B", "C", "D"]
             opt_start_y = HEIGHT // 2 + 120
-            opt_spacing = 90
-            for i, (label, opt) in enumerate(zip(labels, all_options)):
-                oy = opt_start_y + i * opt_spacing
+            for i, (label, opt) in enumerate(zip(["A", "B", "C", "D"], all_options)):
+                oy = opt_start_y + i * 90
                 opt_bg = Image.new("RGBA", img.size, (0, 0, 0, 0))
                 od = ImageDraw.Draw(opt_bg)
-                od.rounded_rectangle(
-                    [SAFE_LEFT, oy - 30, SAFE_RIGHT, oy + 30],
-                    radius=15,
-                    fill=(255, 255, 255, 40),
-                )
-                od.text((SAFE_LEFT + 20, oy), f"{label}.  {opt}", font=opt_font, fill=(255, 255, 255), anchor="lm")
+                od.rounded_rectangle([SAFE_LEFT, oy - 30, SAFE_RIGHT, oy + 30], radius=15, fill=(255, 255, 255, 40))
+                od.text((SAFE_LEFT + 20, oy), f"{label}.  {opt}", font=_get_font("bold", 38), fill=(255, 255, 255), anchor="lm")
                 img = Image.alpha_composite(img.convert("RGBA"), opt_bg).convert("RGB")
 
-        if q.template == "true_false" and phase_frame > int(FPS * 0.7):
-            tf_font = _get_font("extrabold", 52)
-            tf_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
-            tfd = ImageDraw.Draw(tf_img)
-            tfd.rounded_rectangle([SAFE_LEFT, HEIGHT // 2 + 180, layout_cx - 20, HEIGHT // 2 + 280], radius=20, fill=(0, 200, 80, 200))
-            tfd.text(((SAFE_LEFT + layout_cx - 20) // 2, HEIGHT // 2 + 230), "TRUE", font=tf_font, fill=WHITE, anchor="mm")
-            tfd.rounded_rectangle([layout_cx + 20, HEIGHT // 2 + 180, SAFE_RIGHT, HEIGHT // 2 + 280], radius=20, fill=(220, 50, 50, 200))
-            tfd.text(((layout_cx + 20 + SAFE_RIGHT) // 2, HEIGHT // 2 + 230), "FALSE", font=tf_font, fill=WHITE, anchor="mm")
-            img = Image.alpha_composite(img.convert("RGBA"), tf_img).convert("RGB")
-
     elif frame_idx < job.timer_end_frame:
-        timer_frame = frame_idx - job.timer_start_frame
-        timer_total = job.timer_end_frame - job.timer_start_frame
-        progress = timer_frame / timer_total
-
-        q_font = _get_font("extrabold", 60)
-        lines = _wrap_text(q.question_text, q_font, layout_wrap)
+        progress = (frame_idx - job.timer_start_frame) / (job.timer_end_frame - job.timer_start_frame)
         text_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
         td = ImageDraw.Draw(text_img)
-        _draw_multiline_centered(td, lines, layout_cx, HEIGHT // 2 - 180, q_font, (255, 255, 255, 180), stroke_width=5)
-        img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
-
-        timer_center = (layout_cx, HEIGHT // 2 + 100)
-        img_pil = img.convert("RGBA")
-        img_pil = _draw_circular_timer(img_pil, progress, timer_center, radius=110, thickness=18)
-        img = img_pil.convert("RGB")
-
-        if progress > 0.6:
-            pulse_font = _get_font("bold", 38)
-            p_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
-            pd = ImageDraw.Draw(p_img)
-            alpha_pulse = int(128 + 127 * math.sin(timer_frame * 0.4))
-            pd.text((layout_cx, HEIGHT // 2 + 280), "⏳ Hurry up!", font=pulse_font,
-                    fill=(255, 220, 50, alpha_pulse), anchor="mm")
-            img = Image.alpha_composite(img.convert("RGBA"), p_img).convert("RGB")
+        
+        if is_rapid:
+            list_font = _get_font("extrabold", 45)
+            start_y = HEIGHT // 2 - 250
+            for i, line in enumerate(q_lines):
+                y = start_y + i * 110
+                td.rounded_rectangle([SAFE_LEFT, y - 40, SAFE_LEFT + 400, y + 40], radius=15, fill=(0, 0, 0, 150))
+                _draw_text_with_stroke(td, line, (SAFE_LEFT + 20, y), list_font, (255, 255, 255, 255), anchor="lm", align="left")
+            timer_center = (layout_cx, HEIGHT // 2 + 350)
+            img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
+            img = _draw_circular_timer(img.convert("RGBA"), progress, timer_center, radius=80, thickness=12).convert("RGB")
+        else:
+            q_font = _get_font("extrabold", 60)
+            _draw_multiline_centered(td, _wrap_text(q.question_text, q_font, layout_wrap), layout_cx, HEIGHT // 2 - 180, q_font, (255, 255, 255, 180), stroke_width=5)
+            img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
+            img = _draw_circular_timer(img.convert("RGBA"), progress, (layout_cx, HEIGHT // 2 + 100), radius=110, thickness=18).convert("RGB")
 
     else:
         reveal_frame = frame_idx - job.answer_reveal_frame
-        img = _draw_answer_reveal(img, q.correct_answer, reveal_frame, layout_cx, layout_wrap)
-
-        exp_font = _get_font("regular", 34)
-        if q.explanation and reveal_frame > int(FPS * 0.5):
-            exp_lines = _wrap_text(q.explanation, exp_font, layout_wrap)
-            exp_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
-            ed = ImageDraw.Draw(exp_img)
-            _draw_multiline_centered(ed, exp_lines, layout_cx, HEIGHT // 2 + 260, exp_font,
-                                     (200, 200, 200, 200), stroke_width=2)
-            img = Image.alpha_composite(img.convert("RGBA"), exp_img).convert("RGB")
-
-        badge_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
-        bd = ImageDraw.Draw(badge_img)
-        badge_font = _get_font("extrabold", 52)
-        bx1, by1 = layout_cx - 180, HEIGHT // 2 - 200
-        bx2, by2 = layout_cx + 180, HEIGHT // 2 - 130
-        bd.rounded_rectangle([bx1, by1, bx2, by2], radius=25, fill=(57, 255, 20, 200))
-        bd.text((layout_cx, (by1 + by2) // 2), "✓  CORRECT!", font=badge_font, fill=BLACK, anchor="mm")
-        img = Image.alpha_composite(img.convert("RGBA"), badge_img).convert("RGB")
+        if is_rapid:
+            text_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
+            td = ImageDraw.Draw(text_img)
+            list_font = _get_font("extrabold", 45)
+            ans_font = _get_font("extrabold", 50)
+            start_y = HEIGHT // 2 - 250
+            for i, line in enumerate(q_lines):
+                y = start_y + i * 110
+                td.rounded_rectangle([SAFE_LEFT, y - 40, SAFE_LEFT + 400, y + 40], radius=15, fill=(0, 0, 0, 150))
+                _draw_text_with_stroke(td, line, (SAFE_LEFT + 20, y), list_font, (255, 255, 255, 255), anchor="lm", align="left")
+                if i < len(a_lines):
+                    ans_clean = re.sub(r'^\d+[\.\-]\s*', '', a_lines[i]).strip()
+                    _draw_text_with_stroke(td, f"👉 {ans_clean}", (SAFE_LEFT + 430, y), ans_font, PHOSPHOR_GREEN, anchor="lm", align="left")
+            img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
+            
+            # Badge score pulse
+            pulse = min(1.0, reveal_frame / 6)
+            badge_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
+            ImageDraw.Draw(badge_img).text((layout_cx, HEIGHT // 2 + 350), "How many did you get?", font=_get_font("bold", 40), fill=(255,220,50, int(255*pulse)), anchor="mm")
+            img = Image.alpha_composite(img.convert("RGBA"), badge_img).convert("RGB")
+        else:
+            img = _draw_answer_reveal(img, q.correct_answer, reveal_frame, layout_cx, layout_wrap)
+            badge_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
+            bd = ImageDraw.Draw(badge_img)
+            bd.rounded_rectangle([layout_cx - 180, HEIGHT // 2 - 200, layout_cx + 180, HEIGHT // 2 - 130], radius=25, fill=(57, 255, 20, 200))
+            bd.text((layout_cx, HEIGHT // 2 - 165), "✓  CORRECT!", font=_get_font("extrabold", 52), fill=BLACK, anchor="mm")
+            img = Image.alpha_composite(img.convert("RGBA"), badge_img).convert("RGB")
 
     img = job.watermark.apply(img, frame_idx, job.total_frames)
-
     return _bgr_from_pil(img)
 
 
@@ -671,21 +479,14 @@ class VideoRenderer:
     QUESTION_DISPLAY_SEC = 4.0
     TIMER_SEC = 5.0
     ANSWER_SEC = 5.0
-    BASE_DURATION = QUESTION_DISPLAY_SEC + TIMER_SEC + ANSWER_SEC  # 14s
+    BASE_DURATION = QUESTION_DISPLAY_SEC + TIMER_SEC + ANSWER_SEC
 
-    def __init__(
-        self,
-        pexels_key: str,
-        pixabay_key: str,
-        freesound_api_key: str,
-    ) -> None:
+    def __init__(self, pexels_key: str, pixabay_key: str, freesound_api_key: str) -> None:
         self._bg = BackgroundManager(pexels_key, pixabay_key)
         self._music = MusicEngine(freesound_api_key)
         self._watermark = WatermarkEngine()
 
     def render(self, question: QuestionObject, audio_engine, job_id: str) -> str:
-        from audio.audio_engine import AudioEngine
-
         job_dir = RENDER_DIR / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
 
@@ -699,22 +500,19 @@ class VideoRenderer:
         timer_end_frame = timer_start_frame + int(self.TIMER_SEC * FPS)
         answer_reveal_frame = timer_end_frame
 
-        logger.info(f"[Renderer] {job_id} | duration={total_sec:.1f}s | frames={total_frames}")
-
         bg_frames = self._bg.get_background_frames(total_sec, job_dir)
 
+        # نعالج النص قبل ما الصوت يقراه (عشان ميقرأش العلامات كرموز غريبة)
+        q_text_audio = question.question_text.replace(" | ", "... ")
         audio_result = audio_engine.render_question_audio(
-            question_text=question.question_text,
+            question_text=q_text_audio,
             cta_text=question.cta_text,
             job_id=job_id,
         )
 
         bgm_path = str(job_dir / "bgm.wav")
         bgm_result = self._music.get_bgm(int(total_sec * 1000), bgm_path)
-        if bgm_result:
-            bgm_audio = AudioSegment.from_file(bgm_path)
-        else:
-            bgm_audio = AudioSegment.silent(duration=int(total_sec * 1000))
+        bgm_audio = AudioSegment.from_file(bgm_path) if bgm_result else AudioSegment.silent(duration=int(total_sec * 1000))
 
         mixed_audio = audio_engine.mix_final_audio(
             question_vo_path=audio_result["question_vo"],
@@ -729,55 +527,24 @@ class VideoRenderer:
         audio_path = str(job_dir / "final_audio.wav")
         mixed_audio.export(audio_path, format="wav")
 
-        render_job = RenderJob(
-            question=question,
-            bg_frames=bg_frames,
-            total_frames=total_frames,
-            question_end_frame=timer_start_frame,
-            timer_start_frame=timer_start_frame,
-            timer_end_frame=timer_end_frame,
-            answer_reveal_frame=answer_reveal_frame,
-            job_dir=job_dir,
-            watermark=self._watermark,
-        )
-
+        render_job = RenderJob(question, bg_frames, total_frames, timer_start_frame, timer_start_frame, timer_end_frame, answer_reveal_frame, job_dir, self._watermark)
         frames_dir = job_dir / "frames"
         frames_dir.mkdir(exist_ok=True)
 
-        logger.info(f"[Renderer] Writing {total_frames} frames …")
         for i in range(total_frames):
-            frame = _render_frame(render_job, i)
-            frame_path = frames_dir / f"frame_{i:05d}.png"
-            cv2.imwrite(str(frame_path), frame)
+            cv2.imwrite(str(frames_dir / f"frame_{i:05d}.png"), _render_frame(render_job, i))
 
         output_path = str(job_dir / "final_short.mp4")
         self._ffmpeg_assemble(str(frames_dir), audio_path, output_path, total_sec)
-
         shutil.rmtree(str(frames_dir), ignore_errors=True)
-
-        logger.success(f"[Renderer] Done: {output_path}")
         return output_path
 
     @staticmethod
     def _ffmpeg_assemble(frames_dir: str, audio_path: str, output_path: str, duration: float) -> None:
         cmd = [
-            "ffmpeg", "-y",
-            "-framerate", str(FPS),
-            "-i", f"{frames_dir}/frame_%05d.png",
-            "-i", audio_path,
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "20",
-            "-pix_fmt", "yuv420p",
-            "-c:a", "aac",
-            "-b:a", "192k",
-            "-shortest",
-            "-movflags", "+faststart",
-            "-t", f"{duration:.2f}",
-            output_path,
+            "ffmpeg", "-y", "-framerate", str(FPS), "-i", f"{frames_dir}/frame_%05d.png", "-i", audio_path,
+            "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", "-t", f"{duration:.2f}", output_path,
         ]
-        logger.info(f"[FFmpeg] Running: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"FFmpeg failed:\n{result.stderr}")
-        logger.success(f"[FFmpeg] Output: {output_path}")
+        if result.returncode != 0: raise RuntimeError(f"FFmpeg failed:\n{result.stderr}")
