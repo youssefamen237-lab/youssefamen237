@@ -25,7 +25,7 @@ from tinydb import TinyDB, Query
 DB_PATH = Path("data/questions_db.json")
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-# ── Template IDs
+# ── Template IDs (REMOVED visual_question & visual_levels)
 TEMPLATES = [
     "true_false",
     "multiple_choice",
@@ -34,8 +34,6 @@ TEMPLATES = [
     "quick_challenge",
     "only_geniuses",
     "memory_test",
-    "visual_question",
-    "visual_levels",
     "rapid_list",
 ]
 
@@ -44,7 +42,7 @@ CATEGORIES = [
     "pop culture secrets", "mind-bending riddles", "famous movie mistakes", 
     "gaming easter eggs", "crazy psychology facts", "bizarre history", 
     "urban legends", "space mysteries", "superhero trivia", "internet mysteries",
-    "mandela effect", "impossible science", "hidden logos", "world records"
+    "mandela effect", "impossible science", "world records", "geography trivia"
 ]
 
 TARGET_AUDIENCES = ["American", "British", "Canadian", "Australian", "Irish"]
@@ -269,47 +267,38 @@ class AIQuestionGenerator:
                 "The 'wrong_answers' array MUST contain exactly one item: the opposite word."
             ),
             "multiple_choice": (
-                "Create a modern, surprising multiple-choice question. Start with a hook like 'Did you know?' or 'I bet you can't guess...'. "
-                "Exactly 4 options total (1 correct + 3 very tricky distractors)."
+                "Create a modern, surprising multiple-choice question. Keep the question SHORT (max 15 words). "
+                "Exactly 4 short options total (1 correct + 3 very tricky distractors)."
             ),
             "direct_question": (
-                "Create a fast, punchy question. Start with 'Quick!'. "
+                "Create a fast, punchy question. Start with 'Quick!'. Keep it UNDER 12 words."
                 "Single short correct answer (1–3 words). 3 plausible distractors."
             ),
             "guess_answer": (
-                "Create a 'Guess Who/What' riddle. Describe something famous (movie, brand, celebrity) using emoji clues or vague descriptions. "
+                "Create a 'Guess Who/What' riddle. Describe something famous using vague text descriptions. Keep it SHORT (max 15 words)."
             ),
             "quick_challenge": (
-                "Create a stressful, fast-paced challenge. Start with 'You have 5 seconds:'. "
-                "Make it a visual memory test or a trick question."
+                "Create a stressful, fast-paced text challenge. Start with 'You have 5 seconds:'. Keep it SHORT (max 15 words)."
             ),
             "only_geniuses": (
-                "Start the question EXPLICITLY with '99% of people fail this:' or 'Only true geniuses know:'. "
-                "Make it a genuinely tricky logic or pop-culture riddle."
+                "Start explicitly with '99% of people fail this:' or 'Only geniuses know:'. "
+                "Keep the question SHORT (max 15 words)."
             ),
             "memory_test": (
-                "Nostalgia challenge! Ask about a detail from a famous 2000s/2010s movie, song, or trend. "
-                "Start with 'Let's test your memory:'"
-            ),
-            "visual_question": (
-                "Describe a famous logo, flag, or movie scene perfectly, and ask them to name it."
-            ),
-            "visual_levels": (
-                "Create a question suitable for a LEVEL UP game (EASY/MEDIUM/HARD/EXPERT). Make it an escalating challenge. "
-                "E.g., 'What is the hardest language to learn?' or 'Which of these logos is fake?'"
+                "Nostalgia challenge! Ask a SHORT question (max 15 words) about a detail from a famous movie, song, or trend. "
             ),
             "rapid_list": (
-                "Create a rapid-fire list of exactly 5 short clues (e.g., guess 5 movies from emojis + hints, or 5 countries). "
-                "In 'question_text', write EXACTLY 5 numbered clues separated by ' | ' (e.g., '1. 🦇👨 Bat | 2. 🧊🚢 Ship | 3. 🦁👑 Lion | 4. 🦖🏞️ Dino | 5. 👽🚲 Alien'). Include text hints next to emojis for voiceover to read! "
-                "In 'correct_answer', write the 5 corresponding short answers separated by ' | ' (e.g., 'Batman | Titanic | Lion King | Jurassic Park | ET'). "
-                "Keep it very brief! Fill 'wrong_answers' with exactly 3 random words."
+                "Create a rapid-fire list of EXACTLY 10 short text clues (e.g., 10 short trivia questions, or guess 10 countries from emojis). "
+                "In 'question_text', write EXACTLY 10 numbered clues separated by ' | ' (e.g., '1. Capital of France | 2. 🧊🚢 Ship movie | 3. Biggest planet | ...'). "
+                "In 'correct_answer', write the 10 corresponding short answers separated by ' | ' (e.g., 'Paris | Titanic | Jupiter | ...'). "
+                "CRITICAL: You must provide exactly 10 items in both fields. Keep each item extremely short (1-4 words max)."
             ),
         }
 
         t_instruction = template_instructions.get(template, template_instructions["multiple_choice"])
 
-        prompt = f"""You are a viral TikTok/Shorts creator known for fast, modern, and highly engaging trivia. 
-Your audience has a short attention span, so you must use strong hooks.
+        prompt = f"""You are a viral TikTok/Shorts creator known for fast, modern, and highly engaging text-based trivia. 
+Your audience has a short attention span, so you must use strong hooks and keep all text VERY SHORT.
 
 TEMPLATE: {template.replace('_', ' ').title()}
 CATEGORY: {category}
@@ -322,17 +311,19 @@ INSTRUCTIONS:
 
 STRICT OUTPUT FORMAT (valid JSON only):
 {{
-  "question_text": "YOUR_STRONG_HOOK_AND_QUESTION_HERE",
+  "question_text": "YOUR_SHORT_QUESTION_HERE",
   "correct_answer": "...",
   "wrong_answers": ["...", "...", "..."],
-  "explanation": "One punchy sentence explaining the answer.",
+  "explanation": "One short punchy sentence.",
   "difficulty": "{difficulty}",
   "category": "{category}",
-  "fun_fact": "A crazy related fact in one sentence.",
+  "fun_fact": "A short related fact.",
   "source_hint": "viral_trends"
 }}
 
 RULES:
+- NEVER ask the user to 'spot the fake logo' or refer to images/visuals, because there are NO images on the screen, only text and abstract backgrounds.
+- Keep the `question_text` very short so it fits on a mobile screen without overlapping.
 - Tone: Exciting, modern, challenging.
 - English only. Target audience: {audience}.
 - Output ONLY the JSON object. Nothing else."""
@@ -407,11 +398,11 @@ class QuestionDeduplicator:
 # ─────────────────────────────────────────────────────────────────────────────
 
 CTA_POOL = [
-    "I bet you didn't get this! Prove me wrong in the comments 👇",
-    "Did you beat the timer? Tell me your score! ⏱️",
-    "Drop your answer before the reveal! No cheating 👀",
-    "Only true legends got this right. Are you one of them? 🧠",
-    "Send this to a friend to test their brain! 🚀",
+    "Prove me wrong in the comments 👇",
+    "Tell me your score! ⏱️",
+    "Drop your answer! No cheating 👀",
+    "Are you a legend? 🧠",
+    "Send this to a friend! 🚀",
 ]
 
 def pick_cta() -> str:
