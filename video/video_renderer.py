@@ -54,7 +54,7 @@ BLACK = (0, 0, 0)
 PHOSPHOR_GREEN = (57, 255, 20)
 TIMER_GREEN = (0, 230, 64)
 TIMER_RED = (255, 45, 45)
-OVERLAY_DARK = (0, 0, 0, 140)
+OVERLAY_DARK = (0, 0, 0, 140) 
 WATERMARK_COLOR = (255, 255, 255, 77)
 
 # ── Font URLs
@@ -494,7 +494,7 @@ def _draw_answer_reveal(img: Image.Image, answer_text: str, frame_in_reveal: int
     draw_img = img.copy().convert("RGBA")
     glow_layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow_layer)
-    font_size = 80 if len(answer_text) < 15 else 60
+    font_size = 70 if len(answer_text) < 15 else 55
     font = _get_font("extrabold", font_size)
 
     lines = _wrap_text(answer_text, font, wrap_w)
@@ -540,8 +540,8 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
     is_rapid = (q.template == "rapid_list")
 
     if is_rapid:
-        q_lines = [l.strip() for l in q.question_text.split('|') if l.strip()][:5]
-        a_lines = [l.strip() for l in q.correct_answer.split('|') if l.strip()][:5]
+        q_lines = [l.strip() for l in q.question_text.split('|') if l.strip()][:10]
+        a_lines = [l.strip() for l in q.correct_answer.split('|') if l.strip()][:10]
         layout_cx = WIDTH // 2
         layout_wrap = SAFE_W - 20
     elif q.template == "visual_levels":
@@ -561,7 +561,7 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
         alpha_val = int(255 * min(1.0, scale * 1.5))
 
         if is_rapid:
-            badge_text = "🔥 RAPID 5 QUIZ"
+            badge_text = "🔥 RAPID QUIZ"
         elif q.template == "visual_levels":
             badge_text = "🎮 LEVEL UP QUIZ"
         else:
@@ -579,22 +579,22 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
         td = ImageDraw.Draw(text_img)
         
         if is_rapid:
-            list_font = _get_font("extrabold", 45)
-            start_y = HEIGHT // 2 - 250
+            list_font = _get_font("extrabold", 35)
+            start_y = int(HEIGHT * 0.22)
             for i, line in enumerate(q_lines):
-                y = start_y + i * 110
-                td.rounded_rectangle([SAFE_LEFT, y - 40, SAFE_LEFT + 400, y + 40], radius=15, fill=(0, 0, 0, int(150 * min(1.0, scale))))
+                y = start_y + i * 85
+                td.rounded_rectangle([SAFE_LEFT, y - 35, SAFE_LEFT + 450, y + 35], radius=15, fill=(0, 0, 0, int(150 * min(1.0, scale))))
                 _draw_text_with_stroke(td, line, (SAFE_LEFT + 20, y), list_font, (255, 255, 255, alpha_val), anchor="lm", align="left")
         else:
-            font_size = max(40, min(72, int(72 * scale)))
+            font_size = max(35, min(65, int(65 * scale)))
             q_font = _get_font("extrabold", font_size)
             lines = _wrap_text(q.question_text, q_font, layout_wrap)
-            _draw_multiline_centered(td, lines, layout_cx, HEIGHT // 2 - 60, q_font, (255, 255, 255, alpha_val), stroke_width=5)
+            _draw_multiline_centered(td, lines, layout_cx, HEIGHT // 2 - 80, q_font, (255, 255, 255, alpha_val), stroke_width=5)
             
         img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
 
         if phase_frame > int(FPS * 0.5) and not is_rapid:
-            cta_font = _get_font("regular", 32)
+            cta_font = _get_font("regular", 30)
             cta_lines = _wrap_text(q.cta_text, cta_font, layout_wrap)
             cta_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
             cd = ImageDraw.Draw(cta_img)
@@ -604,10 +604,10 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
         if q.template == "multiple_choice" and phase_frame > int(FPS * 0.7) and q.wrong_answers:
             all_options = [q.correct_answer] + q.wrong_answers[:3]
             random.shuffle(all_options)
-            opt_font = _get_font("bold", 38)
+            opt_font = _get_font("bold", 35)
             labels = ["A", "B", "C", "D"]
-            opt_start_y = HEIGHT // 2 + 120
-            opt_spacing = 90
+            opt_start_y = HEIGHT // 2 + 100
+            opt_spacing = 80
             for i, (label, opt) in enumerate(zip(labels, all_options)):
                 oy = opt_start_y + i * opt_spacing
                 opt_bg = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -639,20 +639,20 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
         td = ImageDraw.Draw(text_img)
 
         if is_rapid:
-            list_font = _get_font("extrabold", 45)
-            start_y = HEIGHT // 2 - 250
+            list_font = _get_font("extrabold", 35)
+            start_y = int(HEIGHT * 0.22)
             for i, line in enumerate(q_lines):
-                y = start_y + i * 110
-                td.rounded_rectangle([SAFE_LEFT, y - 40, SAFE_LEFT + 400, y + 40], radius=15, fill=(0, 0, 0, 150))
+                y = start_y + i * 85
+                td.rounded_rectangle([SAFE_LEFT, y - 35, SAFE_LEFT + 450, y + 35], radius=15, fill=(0, 0, 0, 150))
                 _draw_text_with_stroke(td, line, (SAFE_LEFT + 20, y), list_font, (255, 255, 255, 255), anchor="lm", align="left")
             
             img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
-            timer_center = (layout_cx, HEIGHT // 2 + 350)
+            timer_center = (layout_cx, HEIGHT - 200)
             img_pil = img.convert("RGBA")
             img_pil = _draw_circular_timer(img_pil, progress, timer_center, radius=80, thickness=12)
             img = img_pil.convert("RGB")
         else:
-            q_font = _get_font("extrabold", 60)
+            q_font = _get_font("extrabold", 55)
             lines = _wrap_text(q.question_text, q_font, layout_wrap)
             _draw_multiline_centered(td, lines, layout_cx, HEIGHT // 2 - 180, q_font, (255, 255, 255, 180), stroke_width=5)
             img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
@@ -676,29 +676,29 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
         if is_rapid:
             text_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
             td = ImageDraw.Draw(text_img)
-            list_font = _get_font("extrabold", 45)
-            ans_font = _get_font("extrabold", 50)
-            start_y = HEIGHT // 2 - 250
+            list_font = _get_font("extrabold", 35)
+            ans_font = _get_font("extrabold", 40)
+            start_y = int(HEIGHT * 0.22)
             for i, line in enumerate(q_lines):
-                y = start_y + i * 110
-                td.rounded_rectangle([SAFE_LEFT, y - 40, SAFE_LEFT + 400, y + 40], radius=15, fill=(0, 0, 0, 150))
+                y = start_y + i * 85
+                td.rounded_rectangle([SAFE_LEFT, y - 35, SAFE_LEFT + 450, y + 35], radius=15, fill=(0, 0, 0, 150))
                 _draw_text_with_stroke(td, line, (SAFE_LEFT + 20, y), list_font, (255, 255, 255, 255), anchor="lm", align="left")
                 
                 if i < len(a_lines):
                     ans_clean = re.sub(r'^\d+[\.\-]\s*', '', a_lines[i]).strip()
-                    _draw_text_with_stroke(td, f"👉 {ans_clean}", (SAFE_LEFT + 430, y), ans_font, PHOSPHOR_GREEN, anchor="lm", align="left")
+                    _draw_text_with_stroke(td, f"👉 {ans_clean}", (SAFE_LEFT + 480, y), ans_font, PHOSPHOR_GREEN, anchor="lm", align="left")
             
             img = Image.alpha_composite(img.convert("RGBA"), text_img).convert("RGB")
             
             pulse = min(1.0, reveal_frame / 6)
             badge_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
-            ImageDraw.Draw(badge_img).text((layout_cx, HEIGHT // 2 + 350), "How many did you get?", font=_get_font("bold", 40), fill=(255,220,50, int(255*pulse)), anchor="mm")
+            ImageDraw.Draw(badge_img).text((layout_cx, HEIGHT - 200), "How many did you get?", font=_get_font("bold", 40), fill=(255,220,50, int(255*pulse)), anchor="mm")
             img = Image.alpha_composite(img.convert("RGBA"), badge_img).convert("RGB")
             
         else:
             img = _draw_answer_reveal(img, q.correct_answer, reveal_frame, layout_cx, layout_wrap)
 
-            exp_font = _get_font("regular", 34)
+            exp_font = _get_font("regular", 30)
             if q.explanation and reveal_frame > int(FPS * 0.5):
                 exp_lines = _wrap_text(q.explanation, exp_font, layout_wrap)
                 exp_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -722,10 +722,8 @@ def _render_frame(job: RenderJob, frame_idx: int) -> np.ndarray:
 
 
 class VideoRenderer:
-    QUESTION_DISPLAY_SEC = 4.0
     TIMER_SEC = 5.0
     ANSWER_SEC = 5.0
-    BASE_DURATION = QUESTION_DISPLAY_SEC + TIMER_SEC + ANSWER_SEC  # 14s
 
     def __init__(
         self,
@@ -743,10 +741,20 @@ class VideoRenderer:
         job_dir = RENDER_DIR / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
 
-        duration_jitter = random.uniform(-1.2, 1.5)
-        extra_q_sec = max(0.0, duration_jitter)
-        total_sec = self.BASE_DURATION + extra_q_sec
-        q_display_sec = self.QUESTION_DISPLAY_SEC + extra_q_sec
+        q_text_audio = question.question_text.replace(" | ", "... ")
+        audio_result = audio_engine.render_question_audio(
+            question_text=q_text_audio,
+            cta_text=question.cta_text,
+            job_id=job_id,
+        )
+
+        q_vo = AudioSegment.from_file(audio_result["question_vo"])
+        cta_vo = AudioSegment.from_file(audio_result["cta_vo"])
+        q_audio_sec = len(q_vo) / 1000.0
+        cta_audio_sec = len(cta_vo) / 1000.0
+
+        q_display_sec = q_audio_sec + cta_audio_sec + 0.3
+        total_sec = q_display_sec + self.TIMER_SEC + self.ANSWER_SEC + random.uniform(0.1, 0.4)
 
         total_frames = int(total_sec * FPS)
         timer_start_frame = int(q_display_sec * FPS)
@@ -756,14 +764,6 @@ class VideoRenderer:
         logger.info(f"[Renderer] {job_id} | duration={total_sec:.1f}s | frames={total_frames}")
 
         bg_frames = self._bg.get_background_frames(total_sec, job_dir)
-
-        # نعالج النص قبل ما الصوت يقراه (عشان ميقرأش العلامات كرموز غريبة)
-        q_text_audio = question.question_text.replace(" | ", "... ")
-        audio_result = audio_engine.render_question_audio(
-            question_text=q_text_audio,
-            cta_text=question.cta_text,
-            job_id=job_id,
-        )
 
         bgm_path = str(job_dir / "bgm.wav")
         bgm_result = self._music.get_bgm(int(total_sec * 1000), bgm_path)
