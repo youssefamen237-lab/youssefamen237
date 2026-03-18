@@ -1,16 +1,5 @@
 """
 audio/audio_engine.py – Quizzaro Audio Engine
-===============================================
-Responsibilities:
-  1. Text-to-Speech via edge-tts (primary) → Kokoro ONNX → Hugging Face Bark (fallbacks)
-  2. Voice humanization: random ±2% speed & pitch shift via pydub to create a
-     unique audio fingerprint per video (defeats TTS detection & Content-ID)
-  3. Sound effects: Tick-tock timer, answer-reveal Ding/Whoosh sourced from
-     Freesound API (royalty-free, cached locally to avoid re-downloads)
-  4. Multi-gender voice pool with per-run random selection
-  5. All audio exported as 44.1 kHz stereo 16-bit WAV for FFmpeg compatibility
-
-No placeholders. Every code path is production-ready.
 """
 
 from __future__ import annotations
@@ -150,7 +139,7 @@ class KokoroDriver:
             samples, sample_rate = self._kokoro.create(
                 text=text,
                 voice=voice,
-                speed=1.0,
+                speed=1.1, # تم زيادة السرعة قليلا
                 lang="en-us",
             )
             sf.write(output_path, samples, sample_rate)
@@ -218,8 +207,9 @@ class VoiceHumanizer:
     Also normalises volume and trims silence.
     """
 
-    SPEED_RANGE = (0.98, 1.02)    # ±2% speed
-    PITCH_SEMITONES_RANGE = (-0.5, 0.5)   # ±0.5 semitones ≈ ±2%
+    # تم تسريع الصوت بنسبة 12% لـ 20% عشان يكون سريع ويشد الانتباه (TikTok Style)
+    SPEED_RANGE = (1.12, 1.20)    
+    PITCH_SEMITONES_RANGE = (-0.5, 0.5)   
 
     def humanize(self, input_path: str, output_path: str) -> str:
         """
@@ -272,7 +262,6 @@ class VoiceHumanizer:
     @staticmethod
     def _change_speed(audio: AudioSegment, speed: float) -> AudioSegment:
         """Change playback speed without pitch change (time-stretching)."""
-        # pydub doesn't have native time-stretch; we manipulate frame_rate
         new_sample_rate = int(audio.frame_rate * speed)
         shifted = audio._spawn(audio.raw_data, overrides={"frame_rate": new_sample_rate})
         return shifted.set_frame_rate(SAMPLE_RATE)
@@ -280,7 +269,6 @@ class VoiceHumanizer:
     @staticmethod
     def _change_pitch(audio: AudioSegment, semitones: float) -> AudioSegment:
         """Shift pitch by N semitones (positive = higher, negative = lower)."""
-        # Pitch shift via sample rate trick: change sample rate → resample back
         pitch_factor = 2 ** (semitones / 12.0)
         new_sample_rate = int(audio.frame_rate * pitch_factor)
         shifted = audio._spawn(audio.raw_data, overrides={"frame_rate": new_sample_rate})
@@ -564,7 +552,8 @@ class AudioEngine:
         master = master.overlay(q_vo, position=0)
 
         # ── CTA voiceover (immediately after question VO) ──────────────────
-        cta_start = len(q_vo) + 200    # 200ms gap
+        # تم تقليل الفجوة عشان يكون سريع
+        cta_start = len(q_vo) + 100    
         cta_vo = AudioSegment.from_file(cta_vo_path)
         master = master.overlay(cta_vo, position=cta_start)
 
