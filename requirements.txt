@@ -11,7 +11,7 @@ imageio-ffmpeg==0.4.9
 decorator==4.4.2          # moviepy hard dependency — do NOT upgrade
 
 # ---------- Image Processing ----------
-Pillow==10.3.0
+Pillow==10.0.1
 numpy==1.26.4
 
 # ---------- Text-to-Speech ----------
