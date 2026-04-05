@@ -68,35 +68,45 @@ jobs:
           restore-keys: |
             mindcraft-tokens-
 
-      - name: Write Client Secrets from secrets
+      - name: Write Secrets and Tokens securely
         env:
           YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
           YT_CLIENT_SECRET_2: ${{ secrets.YT_CLIENT_SECRET_2 }}
           YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
-        run: |
-          if [ -n "$YT_CLIENT_SECRET_1" ]; then echo "$YT_CLIENT_SECRET_1" > client_secret_1.json; fi
-          if [ -n "$YT_CLIENT_SECRET_2" ]; then echo "$YT_CLIENT_SECRET_2" > client_secret_2.json; fi
-          if [ -n "$YT_CLIENT_SECRET_3" ]; then echo "$YT_CLIENT_SECRET_3" > client_secret_3.json; fi
-
-      - name: Write OAuth tokens from secrets
-        env:
           YT_TOKEN_JSON_1: ${{ secrets.YT_TOKEN_JSON_1 }}
           YT_TOKEN_JSON_2: ${{ secrets.YT_TOKEN_JSON_2 }}
           YT_TOKEN_JSON_3: ${{ secrets.YT_TOKEN_JSON_3 }}
         run: |
-          mkdir -p .tokens
-          if [ -n "$YT_TOKEN_JSON_1" ]; then
-            if [[ "$YT_TOKEN_JSON_1" == {* ]]; then echo "$YT_TOKEN_JSON_1" > .tokens/token_1.json
-            else echo "$YT_TOKEN_JSON_1" | base64 -d > .tokens/token_1.json; fi
-          fi
-          if [ -n "$YT_TOKEN_JSON_2" ]; then
-            if [[ "$YT_TOKEN_JSON_2" == {* ]]; then echo "$YT_TOKEN_JSON_2" > .tokens/token_2.json
-            else echo "$YT_TOKEN_JSON_2" | base64 -d > .tokens/token_2.json; fi
-          fi
-          if [ -n "$YT_TOKEN_JSON_3" ]; then
-            if [[ "$YT_TOKEN_JSON_3" == {* ]]; then echo "$YT_TOKEN_JSON_3" > .tokens/token_3.json
-            else echo "$YT_TOKEN_JSON_3" | base64 -d > .tokens/token_3.json; fi
-          fi
+          python -c '
+          import os, base64, json
+          from pathlib import Path
+          
+          def write_json(env_key, path_str, is_b64=False):
+              val = os.environ.get(env_key, "").strip()
+              if not val: return
+              
+              Path(path_str).parent.mkdir(parents=True, exist_ok=True)
+              
+              if is_b64 and not val.startswith("{"):
+                  try:
+                      val = base64.b64decode(val).decode("utf-8")
+                  except:
+                      pass
+              
+              try:
+                  json.loads(val)
+                  Path(path_str).write_text(val, encoding="utf-8")
+                  print(f"[OK] {path_str} written successfully.")
+              except Exception as e:
+                  print(f"[ERROR] Invalid JSON in {env_key}. Make sure you copied it correctly from Google/Local.")
+                  
+          write_json("YT_CLIENT_SECRET_1", "client_secret_1.json")
+          write_json("YT_CLIENT_SECRET_2", "client_secret_2.json")
+          write_json("YT_CLIENT_SECRET_3", "client_secret_3.json")
+          write_json("YT_TOKEN_JSON_1", ".tokens/token_1.json", True)
+          write_json("YT_TOKEN_JSON_2", ".tokens/token_2.json", True)
+          write_json("YT_TOKEN_JSON_3", ".tokens/token_3.json", True)
+          '
 
       - name: Download Bebas Neue font
         run: |
