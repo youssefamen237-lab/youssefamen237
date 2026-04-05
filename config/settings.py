@@ -133,12 +133,12 @@ DAILY_SHORTS_COUNT: int = int(os.getenv("DAILY_SHORTS_COUNT", "4"))
 # ══════════════════════════════════════════════════════════════════════════
 
 # Gemini
-GEMINI_MODEL:           str = "gemini-1.5-flash"          # free-tier model
+GEMINI_MODEL:           str = "gemini-1.5-flash-latest"          # Updated to a valid model name
 GEMINI_MAX_OUTPUT_TOKENS: int = 1024
 GEMINI_TEMPERATURE:     float = 0.85
 
 # Groq (fallback)
-GROQ_MODEL:             str = "llama3-8b-8192"            # free-tier model
+GROQ_MODEL:             str = "llama-3.1-8b-instant"            # Updated to a valid model name
 GROQ_MAX_TOKENS:        int = 1024
 GROQ_TEMPERATURE:       float = 0.85
 
