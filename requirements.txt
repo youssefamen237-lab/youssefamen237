@@ -15,8 +15,7 @@ Pillow==10.0.1
 numpy==1.26.4
 
 # ---------- Text-to-Speech ----------
-edge-tts==6.1.9
-
+edge-tts
 # ---------- AI / LLM APIs ----------
 google-generativeai==0.5.4      # Gemini
 groq==0.9.0                     # Groq fallback
