@@ -133,7 +133,7 @@ DAILY_SHORTS_COUNT: int = int(os.getenv("DAILY_SHORTS_COUNT", "4"))
 # ══════════════════════════════════════════════════════════════════════════
 
 # Gemini
-GEMINI_MODEL:           str = "gemini-1.5-flash-latest"          # Updated to a valid model name
+GEMINI_MODEL:           str = "gemini-1.5-flash"          # Updated to a valid model name
 GEMINI_MAX_OUTPUT_TOKENS: int = 1024
 GEMINI_TEMPERATURE:     float = 0.85
 
