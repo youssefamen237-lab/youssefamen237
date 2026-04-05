@@ -10,17 +10,11 @@ name: Daily Shorts Pipeline
 
 on:
   schedule:
-    # Times are UTC. EST = UTC-5, so:
-    #   12:00 PM EST = 17:00 UTC
-    #    3:00 PM EST = 20:00 UTC
-    #    6:00 PM EST = 23:00 UTC
-    #    9:00 PM EST = 02:00 UTC (next day)
     - cron: "0 17 * * *"
     - cron: "0 20 * * *"
     - cron: "0 23 * * *"
     - cron: "0  2 * * *"
 
-  # Allow manual trigger from the Actions tab for testing
   workflow_dispatch:
     inputs:
       count:
@@ -70,7 +64,6 @@ jobs:
           pip install -r requirements.txt
 
       # ── 5. Restore SQLite database cache ─────────────────────────────────
-      #    Persists the dedup DB across runs so scripts are never repeated.
       - name: Restore database cache
         uses: actions/cache@v4
         with:
@@ -88,29 +81,9 @@ jobs:
           restore-keys: |
             mindcraft-tokens-
 
-      # ── 7. Hydrate YouTube OAuth tokens from Secrets ─────────────────────
-      #    Tokens are stored as base64-encoded JSON in GitHub Secrets.
-      #    auth.py reads YT_TOKEN_JSON_N and writes .tokens/token_N.json.
+      # ── 7. Dummy Step to keep structure intact ───────────────────────────
       - name: Write OAuth tokens from secrets
-        env:
-          YT_TOKEN_JSON_1: ${{ secrets.YT_TOKEN_JSON_1 }}
-          YT_TOKEN_JSON_2: ${{ secrets.YT_TOKEN_JSON_2 }}
-          YT_TOKEN_JSON_3: ${{ secrets.YT_TOKEN_JSON_3 }}
-        run: |
-          mkdir -p .tokens
-          # Decode and write each token if the secret is set
-          if [ -n "$YT_TOKEN_JSON_1" ]; then
-            echo "$YT_TOKEN_JSON_1" | base64 -d > .tokens/token_1.json
-            echo "Token 1 written."
-          fi
-          if [ -n "$YT_TOKEN_JSON_2" ]; then
-            echo "$YT_TOKEN_JSON_2" | base64 -d > .tokens/token_2.json
-            echo "Token 2 written."
-          fi
-          if [ -n "$YT_TOKEN_JSON_3" ]; then
-            echo "$YT_TOKEN_JSON_3" | base64 -d > .tokens/token_3.json
-            echo "Token 3 written."
-          fi
+        run: echo "Skipped parsing JSON, using direct environment variables"
 
       # ── 8. Download Bebas Neue font ───────────────────────────────────────
       - name: Download Bebas Neue font
@@ -129,9 +102,6 @@ jobs:
           mkdir -p output/audio output/clips output/shorts output/compilations logs
 
       # ── 10. ANTI-BOT: Random sleep (1–15 minutes) ────────────────────────
-      #    Prevents uploads at the exact same second every day.
-      #    Sleep is randomised per-run in the shell so GitHub Actions
-      #    schedule jitter is layered on top of our own jitter.
       - name: Random sleep (anti-bot jitter)
         run: |
           SLEEP_SECS=$(( RANDOM % 840 + 60 ))   # 60–900 seconds (1–15 min)
@@ -141,43 +111,49 @@ jobs:
       # ── 11. Validate environment variables ────────────────────────────────
       - name: Validate environment
         env:
-          TAVILY_API_KEY:    ${{ secrets.TAVILY_API_KEY }}
-          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY:      ${{ secrets.GROQ_API_KEY }}
-          PEXELS_API_KEY:    ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY:   ${{ secrets.PIXABAY_API_KEY }}
+          TAVILY_API_KEY:     ${{ secrets.TAVILY_API_KEY }}
+          GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          PEXELS_API_KEY:     ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY:    ${{ secrets.PIXABAY_API_KEY }}
+          YT_CLIENT_ID_1:     ${{ secrets.YT_CLIENT_ID_1 }}
           YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
-          YT_TOKEN_PATH_1:   .tokens/token_1.json
+          YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
+          YT_CLIENT_ID_2:     ${{ secrets.YT_CLIENT_ID_2 }}
           YT_CLIENT_SECRET_2: ${{ secrets.YT_CLIENT_SECRET_2 }}
-          YT_TOKEN_PATH_2:   .tokens/token_2.json
+          YT_REFRESH_TOKEN_2: ${{ secrets.YT_REFRESH_TOKEN_2 }}
+          YT_CLIENT_ID_3:     ${{ secrets.YT_CLIENT_ID_3 }}
           YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
-          YT_TOKEN_PATH_3:   .tokens/token_3.json
-          DB_PATH:           database/mindcraft.db
-          LOG_LEVEL:         INFO
+          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+          DB_PATH:            database/mindcraft.db
+          LOG_LEVEL:          INFO
           DAILY_SHORTS_COUNT: "4"
-          CHANNEL_NICHE:     "psychology facts"
-          CHANNEL_VOICE:     "en-US-GuyNeural"
+          CHANNEL_NICHE:      "psychology facts"
+          CHANNEL_VOICE:      "en-US-GuyNeural"
         run: python main.py --mode validate
 
       # ── 12. Run the Short pipeline ────────────────────────────────────────
       - name: Run Short pipeline
         env:
-          TAVILY_API_KEY:    ${{ secrets.TAVILY_API_KEY }}
-          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY:      ${{ secrets.GROQ_API_KEY }}
-          PEXELS_API_KEY:    ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY:   ${{ secrets.PIXABAY_API_KEY }}
+          TAVILY_API_KEY:     ${{ secrets.TAVILY_API_KEY }}
+          GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          PEXELS_API_KEY:     ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY:    ${{ secrets.PIXABAY_API_KEY }}
+          YT_CLIENT_ID_1:     ${{ secrets.YT_CLIENT_ID_1 }}
           YT_CLIENT_SECRET_1: ${{ secrets.YT_CLIENT_SECRET_1 }}
-          YT_TOKEN_PATH_1:   .tokens/token_1.json
+          YT_REFRESH_TOKEN_1: ${{ secrets.YT_REFRESH_TOKEN_1 }}
+          YT_CLIENT_ID_2:     ${{ secrets.YT_CLIENT_ID_2 }}
           YT_CLIENT_SECRET_2: ${{ secrets.YT_CLIENT_SECRET_2 }}
-          YT_TOKEN_PATH_2:   .tokens/token_2.json
+          YT_REFRESH_TOKEN_2: ${{ secrets.YT_REFRESH_TOKEN_2 }}
+          YT_CLIENT_ID_3:     ${{ secrets.YT_CLIENT_ID_3 }}
           YT_CLIENT_SECRET_3: ${{ secrets.YT_CLIENT_SECRET_3 }}
-          YT_TOKEN_PATH_3:   .tokens/token_3.json
-          DB_PATH:           database/mindcraft.db
-          LOG_LEVEL:         INFO
+          YT_REFRESH_TOKEN_3: ${{ secrets.YT_REFRESH_TOKEN_3 }}
+          DB_PATH:            database/mindcraft.db
+          LOG_LEVEL:          INFO
           DAILY_SHORTS_COUNT: ${{ github.event.inputs.count || '4' }}
-          CHANNEL_NICHE:     "psychology facts"
-          CHANNEL_VOICE:     "en-US-GuyNeural"
+          CHANNEL_NICHE:      "psychology facts"
+          CHANNEL_VOICE:      "en-US-GuyNeural"
         run: |
           COUNT="${{ github.event.inputs.count || '4' }}"
           PRIVACY="${{ github.event.inputs.privacy || 'public' }}"
