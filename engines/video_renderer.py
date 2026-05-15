@@ -106,18 +106,19 @@ def run_video_renderer(ctx: DailyRunContext) -> DailyRunContext:
     )
 
     ok = _apply_audio_and_text(
-        silent_path, audio_src, drawtext_chain, final_path
+        silent_path, audio_src, drawtext_chain, final_path, ctx.run_id
     )
 
     if ok and final_path.exists() and final_path.stat().st_size > 100_000:
         ctx.long_video_path = str(final_path)
         size_mb = final_path.stat().st_size // (1024 * 1024)
         log.info(f"Long video rendered: {final_path.name} ({size_mb}MB)")
+        # Only delete silent_path after confirmed good final output
+        silent_path.unlink(missing_ok=True)
     else:
-        log.warning("Final pass failed — using silent video as fallback.")
+        # Keep silent_path intact — do NOT delete it, it IS the fallback
+        log.warning("Final pass failed — keeping silent video as fallback.")
         ctx.long_video_path = str(silent_path)
-
-    silent_path.unlink(missing_ok=True)
     ctx.mark_stage("video_renderer")
     return ctx
 
@@ -308,64 +309,102 @@ def _apply_audio_and_text(
     audio_path_in:   Optional[str],
     drawtext_chain:  str,
     out_path:        Path,
+    run_id:          str = "",
 ) -> bool:
     """
-    Single FFmpeg pass: overlays audio + burns in all drawtext overlays.
-    Uses filter_complex to chain video filter + audio map cleanly.
+    TWO sequential FFmpeg passes — avoids filter_complex quoting entirely.
+
+    Pass A — Audio overlay (-c:v copy, no video re-encode, fast):
+      ffmpeg -i video_silent.mp4 -i audio.mp3 -c:v copy -c:a aac → _pass_audio_temp.mp4
+
+    Pass B — Text overlays (-vf, video re-encodes once for burn-in):
+      ffmpeg -i _pass_audio_temp.mp4 -vf "drawtext=..." -c:a copy → long_video.mp4
+
+    -vf quoting is far simpler than filter_complex: no [pad] labels,
+    no apostrophe/enable/single-quote interaction edge cases.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    has_audio = audio_path_in and Path(audio_path_in).exists()
+    has_audio = bool(audio_path_in and Path(audio_path_in).exists())
+    has_text  = bool(drawtext_chain)
 
-    if drawtext_chain and has_audio:
-        # Full pass: video filter chain + audio
-        cmd = [
-            "ffmpeg", "-y",
-            "-i",   str(video_path_in),
-            "-i",   str(audio_path_in),
-            "-filter_complex",
-            f"[0:v]{drawtext_chain}[vout]",
-            "-map", "[vout]",
-            "-map", "1:a:0",
-            "-c:v", "libx264", "-preset", FFMPEG_PRESET, "-crf", str(FFMPEG_CRF),
-            "-c:a", "aac", "-b:a", AUDIO_BITRATE, "-ar", str(AUDIO_SAMPLE_RATE),
-            "-threads", str(FFMPEG_THREADS),
-            "-shortest",
-            str(out_path),
-        ]
-    elif drawtext_chain:
-        # Video text only, no audio
-        cmd = [
-            "ffmpeg", "-y",
-            "-i",   str(video_path_in),
-            "-vf",  drawtext_chain,
-            "-c:v", "libx264", "-preset", FFMPEG_PRESET, "-crf", str(FFMPEG_CRF),
-            "-threads", str(FFMPEG_THREADS),
-            "-an",
-            str(out_path),
-        ]
-    elif has_audio:
-        # Audio only, no text filter
-        cmd = [
-            "ffmpeg", "-y",
-            "-i",   str(video_path_in),
-            "-i",   str(audio_path_in),
-            "-map", "0:v:0",
-            "-map", "1:a:0",
-            "-c:v", "copy",
-            "-c:a", "aac", "-b:a", AUDIO_BITRATE, "-ar", str(AUDIO_SAMPLE_RATE),
-            "-shortest",
-            str(out_path),
-        ]
+    # Intermediate file for between passes
+    audio_temp = (out_path.parent / f"_pass_audio_temp_{out_path.stem}.mp4"
+                  if run_id == "" else
+                  video_path(run_id, "_pass_audio_temp.mp4"))
+
+    # ── Pass A: Audio overlay ──────────────────────────────────────
+    if has_audio:
+        pass_a_ok = _pass_audio_overlay(video_path_in, audio_path_in, audio_temp)
+        if not pass_a_ok:
+            log.warning("Audio overlay pass failed — continuing without audio.")
+            audio_temp = video_path_in   # fall through to text pass on original
+        source_for_text = audio_temp
     else:
-        # Nothing to do — copy as-is
-        import shutil
-        shutil.copy2(str(video_path_in), str(out_path))
+        source_for_text = video_path_in
+
+    # ── Pass B: Text overlays ──────────────────────────────────────
+    if has_text:
+        pass_b_ok = _pass_text_overlays(source_for_text, drawtext_chain, out_path)
+        if has_audio and source_for_text != video_path_in:
+            Path(source_for_text).unlink(missing_ok=True)
+        if not pass_b_ok:
+            log.error("Text overlay pass failed.")
+            return False
+        return True
+    else:
+        # No text — audio temp IS the final output
+        if has_audio and source_for_text != video_path_in:
+            Path(source_for_text).rename(out_path)
+        else:
+            import shutil
+            shutil.copy2(str(video_path_in), str(out_path))
         return True
 
-    ok, err = _run_ffmpeg(cmd, "final_audio_text_pass", _FINAL_TIMEOUT)
+
+def _pass_audio_overlay(
+    video_in:  Path,
+    audio_in:  str,
+    out_path:  Path,
+) -> bool:
+    """Pass A: audio overlay, video byte-copied (-c:v copy)."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "ffmpeg", "-y",
+        "-i",    str(video_in),
+        "-i",    str(audio_in),
+        "-map",  "0:v:0",
+        "-map",  "1:a:0",
+        "-c:v",  "copy",
+        "-c:a",  "aac", "-b:a", AUDIO_BITRATE, "-ar", str(AUDIO_SAMPLE_RATE),
+        "-shortest",
+        str(out_path),
+    ]
+    ok, err = _run_ffmpeg(cmd, "audio_overlay_pass", 300)
     if not ok:
-        log.error(f"Final pass failed: {err[-300:]}")
-    return ok
+        log.warning(f"Audio overlay pass error: {err[-150:]}")
+    return ok and out_path.exists() and out_path.stat().st_size > 10_000
+
+
+def _pass_text_overlays(
+    video_in:       Path,
+    drawtext_chain: str,
+    out_path:       Path,
+) -> bool:
+    """Pass B: drawtext burn-in via -vf (NOT filter_complex). Audio copied."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "ffmpeg", "-y",
+        "-i",    str(video_in),
+        "-vf",   drawtext_chain,
+        "-c:v",  "libx264", "-preset", FFMPEG_PRESET, "-crf", str(FFMPEG_CRF),
+        "-c:a",  "copy",
+        "-threads", str(FFMPEG_THREADS),
+        str(out_path),
+    ]
+    ok, err = _run_ffmpeg(cmd, "text_overlay_pass", _FINAL_TIMEOUT)
+    if not ok:
+        log.error(f"Text overlay pass error: {err[-300:]}")
+    return ok and out_path.exists() and out_path.stat().st_size > 100_000
 
 
 # ─────────────────────────────────────────────
@@ -461,88 +500,74 @@ def _build_drawtext_chain(
     font_path:    str,
 ) -> str:
     """
-    Builds the drawtext filter chain for all timed text overlays:
-      1. Intro story label (first 3.5s)
-      2. +18 badge (first 8s)
-      3. CTA ("SUBSCRIBE FOR DAILY DARK FILES") at CTA scene
-      4. Outro ("TOMORROW'S FILE IS DARKER") last 18s
-    Returns comma-separated drawtext filter string or empty string.
+    Builds the drawtext -vf filter chain for all timed text overlays.
+    ALL text values passed through _escape_drawtext() — no raw apostrophes.
+    enable= uses NO surrounding single quotes — clean for -vf context.
     """
     parts   = blueprint.get("parts", [])
     filters: list[str] = []
     fp      = font_path.replace(":", "\\:")
+    bs      = _BS
 
-    # ── 1. +18 badge (top-left, always) ──────────────────────────
-    badge = (
-        f"drawtext=text='+18':"
+    # ── 1. +18 badge ─────────────────────────────────────────────
+    badge_text = _escape_drawtext("+18")
+    filters.append(
+        f"drawtext=text='{badge_text}':"
         f"fontfile={fp}:"
-        f"fontsize=46:"
-        f"fontcolor=white:"
+        f"fontsize=46:fontcolor=white:"
         f"x=30:y=25:"
         f"box=1:boxcolor=0x8B0000@0.92:boxborderw=14:"
-        f"enable='between(t\\,0\\,8.0)'"
+        f"enable=between(t{bs},0{bs},8.0)"
     )
-    filters.append(badge)
 
-    # ── 2. Intro story label ─────────────────────────────────────
+    # ── 2. Intro story label ──────────────────────────────────────
     story_label = blueprint.get("story_label", "")
-    if not story_label and parts:
-        story_label = parts[0].get("scene_prompt", "")[:30]
     if story_label:
         safe_label = _escape_drawtext(story_label.upper()[:40])
-        label_filter = (
+        filters.append(
             f"drawtext=text='{safe_label}':"
             f"fontfile={fp}:"
-            f"fontsize=68:"
-            f"fontcolor=white:"
+            f"fontsize=68:fontcolor=white:"
             f"x=(w-text_w)/2:y=h-165:"
             f"box=1:boxcolor=0x8B0000@0.88:boxborderw=18:"
-            f"enable='between(t\\,0.3\\,3.5)'"
+            f"enable=between(t{bs},0.3{bs},3.5)"
         )
-        filters.append(label_filter)
 
     # ── 3. CTA overlay ───────────────────────────────────────────
-    cta_scene = next(
-        (s for s in scene_assets if s.get("cta_overlay")), None
-    )
+    cta_scene = next((s for s in scene_assets if s.get("cta_overlay")), None)
     if cta_scene:
         cta_start = float(cta_scene.get("start_time_sec", 120.0))
         cta_end   = cta_start + float(cta_scene.get("duration_sec", 3.5))
-        cta_text  = "SUBSCRIBE FOR DAILY DARK FILES"
-        cta_filter = (
+        cta_text  = _escape_drawtext("SUBSCRIBE FOR DAILY DARK FILES")
+        filters.append(
             f"drawtext=text='{cta_text}':"
             f"fontfile={fp}:"
-            f"fontsize=52:"
-            f"fontcolor=0xFFD700:"
+            f"fontsize=52:fontcolor=0xFFD700:"
             f"x=(w-text_w)/2:y=h-110:"
             f"box=1:boxcolor=black@0.75:boxborderw=12:"
-            f"enable='between(t\\,{cta_start:.2f}\\,{cta_end:.2f})'"
+            f"enable=between(t{bs},{cta_start:.2f}{bs},{cta_end:.2f})"
         )
-        filters.append(cta_filter)
 
-    # ── 4. Outro text ────────────────────────────────────────────
+    # ── 4. Outro text ─────────────────────────────────────────────
     total_dur = blueprint.get("total_narration_sec")
     if not total_dur and scene_assets:
         last = scene_assets[-1]
         total_dur = last.get("start_time_sec", 0) + last.get("duration_sec", 0)
-    if total_dur and total_dur > 20:
-        outro_start = max(0, float(total_dur) - 18.0)
-        outro_text  = "TOMORROW'S FILE IS DARKER"
-        outro_filter = (
+    if total_dur and float(total_dur) > 20:
+        outro_start = max(0.0, float(total_dur) - 18.0)
+        # FIX: _escape_drawtext converts apostrophe → U+2019 (right single quote)
+        # so TOMORROW'S does not break the surrounding text='...' delimiter
+        outro_text  = _escape_drawtext("TOMORROW'S FILE IS DARKER")
+        filters.append(
             f"drawtext=text='{outro_text}':"
             f"fontfile={fp}:"
-            f"fontsize=82:"
-            f"fontcolor=white:"
+            f"fontsize=82:fontcolor=white:"
             f"borderw=5:bordercolor=0x8B0000:"
             f"x=(w-text_w)/2:y=(h-text_h)/2:"
-            f"enable='between(t\\,{outro_start:.2f}\\,32767)'"
+            f"enable=between(t{bs},{outro_start:.2f}{bs},32767)"
         )
-        filters.append(outro_filter)
 
-    if not filters:
-        return ""
-
-    return ",".join(filters)
+    return ",".join(filters) if filters else ""
 
 
 def _escape_drawtext(text: str) -> str:
