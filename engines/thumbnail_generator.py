@@ -42,10 +42,10 @@ _THUMB_SATURATION = 0.72
 _THUMB_VIGNETTE   = 0.55   # stronger vignette for thumbnail
 
 # Badge geometry
-_BADGE_RADIUS = 52
-_BADGE_X      = 52   # center x from left
-_BADGE_Y      = 52   # center y from top
-_BADGE_COLOR  = (180, 0, 0)      # deep red
+_BADGE_RADIUS = 78
+_BADGE_X      = 82   # center x from left
+_BADGE_Y      = 82   # center y from top
+_BADGE_COLOR  = (190, 0, 0)      # deep red
 _BADGE_TEXT   = "#FFFFFF"
 
 # Strict negative prompt for thumbnail AI background generation
@@ -375,27 +375,27 @@ def _draw_template_gradient(canvas: Image.Image, template: dict) -> Image.Image:
 
 def _draw_badge(canvas: Image.Image) -> Image.Image:
     """
-    Draws the +18 red badge in the top-left corner.
-    Consistent position and size across all templates.
+    Draws a large, bold +18 badge in the top-left corner.
+    Radius 78px on 1280x720 = ~12% of frame width.
     """
-    draw    = ImageDraw.Draw(canvas)
-    cx, cy  = _BADGE_X, _BADGE_Y
-    r       = _BADGE_RADIUS
+    draw   = ImageDraw.Draw(canvas)
+    cx, cy = _BADGE_X, _BADGE_Y
+    r      = _BADGE_RADIUS
 
-    # Red filled circle
-    draw.ellipse(
-        [cx - r, cy - r, cx + r, cy + r],
-        fill=_BADGE_COLOR,
-    )
-    # White ring (inner border for polish)
-    draw.ellipse(
-        [cx - r + 4, cy - r + 4, cx + r - 4, cy + r - 4],
-        outline=(255, 255, 255), width=2,
-    )
+    # Outer black shadow ring
+    draw.ellipse([cx - r - 5, cy - r - 5, cx + r + 5, cy + r + 5],
+                 fill=(0, 0, 0))
 
-    # "+18" text — two parts: "+" and "18"
-    font_plus = _load_font(30)
-    font_num  = _load_font(44)
+    # Main red circle
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r],
+                 fill=_BADGE_COLOR)
+
+    # White inner ring
+    draw.ellipse([cx - r + 6, cy - r + 6, cx + r - 6, cy + r - 6],
+                 outline=(255, 255, 255), width=3)
+
+    font_plus = _load_font(42)
+    font_num  = _load_font(62)
 
     plus_text = "+"
     num_text  = "18"
@@ -407,13 +407,22 @@ def _draw_badge(canvas: Image.Image) -> Image.Image:
     ph = bbox_plus[3] - bbox_plus[1]
     nh = bbox_num[3]  - bbox_num[1]
 
-    # Center both parts together
-    total_w = pw + nw - 2
+    total_w = pw + nw - 3
     sx = cx - total_w // 2
     sy = cy - nh // 2
 
-    draw.text((sx, sy + (nh - ph) // 2), plus_text, font=font_plus, fill=(255, 255, 255))
-    draw.text((sx + pw - 2, sy), num_text, font=font_num, fill=(255, 255, 255))
+    # Black shadow pass
+    for dx, dy in [(-2, 2), (2, 2), (0, 3)]:
+        draw.text((sx + dx, sy + (nh - ph) // 2 + dy),
+                  plus_text, font=font_plus, fill=(0, 0, 0))
+        draw.text((sx + pw - 3 + dx, sy + dy),
+                  num_text,  font=font_num,  fill=(0, 0, 0))
+
+    # White fill
+    draw.text((sx, sy + (nh - ph) // 2),
+              plus_text, font=font_plus, fill=(255, 255, 255))
+    draw.text((sx + pw - 3, sy),
+              num_text,  font=font_num,  fill=(255, 255, 255))
 
     return canvas
 
