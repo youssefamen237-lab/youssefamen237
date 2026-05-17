@@ -182,6 +182,20 @@ VISUAL_SOURCE_CHAIN = [
         "base_url": "https://api-inference.huggingface.co",
         "type": "ai_generation",
     },
+    {
+        "provider":     "wikimedia",
+        "api_key_env":  None,
+        "key":          "no_key_required",
+        "base_url":     "https://commons.wikimedia.org",
+        "type":         "stock",
+    },
+    {
+        "provider":     "openverse",
+        "api_key_env":  None,
+        "key":          "no_key_required",
+        "base_url":     "https://api.openverse.org",
+        "type":         "stock",
+    },
 ]
 
 # ─────────────────────────────────────────────
