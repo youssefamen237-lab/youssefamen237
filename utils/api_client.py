@@ -278,7 +278,7 @@ def call_search(query: str, num_results: int = 10) -> list[dict]:
         provider = provider_cfg["provider"]
         key = provider_cfg["key"]
 
-        if not key:
+        if not key and key != "no_key_required":
             continue
         if not _provider_health.is_healthy(provider):
             continue
@@ -353,6 +353,81 @@ def _call_search_provider(cfg: dict, query: str, num_results: int) -> list[dict]
 # VISUAL STOCK IMAGE CASCADING CLIENT
 # ─────────────────────────────────────────────
 
+def _call_wikimedia(query: str, count: int) -> list[dict]:
+    """Wikimedia Commons — free, no API key, no rate limits, public domain images."""
+    try:
+        resp = http_get_json(
+            "https://commons.wikimedia.org/w/api.php",
+            params={
+                "action":       "query",
+                "generator":    "search",
+                "gsrsearch":    f"{query} filetype:bitmap",
+                "gsrnamespace": "6",
+                "gsrlimit":     str(count + 5),
+                "prop":         "imageinfo",
+                "iiprop":       "url|mime|size",
+                "iiurlwidth":   "1920",
+                "format":       "json",
+                "origin":       "*",
+            },
+            timeout=15,
+        )
+        pages = resp.get("query", {}).get("pages", {})
+        results = []
+        for page in pages.values():
+            info_list = page.get("imageinfo", [])
+            if not info_list:
+                continue
+            info = info_list[0]
+            if "image" not in info.get("mime", ""):
+                continue
+            url = info.get("thumburl") or info.get("url", "")
+            if not url:
+                continue
+            results.append({
+                "url":      url,
+                "provider": "wikimedia",
+                "width":    info.get("thumbwidth") or info.get("width", 0),
+                "height":   info.get("thumbheight") or info.get("height", 0),
+                "id":       str(page.get("pageid", "")),
+            })
+        return results[:count]
+    except Exception as exc:
+        log.warning(f"Wikimedia search failed for '{query[:40]}': {exc}")
+        return []
+
+
+def _call_openverse(query: str, count: int) -> list[dict]:
+    """Openverse (WordPress Foundation) — free, no API key, CC-licensed images."""
+    try:
+        resp = http_get_json(
+            "https://api.openverse.org/v1/images/",
+            params={
+                "q":            query,
+                "page_size":    str(count),
+                "license_type": "commercial,modification",
+                "mature":       "false",
+            },
+            timeout=15,
+        )
+        results = []
+        for item in resp.get("results", []):
+            url = item.get("url", "")
+            if not url:
+                continue
+            results.append({
+                "url":      url,
+                "provider": "openverse",
+                "width":    item.get("width") or 0,
+                "height":   item.get("height") or 0,
+                "id":       item.get("id", ""),
+            })
+        return results[:count]
+    except Exception as exc:
+        log.warning(f"Openverse search failed for '{query[:40]}': {exc}")
+        return []
+
+
 def fetch_stock_images(
     query: str,
     count: int = 5,
@@ -369,7 +444,7 @@ def fetch_stock_images(
         key = provider_cfg["key"]
         p_type = provider_cfg["type"]
 
-        if not key:
+        if not key and key != "no_key_required":
             continue
         if exclude_ai and p_type == "ai_generation":
             continue
@@ -568,6 +643,12 @@ def _call_visual_provider(
                 "type": "ai_generated",
             }]
         return []
+
+    elif provider == "wikimedia":
+        return _call_wikimedia(query, count)
+
+    elif provider == "openverse":
+        return _call_openverse(query, count)
 
     raise ValueError(f"Unknown visual provider: {provider}")
 
