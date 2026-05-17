@@ -261,82 +261,86 @@ def _render_short_scene(scene: dict, out_path: Path) -> bool:
 
 def _build_short_motion_filter(motion_type: str, duration_sec: float) -> str:
     """
-    Returns vertical 1080×1920 motion filter.
-    Source landscape (1920×1080) → center-crop to portrait → oversized → motion.
+    Converts any landscape source to true 1080x1920 (9:16) portrait.
+      scale=-2:1920  → height=1920, width auto (even number); for 1920x1080: ~3413px wide
+      crop=1080:1920 → center-crop to exactly 1080 wide
+    Result: guaranteed 1080x1920 with ZERO black bars from any 16:9 source.
+    Motion applied within a 15%-oversized portrait frame for zoom/pan room.
     """
     bs  = _BS
     dur = round(duration_sec, 3)
-    d   = int(duration_sec * VIDEO_FPS)
-    d   = max(d, VIDEO_FPS)
-    zi  = round(0.24 / max(d, 1), 7)
+    d   = max(int(duration_sec * VIDEO_FPS), VIDEO_FPS)
+    zi  = round(0.20 / max(d, 1), 7)
 
-    sw, sh = _SRC_W_V, _SRC_H_V   # 1350×2400
-    cx, cy = _CX_V, _CY_V         # 135, 240
-    px  = int((sw - SHORT_WIDTH)  * 0.85)   # ~114
-    py  = int((sh - SHORT_HEIGHT) * 0.85)   # ~204
+    # Step 1: landscape → true portrait (no black bars)
+    to_portrait = f"scale=-2:{SHORT_HEIGHT},crop={SHORT_WIDTH}:{SHORT_HEIGHT}"
 
-    # Step 1 of all filters: convert landscape → portrait
-    # scale height to match short height, then crop width
-    # 1920×1080 → scale to ?×2400: ratio = 2400/1080 = 2.22
-    # new_w = 1920 * 2.22 ≈ 4267, then crop center 1080
-    landscape_to_portrait = (
-        f"scale=-1:{sh}:flags=lanczos,"
-        f"crop={sw}:{sh}:(iw-{sw})/2:0"
-    )
+    # Step 2 (for motion types): oversized portrait for zoom/pan room
+    ow2 = int(SHORT_WIDTH  * 1.15)   # 1242
+    oh2 = int(SHORT_HEIGHT * 1.15)   # 2208
+    cx2 = (ow2 - SHORT_WIDTH)  // 2  # 81
+    cy2 = (oh2 - SHORT_HEIGHT) // 2  # 144
+    px2 = int((ow2 - SHORT_WIDTH)  * 0.80)
+    py2 = int((oh2 - SHORT_HEIGHT) * 0.80)
 
     filters = {
         "slow_zoom_in": (
-            f"{landscape_to_portrait},"
-            f"zoompan=z=min(zoom+{zi}{bs},1.25):"
+            f"{to_portrait},"
+            f"scale={ow2}:{oh2}:flags=lanczos,"
+            f"zoompan=z=min(zoom+{zi}{bs},1.15):"
             f"x=(iw-ow/zoom)/2:y=(ih-oh/zoom)/2:"
             f"d={d}:s={SHORT_WIDTH}x{SHORT_HEIGHT}:fps={VIDEO_FPS},"
             f"format=yuv420p"
         ),
         "slow_zoom_out": (
-            f"{landscape_to_portrait},"
-            f"zoompan=z=if(lte(zoom{bs},1.0001){bs},1.25{bs},max(1.0001{bs},zoom-{zi})):"
+            f"{to_portrait},"
+            f"scale={ow2}:{oh2}:flags=lanczos,"
+            f"zoompan=z=if(lte(zoom{bs},1.0001){bs},1.15{bs},max(1.0001{bs},zoom-{zi})):"
             f"x=(iw-ow/zoom)/2:y=(ih-oh/zoom)/2:"
             f"d={d}:s={SHORT_WIDTH}x{SHORT_HEIGHT}:fps={VIDEO_FPS},"
             f"format=yuv420p"
         ),
         "pan_right": (
-            f"{landscape_to_portrait},"
+            f"{to_portrait},"
+            f"scale={ow2}:{oh2},"
             f"crop={SHORT_WIDTH}:{SHORT_HEIGHT}:"
-            f"x=min({px}{bs},{px}*t/{dur}):y={cy},"
+            f"x=min({px2}{bs},{px2}*t/{dur}):y={cy2},"
             f"format=yuv420p"
         ),
         "pan_left": (
-            f"{landscape_to_portrait},"
+            f"{to_portrait},"
+            f"scale={ow2}:{oh2},"
             f"crop={SHORT_WIDTH}:{SHORT_HEIGHT}:"
-            f"x=max(0{bs},{px}*(1-t/{dur})):y={cy},"
+            f"x=max(0{bs},{px2}*(1-t/{dur})):y={cy2},"
             f"format=yuv420p"
         ),
         "drift_up": (
-            f"{landscape_to_portrait},"
+            f"{to_portrait},"
+            f"scale={ow2}:{oh2},"
             f"crop={SHORT_WIDTH}:{SHORT_HEIGHT}:"
-            f"x={cx}:y=max(0{bs},{py}*(1-t/{dur})),"
+            f"x={cx2}:y=max(0{bs},{py2}*(1-t/{dur})),"
             f"format=yuv420p"
         ),
         "drift_down": (
-            f"{landscape_to_portrait},"
+            f"{to_portrait},"
+            f"scale={ow2}:{oh2},"
             f"crop={SHORT_WIDTH}:{SHORT_HEIGHT}:"
-            f"x={cx}:y=min({py}{bs},{py}*t/{dur}),"
+            f"x={cx2}:y=min({py2}{bs},{py2}*t/{dur}),"
             f"format=yuv420p"
         ),
         "shake": (
-            f"{landscape_to_portrait},"
+            f"{to_portrait},"
+            f"scale={ow2}:{oh2},"
             f"crop={SHORT_WIDTH}:{SHORT_HEIGHT}:"
-            f"x={cx}+10*sin(t*9):y={cy}+6*cos(t*11),"
+            f"x={cx2}+10*sin(t*9):y={cy2}+6*cos(t*11),"
             f"format=yuv420p"
         ),
         "static": (
-            f"{landscape_to_portrait},"
-            f"crop={SHORT_WIDTH}:{SHORT_HEIGHT}:(iw-{SHORT_WIDTH})/2:(ih-{SHORT_HEIGHT})/2,"
+            f"{to_portrait},"
             f"format=yuv420p"
         ),
     }
     return filters.get(motion_type, filters["slow_zoom_in"])
-
 
 def _render_short_black(out_path: Path, duration_sec: float) -> None:
     """Black placeholder for a failed short clip."""
