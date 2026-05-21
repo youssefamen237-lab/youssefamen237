@@ -30,11 +30,6 @@ log = get_logger(__name__)
 # ─────────────────────────────────────────────
 
 class ProviderHealth:
-    """
-    Tracks per-run provider failure counts.
-    After MAX_CONSECUTIVE_FAILURES consecutive failures, a provider is
-    considered unhealthy for this run and skipped in the fallback chain.
-    """
     MAX_CONSECUTIVE_FAILURES = 3
 
     def __init__(self):
@@ -59,7 +54,7 @@ _provider_health = ProviderHealth()
 
 
 # ─────────────────────────────────────────────
-# CORE HTTP HELPER (stdlib-only, GHA compatible)
+# CORE HTTP HELPERS
 # ─────────────────────────────────────────────
 
 def http_get(
@@ -67,7 +62,6 @@ def http_get(
     headers: Optional[dict] = None,
     timeout: int = API_REQUEST_TIMEOUT_SEC,
 ) -> bytes:
-    """Synchronous GET. Returns raw response bytes. Raises on HTTP error."""
     req = urllib.request.Request(url, headers=headers or {}, method="GET")
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read()
@@ -79,7 +73,6 @@ def http_post_json(
     headers: Optional[dict] = None,
     timeout: int = API_REQUEST_TIMEOUT_SEC,
 ) -> dict:
-    """Synchronous POST with JSON body. Returns parsed response dict."""
     body = json.dumps(payload).encode("utf-8")
     req_headers = {"Content-Type": "application/json", **(headers or {})}
     req = urllib.request.Request(url, data=body, headers=req_headers, method="POST")
@@ -93,7 +86,6 @@ def http_get_json(
     params: Optional[dict] = None,
     timeout: int = API_REQUEST_TIMEOUT_SEC,
 ) -> dict:
-    """Synchronous GET with optional query params. Returns parsed JSON."""
     if params:
         url = url + "?" + urllib.parse.urlencode(params)
     raw = http_get(url, headers=headers, timeout=timeout)
@@ -107,10 +99,6 @@ def with_retry(
     backoff: float = API_RETRY_BACKOFF_SEC,
     **kwargs,
 ) -> Any:
-    """
-    Executes func(*args, **kwargs) with exponential backoff retry.
-    Raises the last exception if all attempts fail.
-    """
     last_exc = None
     for attempt in range(1, attempts + 1):
         try:
@@ -135,11 +123,6 @@ def call_writing_model(
     temperature: float = 0.85,
     json_output: bool = False,
 ) -> str:
-    """
-    Calls the writing model fallback chain (Gemini → Groq → OpenRouter → OpenAI).
-    Returns the model's text response string.
-    Raises RuntimeError if all providers fail.
-    """
     for provider_cfg in WRITING_MODEL_CHAIN:
         provider = provider_cfg["provider"]
         key = provider_cfg["key"]
@@ -169,7 +152,7 @@ def call_writing_model(
             log.warning(f"Writing provider '{provider}' failed: {exc}")
             continue
 
-    raise RuntimeError("All writing model providers failed. Cannot generate content.")
+    raise RuntimeError("All writing model providers failed.")
 
 
 def _call_provider(
@@ -192,10 +175,9 @@ def _call_provider(
             if provider == "openrouter"
             else "https://api.openai.com/v1/chat/completions"
         )
-        header_key = "Authorization"
         return _call_openai_compat(
             cfg["key"], cfg["model"], system_prompt, user_prompt,
-            max_tokens, temperature, json_output, base_url, header_key
+            max_tokens, temperature, json_output, base_url, "Authorization"
         )
     raise ValueError(f"Unknown writing provider: {provider}")
 
@@ -206,16 +188,11 @@ def _call_gemini(
 ) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
     payload: dict = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": f"{system_prompt}\n\n{user_prompt}"}],
-            }
-        ],
+        "contents": [{"role": "user", "parts": [{"text": f"{system_prompt}\n\n{user_prompt}"}]}],
         "generationConfig": {
             "maxOutputTokens": max_tokens,
             "temperature": temperature,
-            **({"responseMimeType": "application/json"} if json_output else {}),
+            **({} if not json_output else {"responseMimeType": "application/json"}),
         },
     }
     resp = http_post_json(url, payload)
@@ -226,11 +203,8 @@ def _call_groq(
     key: str, model: str, system_prompt: str, user_prompt: str,
     max_tokens: int, temperature: float, json_output: bool,
 ) -> str:
-    url = "https://api.groq.com/openai/v1/chat/completions"
     payload: dict = {
-        "model": model,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
+        "model": model, "max_tokens": max_tokens, "temperature": temperature,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_prompt},
@@ -238,8 +212,11 @@ def _call_groq(
     }
     if json_output:
         payload["response_format"] = {"type": "json_object"}
-    headers = {"Authorization": f"Bearer {key}"}
-    resp = http_post_json(url, payload, headers=headers)
+    resp = http_post_json(
+        "https://api.groq.com/openai/v1/chat/completions",
+        payload,
+        headers={"Authorization": f"Bearer {key}"},
+    )
     return resp["choices"][0]["message"]["content"]
 
 
@@ -249,9 +226,7 @@ def _call_openai_compat(
     base_url: str, header_key: str,
 ) -> str:
     payload: dict = {
-        "model": model,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
+        "model": model, "max_tokens": max_tokens, "temperature": temperature,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_prompt},
@@ -259,8 +234,7 @@ def _call_openai_compat(
     }
     if json_output:
         payload["response_format"] = {"type": "json_object"}
-    headers = {header_key: f"Bearer {key}"}
-    resp = http_post_json(base_url, payload, headers=headers)
+    resp = http_post_json(base_url, payload, headers={header_key: f"Bearer {key}"})
     return resp["choices"][0]["message"]["content"]
 
 
@@ -269,11 +243,6 @@ def _call_openai_compat(
 # ─────────────────────────────────────────────
 
 def call_search(query: str, num_results: int = 10) -> list[dict]:
-    """
-    Searches via cascading provider chain (Tavily → SerpAPI → Zenserp → NewsAPI).
-    Returns list of {title, url, snippet, source} dicts.
-    Raises RuntimeError if all providers fail.
-    """
     for provider_cfg in SEARCH_PROVIDER_CHAIN:
         provider = provider_cfg["provider"]
         key = provider_cfg["key"]
@@ -350,79 +319,232 @@ def _call_search_provider(cfg: dict, query: str, num_results: int) -> list[dict]
 
 
 # ─────────────────────────────────────────────
+# PLACEHOLDER / QUALITY FILTER
+# ─────────────────────────────────────────────
+
+# Filename / URL patterns that indicate non-photographic or placeholder content
+_PLACEHOLDER_URL_TERMS = {
+    "placeholder", "template", "blank", "empty", "no_content", "no-content",
+    "opening", "coming_soon", "coming-soon", "soon", "stub", "missing",
+    "default", "noimage", "no_image", "no-image", "dummy", "sample",
+    ".svg", "icon_", "_icon", "logo_", "_logo", "badge_", "_badge",
+    "banner_", "_banner", "flag_", "_flag", "map_", "_map", "chart_",
+    "_chart", "diagram_", "_diagram", "graph_", "_graph", "symbol_",
+    "watermark", "preview_only", "not_available",
+}
+
+# Title / page-name patterns to reject
+_PLACEHOLDER_TITLE_TERMS = {
+    "placeholder", "template", "stub", "blank", "no content",
+    "opening soon", "coming soon", "no image", "missing",
+    "default image", "no photo", "icon", "logo", "banner",
+    "flag of", "map of", "diagram", "chart", "graph",
+}
+
+# Minimum acceptable image dimensions (skip thumbnails / icons)
+_MIN_IMAGE_WIDTH  = 600
+_MIN_IMAGE_HEIGHT = 400
+
+
+def _is_placeholder(
+    url:   str,
+    title: str = "",
+    width: int  = 0,
+    height: int = 0,
+) -> bool:
+    """
+    Returns True if this image is likely a placeholder, icon, text graphic,
+    template, or otherwise unsuitable for dark documentary use.
+    """
+    url_lower   = url.lower()
+    title_lower = title.lower()
+
+    # Check URL for known bad patterns
+    for term in _PLACEHOLDER_URL_TERMS:
+        if term in url_lower:
+            return True
+
+    # Check title for known bad patterns
+    for term in _PLACEHOLDER_TITLE_TERMS:
+        if term in title_lower:
+            return True
+
+    # Reject clearly non-photo file extensions in URL
+    for ext in (".svg", ".gif", ".ico", ".bmp", ".webp"):
+        if ext in url_lower:
+            return True
+
+    # Reject images that are too small (icons, thumbnails)
+    if width and height:
+        if width < _MIN_IMAGE_WIDTH or height < _MIN_IMAGE_HEIGHT:
+            return True
+
+    # Reject Wikimedia URLs that are thumbnails of very small originals
+    # (these contain px- size indicators like "100px-", "200px-")
+    import re as _re
+    if _re.search(r'/\d{1,3}px-', url_lower):
+        return True
+
+    return False
+
+
+# ─────────────────────────────────────────────
 # VISUAL STOCK IMAGE CASCADING CLIENT
 # ─────────────────────────────────────────────
 
+# Dark documentary search query modifiers — appended to improve photo relevance
+_DARK_QUERY_SUFFIX = " dark dramatic photography"
+
+# Wikimedia: categories and terms known to produce actual photographs
+_WIKIMEDIA_PHOTO_TERMS = [
+    "night photography", "dark atmosphere", "abandoned building",
+    "shadow dramatic light", "documentary photography", "crime scene",
+    "forest fog night", "silhouette dramatic", "dark interior",
+    "dramatic sky", "urban night", "haunted house",
+]
+
+
 def _call_wikimedia(query: str, count: int) -> list[dict]:
-    """Wikimedia Commons — free, no API key, no rate limits, public domain images."""
+    """
+    Wikimedia Commons photo search — free, no API key, no rate limits.
+    Filters out icons, placeholders, SVGs, diagrams, and images too small
+    to be useful for a dark documentary.
+    Uses a photography-biased search to avoid text/template images.
+    """
+    # Append photography bias to push results toward actual photos
+    search_query = f"{query} photograph"
+
     try:
         resp = http_get_json(
             "https://commons.wikimedia.org/w/api.php",
             params={
                 "action":       "query",
                 "generator":    "search",
-                "gsrsearch":    f"{query} filetype:bitmap",
+                "gsrsearch":    search_query,
                 "gsrnamespace": "6",
-                "gsrlimit":     str(count + 5),
+                "gsrlimit":     str(min(count * 4, 40)),  # fetch extra to allow filtering
                 "prop":         "imageinfo",
-                "iiprop":       "url|mime|size",
+                "iiprop":       "url|mime|size|extmetadata",
                 "iiurlwidth":   "1920",
                 "format":       "json",
                 "origin":       "*",
             },
-            timeout=15,
+            timeout=20,
         )
         pages = resp.get("query", {}).get("pages", {})
         results = []
+
         for page in pages.values():
-            info_list = page.get("imageinfo", [])
+            if len(results) >= count:
+                break
+
+            page_title = page.get("title", "")
+            info_list  = page.get("imageinfo", [])
             if not info_list:
                 continue
+
             info = info_list[0]
-            if "image" not in info.get("mime", ""):
+            mime = info.get("mime", "")
+
+            # Must be a bitmap image (not SVG, PDF, audio, video)
+            if not mime.startswith("image/") or "svg" in mime:
                 continue
-            url = info.get("thumburl") or info.get("url", "")
+
+            url    = info.get("thumburl") or info.get("url", "")
+            width  = info.get("thumbwidth")  or info.get("width",  0)
+            height = info.get("thumbheight") or info.get("height", 0)
+
             if not url:
                 continue
+
+            # Apply placeholder / quality filter
+            if _is_placeholder(url, page_title, int(width or 0), int(height or 0)):
+                log.debug(f"Wikimedia: skipping placeholder/icon: {page_title[:50]}")
+                continue
+
+            # Skip images where the filename itself looks like a text graphic
+            filename = url.split("/")[-1].lower()
+            if any(term in filename for term in (
+                "text", "words", "letters", "alphabet", "type_",
+                "font", "calligraphy", "script", "handwriting",
+            )):
+                continue
+
+            # Try to read image description for additional filtering
+            extmeta = info.get("extmetadata", {})
+            categories = str(extmeta.get("Categories", {}).get("value", "")).lower()
+            if any(t in categories for t in ("icon", "logo", "template", "placeholder", "symbol")):
+                continue
+
             results.append({
                 "url":      url,
                 "provider": "wikimedia",
-                "width":    info.get("thumbwidth") or info.get("width", 0),
-                "height":   info.get("thumbheight") or info.get("height", 0),
+                "width":    int(width  or 0),
+                "height":   int(height or 0),
                 "id":       str(page.get("pageid", "")),
             })
+
+        log.debug(f"Wikimedia: {len(results)} usable results for '{query[:40]}'")
         return results[:count]
+
     except Exception as exc:
         log.warning(f"Wikimedia search failed for '{query[:40]}': {exc}")
         return []
 
 
 def _call_openverse(query: str, count: int) -> list[dict]:
-    """Openverse (WordPress Foundation) — free, no API key, CC-licensed images."""
+    """
+    Openverse (WordPress Foundation) — free, no API key, CC-licensed images.
+    Filters placeholders, minimum 800px wide, photograph media type only.
+    """
     try:
         resp = http_get_json(
             "https://api.openverse.org/v1/images/",
             params={
-                "q":            query,
-                "page_size":    str(count),
+                "q":            f"{query} photograph",
+                "page_size":    str(min(count * 3, 30)),
                 "license_type": "commercial,modification",
                 "mature":       "false",
+                "source":       "flickr,wikimedia_commons",  # photo-focused sources
             },
-            timeout=15,
+            timeout=20,
         )
         results = []
+
         for item in resp.get("results", []):
-            url = item.get("url", "")
+            if len(results) >= count:
+                break
+
+            url    = item.get("url", "")
+            width  = int(item.get("width") or 0)
+            height = int(item.get("height") or 0)
+            title  = item.get("title", "")
+
             if not url:
                 continue
+
+            # Apply placeholder / quality filter
+            if _is_placeholder(url, title, width, height):
+                log.debug(f"Openverse: skipping placeholder: {title[:50]}")
+                continue
+
+            # Skip if too small
+            if width and width < _MIN_IMAGE_WIDTH:
+                continue
+            if height and height < _MIN_IMAGE_HEIGHT:
+                continue
+
             results.append({
                 "url":      url,
                 "provider": "openverse",
-                "width":    item.get("width") or 0,
-                "height":   item.get("height") or 0,
+                "width":    width,
+                "height":   height,
                 "id":       item.get("id", ""),
             })
+
+        log.debug(f"Openverse: {len(results)} usable results for '{query[:40]}'")
         return results[:count]
+
     except Exception as exc:
         log.warning(f"Openverse search failed for '{query[:40]}': {exc}")
         return []
@@ -436,13 +558,12 @@ def fetch_stock_images(
 ) -> list[dict]:
     """
     Fetches stock images via cascading provider chain.
-    Returns list of {url, provider, width, height, id} dicts.
-    Falls through to AI generation providers if stock sources fail.
+    Wikimedia and Openverse are always available as zero-key fallbacks.
     """
     for provider_cfg in VISUAL_SOURCE_CHAIN:
         provider = provider_cfg["provider"]
-        key = provider_cfg["key"]
-        p_type = provider_cfg["type"]
+        key      = provider_cfg["key"]
+        p_type   = provider_cfg["type"]
 
         if not key and key != "no_key_required":
             continue
@@ -455,9 +576,8 @@ def fetch_stock_images(
             results = with_retry(_call_visual_provider, provider_cfg, query, count, orientation)
             if results:
                 _provider_health.record_success(provider)
-                log.info(f"Fetched {len(results)} visuals via '{provider}' for '{query}'.")
+                log.info(f"Fetched {len(results)} visuals via '{provider}' for '{query[:40]}'.")
                 return results
-            # empty results — try next
         except Exception as exc:
             _provider_health.record_failure(provider)
             log.warning(f"Visual provider '{provider}' failed: {exc}")
@@ -479,13 +599,8 @@ def _call_visual_provider(
             params={"query": query, "per_page": count, "orientation": orientation},
         )
         return [
-            {
-                "url": p["src"]["large2x"],
-                "provider": "pexels",
-                "width": p["width"],
-                "height": p["height"],
-                "id": str(p["id"]),
-            }
+            {"url": p["src"]["large2x"], "provider": "pexels",
+             "width": p["width"], "height": p["height"], "id": str(p["id"])}
             for p in resp.get("photos", [])
         ]
 
@@ -499,55 +614,35 @@ def _call_visual_provider(
             },
         )
         return [
-            {
-                "url": h["largeImageURL"],
-                "provider": "pixabay",
-                "width": h["imageWidth"],
-                "height": h["imageHeight"],
-                "id": str(h["id"]),
-            }
+            {"url": h["largeImageURL"], "provider": "pixabay",
+             "width": h["imageWidth"], "height": h["imageHeight"], "id": str(h["id"])}
             for h in resp.get("hits", [])
         ]
 
     elif provider == "unsplash":
-        from config.settings import UNSPLASH_ACCESS_KEY
         resp = http_get_json(
             "https://api.unsplash.com/search/photos",
             headers={"Authorization": f"Client-ID {cfg['key']}"},
             params={"query": query, "per_page": count, "orientation": orientation},
         )
         return [
-            {
-                "url": p["urls"]["regular"],
-                "provider": "unsplash",
-                "width": p["width"],
-                "height": p["height"],
-                "id": p["id"],
-            }
+            {"url": p["urls"]["regular"], "provider": "unsplash",
+             "width": p["width"], "height": p["height"], "id": p["id"]}
             for p in resp.get("results", [])
         ]
 
     elif provider == "coverr":
-        from config.settings import COVERR_API_ID, COVERR_API_KEY
+        from config.settings import COVERR_API_ID
         resp = http_get_json(
             "https://api.coverr.co/videos",
-            headers={
-                "Authorization": f"Bearer {cfg['key']}",
-                "x-api-key": COVERR_API_ID,
-            },
+            headers={"Authorization": f"Bearer {cfg['key']}", "x-api-key": COVERR_API_ID},
             params={"keywords": query, "per_page": count},
         )
         return [
-            {
-                "url": v.get("mp4_url", v.get("url", "")),
-                "provider": "coverr",
-                "width": v.get("width", 1920),
-                "height": v.get("height", 1080),
-                "id": str(v.get("id", "")),
-                "type": "video",
-            }
-            for v in resp.get("hits", [])
-            if v.get("mp4_url") or v.get("url")
+            {"url": v.get("mp4_url", v.get("url", "")), "provider": "coverr",
+             "width": v.get("width", 1920), "height": v.get("height", 1080),
+             "id": str(v.get("id", "")), "type": "video"}
+            for v in resp.get("hits", []) if v.get("mp4_url") or v.get("url")
         ]
 
     elif provider == "internet_archive":
@@ -555,20 +650,14 @@ def _call_visual_provider(
             "https://archive.org/advancedsearch.php",
             params={
                 "q": f"{query} AND mediatype:image",
-                "output": "json",
-                "rows": count,
+                "output": "json", "rows": count,
                 "fl[]": "identifier,title",
             },
         )
         docs = resp.get("response", {}).get("docs", [])
         return [
-            {
-                "url": f"https://archive.org/download/{d['identifier']}/{d['identifier']}.jpg",
-                "provider": "internet_archive",
-                "width": 0,
-                "height": 0,
-                "id": d["identifier"],
-            }
+            {"url": f"https://archive.org/download/{d['identifier']}/{d['identifier']}.jpg",
+             "provider": "internet_archive", "width": 0, "height": 0, "id": d["identifier"]}
             for d in docs
         ]
 
@@ -577,52 +666,33 @@ def _call_visual_provider(
             "https://api.getimg.ai/v1/stable-diffusion-xl/text-to-image",
             {
                 "prompt": f"dark cinematic documentary style: {query}, dramatic lighting, high contrast, photorealistic",
-                "negative_prompt": "cartoon, anime, bright colors, cheerful",
-                "width": 1280,
-                "height": 720,
-                "steps": 25,
-                "output_format": "jpeg",
+                "negative_prompt": "cartoon, anime, bright colors, cheerful, text, watermark",
+                "width": 1280, "height": 720, "steps": 25, "output_format": "jpeg",
             },
             headers={"Authorization": f"Bearer {cfg['key']}"},
         )
         if resp.get("image"):
-            return [{
-                "url_base64": resp["image"],
-                "provider": "getimg",
-                "width": 1280,
-                "height": 720,
-                "id": f"getimg_{int(time.time())}",
-                "type": "ai_generated",
-            }]
+            return [{"url_base64": resp["image"], "provider": "getimg",
+                     "width": 1280, "height": 720,
+                     "id": f"getimg_{int(time.time())}", "type": "ai_generated"}]
         return []
 
     elif provider == "replicate":
-        # Trigger SDXL inference
         trigger_resp = http_post_json(
             "https://api.replicate.com/v1/models/stability-ai/sdxl/predictions",
-            {
-                "input": {
-                    "prompt": f"dark cinematic documentary: {query}, dramatic, high contrast, film noir",
-                    "negative_prompt": "cartoon, bright, cheerful, anime",
-                    "width": 1280,
-                    "height": 720,
-                }
-            },
-            headers={
-                "Authorization": f"Token {cfg['key']}",
-                "Prefer": "wait=60",
-            },
+            {"input": {
+                "prompt": f"dark cinematic documentary: {query}, dramatic, high contrast, film noir",
+                "negative_prompt": "cartoon, bright, cheerful, anime, text, watermark",
+                "width": 1280, "height": 720,
+            }},
+            headers={"Authorization": f"Token {cfg['key']}", "Prefer": "wait=60"},
         )
         output = trigger_resp.get("output", [])
         if isinstance(output, list) and output:
-            return [{
-                "url": output[0],
-                "provider": "replicate",
-                "width": 1280,
-                "height": 720,
-                "id": trigger_resp.get("id", f"repl_{int(time.time())}"),
-                "type": "ai_generated",
-            }]
+            return [{"url": output[0], "provider": "replicate",
+                     "width": 1280, "height": 720,
+                     "id": trigger_resp.get("id", f"repl_{int(time.time())}"),
+                     "type": "ai_generated"}]
         return []
 
     elif provider == "huggingface":
@@ -632,16 +702,10 @@ def _call_visual_provider(
             {"inputs": f"dark cinematic documentary: {query}, dramatic lighting, film noir"},
             headers={"Authorization": f"Bearer {cfg['key']}"},
         )
-        # HF returns base64 encoded image
         if isinstance(raw, dict) and raw.get("image"):
-            return [{
-                "url_base64": raw["image"],
-                "provider": "huggingface",
-                "width": 1024,
-                "height": 576,
-                "id": f"hf_{int(time.time())}",
-                "type": "ai_generated",
-            }]
+            return [{"url_base64": raw["image"], "provider": "huggingface",
+                     "width": 1024, "height": 576,
+                     "id": f"hf_{int(time.time())}", "type": "ai_generated"}]
         return []
 
     elif provider == "wikimedia":
@@ -654,17 +718,12 @@ def _call_visual_provider(
 
 
 # ─────────────────────────────────────────────
-# IMAGE DOWNLOAD HELPER
+# IMAGE DOWNLOAD HELPERS
 # ─────────────────────────────────────────────
 
 def download_image(url: str, dest_path: str, timeout: int = 20) -> bool:
-    """
-    Downloads an image from URL to dest_path.
-    Returns True on success. Handles both http URLs and base64 payloads.
-    """
     try:
         if url.startswith("data:") or not url.startswith("http"):
-            # base64 inline
             import base64
             header, data = url.split(",", 1) if "," in url else ("", url)
             with open(dest_path, "wb") as f:
@@ -676,12 +735,11 @@ def download_image(url: str, dest_path: str, timeout: int = 20) -> bool:
             f.write(raw)
         return True
     except Exception as exc:
-        log.warning(f"Image download failed ({url[:60]}...): {exc}")
+        log.warning(f"Image download failed ({url[:60]}): {exc}")
         return False
 
 
 def download_base64_image(b64_string: str, dest_path: str) -> bool:
-    """Saves a raw base64 image string to disk."""
     import base64
     try:
         with open(dest_path, "wb") as f:
