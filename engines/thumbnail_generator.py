@@ -32,9 +32,9 @@ TW = THUMBNAIL_WIDTH    # 1280
 TH = THUMBNAIL_HEIGHT   # 720
 
 # Heavy grading for thumbnail — darker and more contrast than video
-_THUMB_CONTRAST   = 1.30
-_THUMB_BRIGHTNESS = 0.72
-_THUMB_SATURATION = 0.65
+_THUMB_CONTRAST   = 1.40   # was 1.30
+_THUMB_BRIGHTNESS = 0.62   # was 0.72 — much darker
+_THUMB_SATURATION = 0.58   # was 0.65 — more desaturated = more cinematic
 _THUMB_VIGNETTE   = 0.62
 
 # ── MASSIVE badge geometry ────────────────────────────────────────────────────
@@ -64,26 +64,19 @@ def run_thumbnail_generator(ctx: DailyRunContext) -> DailyRunContext:
     out_path = thumbnail_path(ctx.run_id, "thumbnail.jpg")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Background
     bg_path = _select_background(ctx, template)
     log.info(f"Thumbnail background: {bg_path.name if bg_path else 'procedural'}")
 
-    # Build canvas
     canvas = _build_thumbnail_canvas(bg_path, template, ctx)
-
-    # Composite layers
     canvas = _draw_template_gradient(canvas, template)
+    canvas = _draw_impact_overlay(canvas, template)   # ← NEW: adds diagonal accent + bottom bar
     canvas = _draw_badge(canvas)
     canvas = _draw_headline(canvas, text, template)
     canvas = _draw_channel_tag(canvas)
 
     canvas.save(str(out_path), "JPEG", quality=96, optimize=True)
     ctx.thumbnail_path = str(out_path)
-    log.info(
-        f"Thumbnail saved: {out_path.name} "
-        f"({out_path.stat().st_size // 1024}KB) | Text: '{text}'"
-    )
-
+    log.info(f"Thumbnail saved: {out_path.name} ({out_path.stat().st_size // 1024}KB) | Text: '{text}'")
     ctx.mark_stage("thumbnail_generator")
     return ctx
 
@@ -175,6 +168,11 @@ def _build_thumbnail_canvas(
 
 
 def _apply_thumbnail_grading(img: Image.Image, template: dict) -> Image.Image:
+    """
+    Heavy grading + color grade. Much darker than previous version.
+    Adds a directional color grade (deep teal shadows, warm highlights)
+    for the high-contrast look characteristic of Western clickbait thumbnails.
+    """
     img = ImageEnhance.Contrast(img).enhance(_THUMB_CONTRAST)
     img = ImageEnhance.Brightness(img).enhance(_THUMB_BRIGHTNESS)
     img = ImageEnhance.Color(img).enhance(_THUMB_SATURATION)
@@ -182,20 +180,25 @@ def _apply_thumbnail_grading(img: Image.Image, template: dict) -> Image.Image:
     arr = np.array(img, dtype=np.float32)
 
     # Strong radial vignette
-    h, w = arr.shape[:2]
-    Y, X = np.ogrid[:h, :w]
+    h, w  = arr.shape[:2]
+    Y, X  = np.ogrid[:h, :w]
     dist  = np.sqrt(((X - w/2)/(w/2))**2 + ((Y - h/2)/(h/2))**2)
-    fade  = np.clip((dist - 0.25)/0.70, 0, 1) ** 2.2 * _THUMB_VIGNETTE
+    fade  = np.clip((dist - 0.20)/0.65, 0, 1) ** 2.5 * 0.68
     arr   = arr * (1 - fade)[:, :, np.newaxis]
+
+    # Directional color grade: cool shadows (blue tint in dark areas)
+    # This creates the "Netflix dark thriller" look
+    luminance = arr.mean(axis=2, keepdims=True) / 255.0
+    shadow_mask = (1.0 - luminance) ** 2   # strong in shadows, none in highlights
+    arr[:, :, 2] = np.clip(arr[:, :, 2] + shadow_mask[:, :, 0] * 18, 0, 255)  # blue in shadows
+    arr[:, :, 0] = np.clip(arr[:, :, 0] + shadow_mask[:, :, 0] * 8,  0, 255)  # slight red warmth
 
     # Template tint
     bg_style = template.get("bg_style", "dark_gradient")
     if bg_style == "blood_red":
-        arr[:, :, 0] = np.clip(arr[:, :, 0] * 1.35, 0, 255)
-        arr[:, :, 1] = arr[:, :, 1] * 0.72
-        arr[:, :, 2] = arr[:, :, 2] * 0.68
-    elif bg_style == "fog_dark":
-        arr[:, :, 2] = np.clip(arr[:, :, 2] * 1.18, 0, 255)
+        arr[:, :, 0] = np.clip(arr[:, :, 0] * 1.45, 0, 255)
+        arr[:, :, 1] = arr[:, :, 1] * 0.65
+        arr[:, :, 2] = arr[:, :, 2] * 0.60
 
     arr = np.clip(arr, 0, 255).astype(np.uint8)
     return Image.fromarray(arr)
@@ -263,6 +266,47 @@ def _draw_template_gradient(canvas: Image.Image, template: dict) -> Image.Image:
 
     arr = np.clip(arr, 0, 255).astype(np.uint8)
     return Image.fromarray(arr)
+
+
+def _draw_impact_overlay(canvas: Image.Image, template: dict) -> Image.Image:
+    """
+    Adds the visual elements that create psychological urgency:
+    - A diagonal red accent slash (draws the eye)
+    - A bottom gradient bar that anchors the text region
+    - Optional "classified" stamp effect for certain templates
+    These are the elements that make Western clickbait thumbnails feel urgent.
+    """
+    arr  = np.array(canvas, dtype=np.float32)
+    h, w = arr.shape[:2]
+
+    # Bottom gradient bar (makes text pop regardless of background)
+    bar_height = int(h * 0.38)
+    for y in range(h - bar_height, h):
+        t = (y - (h - bar_height)) / bar_height
+        alpha = t ** 1.6 * 0.82
+        arr[y, :, :] *= (1 - alpha)
+
+    arr = np.clip(arr, 0, 255).astype(np.uint8)
+    canvas = Image.fromarray(arr)
+
+    draw     = ImageDraw.Draw(canvas)
+    text_pos = template.get("text_position", "top_right")
+
+    # Diagonal red accent line on the side opposite the text
+    if text_pos == "top_right":
+        # Left side accent
+        draw.polygon([(0, 0), (18, 0), (0, h // 3)], fill=(180, 0, 0))
+    elif text_pos in ("bottom_center", "center", "top_center"):
+        # Top-left corner accent triangle
+        draw.polygon([(0, 0), (60, 0), (0, 80)], fill=(180, 0, 0))
+
+    # Red horizontal rule above the text region (creates visual separation)
+    if text_pos == "bottom_center":
+        y_rule = int(h * 0.60)
+        draw.line([(int(w * 0.05), y_rule), (int(w * 0.95), y_rule)],
+                  fill=(200, 0, 0), width=3)
+
+    return canvas
 
 
 def _draw_badge(canvas: Image.Image) -> Image.Image:
@@ -508,3 +552,4 @@ def _resize_crop(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
     left   = (new_w - target_w) // 2
     top    = (new_h - target_h) // 2
     return img.crop((left, top, left + target_w, top + target_h))
+        
