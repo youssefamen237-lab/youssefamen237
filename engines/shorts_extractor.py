@@ -33,18 +33,18 @@ _SHORT_MAX_SEC  = 50.0
 _SHORT_CUT_MIN  = 1.4
 _SHORT_CUT_MAX  = 2.6
 
-# Subtitle style for shorts (slightly larger than long-form)
+# Subtitle style for shorts (professional TikTok/Reels style — outline only, lower third)
 _SHORT_SUBTITLE_STYLE = (
     "FontName=Liberation Sans Bold"
-    ",FontSize=28"
-    ",PrimaryColour=&H00FFFFFF"
-    ",OutlineColour=&H00000000"
-    ",BackColour=&H70000000"
-    ",BorderStyle=3"
-    ",Outline=2"
-    ",Shadow=0"
-    ",Alignment=2"
-    ",MarginV=120"
+    ",FontSize=16"              # smaller — does not dominate the frame
+    ",PrimaryColour=&H00FFFFFF" # white text
+    ",OutlineColour=&H00000000" # black outline
+    ",BorderStyle=1"            # OUTLINE ONLY — no background box
+    ",Outline=3"                # thick outline for readability on any bg
+    ",Shadow=1"                 # subtle drop shadow
+    ",Alignment=2"              # bottom center
+    ",MarginV=160"              # pushed up from bottom edge
+    ",Bold=1"
 )
 
 
@@ -325,8 +325,8 @@ def _render_short_black(out_path: Path, duration_sec: float) -> None:
 
 def _generate_short_srt(blueprint: dict, run_id: str) -> Optional[Path]:
     """
-    Generates an SRT file for the short clip narration.
-    Uses the short_clip.narration field from the blueprint.
+    Generates SRT for the short clip with TikTok-style short chunks:
+    3-4 words per subtitle line (not 6), no opaque box, lower-third position.
     """
     short_clip = blueprint.get("short_clip") or {}
     narration  = (short_clip.get("narration") or "").strip()
@@ -336,26 +336,26 @@ def _generate_short_srt(blueprint: dict, run_id: str) -> Optional[Path]:
     srt_path = video_path(run_id, "short_subtitles.srt")
     srt_path.parent.mkdir(parents=True, exist_ok=True)
 
-    words    = narration.split()
+    words           = narration.split()
     target_duration = float(short_clip.get("duration_target_sec", 42.0))
-    rate     = len(words) / max(target_duration, 1.0)
-    chunk_sz = 6   # slightly shorter lines for portrait format
-    chunks   = [words[i:i + chunk_sz] for i in range(0, len(words), chunk_sz)]
+    rate            = len(words) / max(target_duration, 1.0)
+    chunk_sz        = 4   # TikTok style: max 4 words per line (was 6)
+    chunks          = [words[i:i + chunk_sz] for i in range(0, len(words), chunk_sz)]
 
     entries: list[str] = []
     t = 0.0
     for idx, chunk in enumerate(chunks):
         text      = " ".join(chunk)
         chunk_dur = len(chunk) / max(rate, 0.5)
-        chunk_dur = max(1.5, min(chunk_dur, 4.0))
-        h  = int(t // 3600); m = int((t % 3600) // 60)
-        s  = int(t % 60);   ms = int((t - int(t)) * 1000)
-        te = t + chunk_dur
-        he = int(te // 3600); me = int((te % 3600) // 60)
-        se = int(te % 60);   mse = int((te - int(te)) * 1000)
+        chunk_dur = max(1.2, min(chunk_dur, 3.5))  # tighter timing than long-form
+
+        def _ts(sec: float) -> str:
+            s = max(0.0, sec)
+            return f"{int(s//3600):02d}:{int((s%3600)//60):02d}:{int(s%60):02d},{int((s-int(s))*1000):03d}"
+
         entries.append(
             f"{idx+1}\n"
-            f"{h:02d}:{m:02d}:{s:02d},{ms:03d} --> {he:02d}:{me:02d}:{se:02d},{mse:03d}\n"
+            f"{_ts(t)} --> {_ts(t + chunk_dur)}\n"
             f"{text}"
         )
         t += chunk_dur
@@ -389,18 +389,20 @@ def _apply_short_audio_and_text(
 
     # Drawtext overlays for hook (opening) and closer (end)
     drawtext_filters = ",".join([
+        # Hook: bold, centered, NO box background
         (
             f"drawtext=text='{hook_safe}':{font_opt}"
-            f"fontsize=100:fontcolor=white:"
-            f"borderw=6:bordercolor=0xCC0000:"
-            f"x=(w-text_w)/2:y=(h-text_h)/2-80:"
+            f"fontsize=80:fontcolor=white:"           # smaller than before (was 100)
+            f"borderw=5:bordercolor=black:"           # outline only, no box
+            f"x=(w-text_w)/2:y=(h-text_h)/2-60:"
             f"enable=between(t{bs},0{bs},2.0)"
         ),
+        # Closer: lower third, semi-transparent box (acceptable for CTA)
         (
             f"drawtext=text='{_escape_drawtext(closer_text)}':{font_opt}"
-            f"fontsize=62:fontcolor=white:"
-            f"box=1:boxcolor=0x8B0000@0.90:boxborderw=16:"
-            f"x=(w-text_w)/2:y=h-250:"
+            f"fontsize=52:fontcolor=white:"
+            f"borderw=4:bordercolor=black:"           # outline, no filled box
+            f"x=(w-text_w)/2:y=h-200:"
             f"enable=between(t{bs},32{bs},32767)"
         ),
     ])
@@ -473,3 +475,4 @@ def _get_short_audio_path(blueprint: dict, run_id: str) -> Optional[Path]:
             return p
     log.warning("No short clip audio found — short will be silent.")
     return None
+        
