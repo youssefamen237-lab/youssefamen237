@@ -161,6 +161,26 @@ def run_voice_generator(ctx: DailyRunContext) -> DailyRunContext:
         else:
             log.warning("Short clip TTS failed — short will use silence.")
 
+    # ── Phase B: AssemblyAI word-level timestamp extraction ──────────
+    try:
+        from config.settings import ENABLE_ASSEMBLYAI_SYNC, ASSEMBLYAI
+        from utils.file_manager import audio_path as _apath
+        if ENABLE_ASSEMBLYAI_SYNC and ctx.narration_audio_path and ASSEMBLYAI:
+            log.info("AssemblyAI: submitting audio for word-level timestamps...")
+            from engines.assemblyai_sync import get_word_timestamps
+            word_ts = get_word_timestamps(ctx.narration_audio_path, ASSEMBLYAI)
+            if word_ts:
+                import json as _j
+                ts_path = _apath(ctx.run_id, "word_timestamps.json")
+                ts_path.parent.mkdir(parents=True, exist_ok=True)
+                ts_path.write_text(_j.dumps(word_ts, ensure_ascii=False), encoding="utf-8")
+                ctx.word_timestamps = word_ts
+                log.info(f"  AssemblyAI: {len(word_ts)} words indexed, saved to word_timestamps.json")
+            else:
+                log.warning("  AssemblyAI returned no timestamps — approximated SRT will be used.")
+    except Exception as _aai_exc:
+        log.warning(f"  AssemblyAI extraction failed (non-fatal): {_aai_exc}")
+
     ctx.mark_stage("voice_generator")
     log.info(f"Voice generator complete. Total={total_duration:.1f}s, "
              f"Provider={ctx.tts_provider_used}")
@@ -546,54 +566,4 @@ def _detect_dominant_provider(
 ) -> str:
     """
     Heuristic: if all parts are present and valid, the last successful provider
-    was whatever edge-tts would have used. In production, returns the provider
-    name based on file sizes (ElevenLabs files tend to be larger at equal length).
-    Falls back to 'edge_tts' as the safe assumption.
-    """
-    valid_paths = [p for p in part_paths if p and _is_valid_audio(p)]
-    if not valid_paths:
-        return "none"
-    # ElevenLabs produces ~200+ bytes/second; edge-tts ~120 bytes/second
-    avg_size = sum(p.stat().st_size for p in valid_paths) / len(valid_paths)
-    try:
-        from pydub import AudioSegment
-        sample_path = valid_paths[0]
-        dur = _get_audio_duration_sec(sample_path)
-        if dur > 0:
-            bytes_per_sec = sample_path.stat().st_size / dur
-            if ELEVEN_API_KEY and bytes_per_sec > 18000:
-                return "elevenlabs"
-            if CAMB_AI_KEY_1 and 12000 < bytes_per_sec <= 18000:
-                return "camb_ai"
-    except Exception:
-        pass
-    return "edge_tts"
-
-
-def _chunk_text(text: str, max_chars: int = 4500) -> list[str]:
-    """
-    Splits text into chunks at sentence boundaries, each ≤ max_chars.
-    Preserves sentence integrity for natural TTS output.
-    """
-    if len(text) <= max_chars:
-        return [text]
-
-    sentences = []
-    current   = text
-    while current:
-        if len(current) <= max_chars:
-            sentences.append(current.strip())
-            break
-        # Find last sentence boundary within max_chars
-        slice_   = current[:max_chars]
-        boundary = max(
-            slice_.rfind(". "),
-            slice_.rfind("! "),
-            slice_.rfind("? "),
-        )
-        if boundary < max_chars * 0.4:
-            boundary = max_chars  # force hard cut if no boundary found
-        sentences.append(current[:boundary + 1].strip())
-        current = current[boundary + 1:].strip()
-
-    return [s for s in sentences if s]
+    was whatever edge-tts would have used. In producti
