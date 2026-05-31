@@ -1,0 +1,178 @@
+name: Karma Vault Stories — Daily Autonomous Pipeline
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Skip YouTube upload (dry_run=true)'
+        required: false
+        default: 'false'
+      force_pillar:
+        description: 'Force a specific content pillar'
+        required: false
+        default: ''
+
+concurrency:
+  group: karma-vault-daily
+  cancel-in-progress: true
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 340
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── System dependencies ───────────────────────────────────────────────
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            ffmpeg \
+            fonts-liberation \
+            fonts-dejavu-core \
+            libass-dev \
+            python3-dev \
+            libgl1-mesa-glx \
+            libglib2.0-0
+
+      # ── Python setup ──────────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── Persistent data cache (story_bank / analytics / heuristics) ───────
+      - name: Restore persistent data cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/story_bank
+            data/analytics
+            data/heuristics
+          key: karma-vault-data-${{ runner.os }}-${{ github.run_number }}
+          restore-keys: |
+            karma-vault-data-${{ runner.os }}-
+
+      # ── Run pipeline ──────────────────────────────────────────────────────
+      - name: Run autonomous pipeline
+        env:
+          # ── Writing / LLM ─────────────────────────────────────────────────
+          GEMINI_API_KEY:             ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:               ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_KEY:             ${{ secrets.OPENROUTER_KEY }}
+          OPENAI_API_KEY:             ${{ secrets.OPENAI_API_KEY }}
+          # ── TTS ───────────────────────────────────────────────────────────
+          ELEVEN_API_KEY:             ${{ secrets.ELEVEN_API_KEY }}
+          ELEVENLABS_VOICE_ID_MALE:   ${{ secrets.ELEVENLABS_VOICE_ID_MALE }}
+          ELEVENLABS_VOICE_ID_FEMALE: ${{ secrets.ELEVENLABS_VOICE_ID_FEMALE }}
+          CAMB_AI_KEY_1:              ${{ secrets.CAMB_AI_KEY_1 }}
+          DEEPGRAM_API_KEY:           ${{ secrets.DEEPGRAM_API_KEY }}
+          # ── Phase B: Subtitle sync ─────────────────────────────────────
+          ASSEMBLYAI:                 ${{ secrets.ASSEMBLYAI }}
+          # ── Stock images ──────────────────────────────────────────────────
+          PEXELS_API_KEY:             ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY:            ${{ secrets.PIXABAY_API_KEY }}
+          UNSPLASH_ACCESS_KEY:        ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          UNSPLASH_ID:                ${{ secrets.UNSPLASH_ID }}
+          UNSPLASH_SECRET_KEY:        ${{ secrets.UNSPLASH_SECRET_KEY }}
+          FREEPIK_API_KEY:            ${{ secrets.FREEPIK_API_KEY }}
+          COVERR_API_ID:              ${{ secrets.COVERR_API_ID }}
+          COVERR_API_KEY:             ${{ secrets.COVERR_API_KEY }}
+          INTERNET_ARCHIVE_ACCESS_KEY: ${{ secrets.INTERNET_ARCHIVE_ACCESS_KEY }}
+          INTERNET_ARCHIVE_SECRET_KEY: ${{ secrets.INTERNET_ARCHIVE_SECRET_KEY }}
+          NASA_API_KEY:               ${{ secrets.NASA_API_KEY }}
+          REMOVE_BG_API:              ${{ secrets.REMOVE_BG_API }}
+          # ── Phase B: AI image generation ──────────────────────────────────
+          LEONARDO:                   ${{ secrets.LEONARDO }}
+          STABILITY:                  ${{ secrets.STABILITY }}
+          GETIMG_API_KEY:             ${{ secrets.GETIMG_API_KEY }}
+          HF_API_TOKEN:               ${{ secrets.HF_API_TOKEN }}
+          REPLICATE_API_TOKEN:        ${{ secrets.REPLICATE_API_TOKEN }}
+          REPLICATE_MODELS:           ${{ secrets.REPLICATE_MODELS }}
+          DEEP_AI:                    ${{ secrets.DEEP_AI }}
+          DEZGO:                      ${{ secrets.DEZGO }}
+          EDEN_AI:                    ${{ secrets.EDEN_AI }}
+          TOGETHER_AI:                ${{ secrets.TOGETHER_AI }}
+          # ── Phase B: Text-to-Video ─────────────────────────────────────────
+          RUNWAY_API:                 ${{ secrets.RUNWAY_API }}
+          PIKA_LABS:                  ${{ secrets.PIKA_LABS }}
+          MODELS_LAB:                 ${{ secrets.MODELS_LAB }}
+          MINIMAX:                    ${{ secrets.MINIMAX }}
+          SEGMIND:                    ${{ secrets.SEGMIND }}
+          # ── Phase B: Cloudflare R2 cache ────────────────────────────────
+          S3_API_CLOUDFLARE_R2:       ${{ secrets.S3_API_CLOUDFLARE_R2 }}
+          ACCOUNT_ID_CLOUDFLARE_R2:   ${{ secrets.ACCOUNT_ID_CLOUDFLARE_R2 }}
+          CLOUDFLARE_TOKEN:           ${{ secrets.CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_API:             ${{ secrets.CLOUDFLARE_API }}
+          # ── Search / Trends ────────────────────────────────────────────────
+          SERPAPI:                    ${{ secrets.SERPAPI }}
+          TAVILY_API_KEY:             ${{ secrets.TAVILY_API_KEY }}
+          ZENSERP:                    ${{ secrets.ZENSERP }}
+          NEWS_API:                   ${{ secrets.NEWS_API }}
+          FREESOUND_API:              ${{ secrets.FREESOUND_API }}
+          FREESOUND_ID:               ${{ secrets.FREESOUND_ID }}
+          # ── YouTube upload (3 packs) ───────────────────────────────────────
+          YOUTUBE_API_KEY:            ${{ secrets.YOUTUBE_API_KEY }}
+          YT_CHANNEL_ID:              ${{ secrets.YT_CHANNEL_ID }}
+          YT_CLIENT_ID_1:             ${{ secrets.YT_CLIENT_ID_1 }}
+          YT_CLIENT_SECRET_1:         ${{ secrets.YT_CLIENT_SECRET_1 }}
+          YT_REFRESH_TOKEN_1:         ${{ secrets.YT_REFRESH_TOKEN_1 }}
+          YT_CLIENT_ID_2:             ${{ secrets.YT_CLIENT_ID_2 }}
+          YT_CLIENT_SECRET_2:         ${{ secrets.YT_CLIENT_SECRET_2 }}
+          YT_REFRESH_TOKEN_2:         ${{ secrets.YT_REFRESH_TOKEN_2 }}
+          YT_CLIENT_ID_3:             ${{ secrets.YT_CLIENT_ID_3 }}
+          YT_CLIENT_SECRET_3:         ${{ secrets.YT_CLIENT_SECRET_3 }}
+          YT_REFRESH_TOKEN_3:         ${{ secrets.YT_REFRESH_TOKEN_3 }}
+          # ── Pipeline control ──────────────────────────────────────────────
+          DRY_RUN:                    ${{ github.event.inputs.dry_run }}
+          FORCE_PILLAR:               ${{ github.event.inputs.force_pillar }}
+          # ── Observability ─────────────────────────────────────────────────
+          HELICONE:                   ${{ secrets.HELICONE }}
+          LANG_SMITH:                 ${{ secrets.LANG_SMITH }}
+          POSTHOG_ID:                 ${{ secrets.POSTHOG_ID }}
+          POSTHOG_PROJECT_TOKEN:      ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+          SUPABASE:                   ${{ secrets.SUPABASE }}
+          REDIS_CACHE:                ${{ secrets.REDIS_CACHE }}
+          # ── Data tools ────────────────────────────────────────────────────
+          SUPADATA_API:               ${{ secrets.SUPADATA_API }}
+          FIRECRAWL:                  ${{ secrets.FIRECRAWL }}
+          AI_HORDE:                   ${{ secrets.AI_HORDE }}
+          HEY_GEN:                    ${{ secrets.HEY_GEN }}
+          ASTRIA:                     ${{ secrets.ASTRIA }}
+          BANNERBEAR:                 ${{ secrets.BANNERBEAR }}
+          APITEMPLATE:                ${{ secrets.APITEMPLATE }}
+          GOOGLE_SEARCH_RESULTS_SCRAPER: ${{ secrets.GOOGLE_SEARCH_RESULTS_SCRAPER }}
+          YOUTUBE_TRANSCRIPT_API:     ${{ secrets.YOUTUBE_TRANSCRIPT_API }}
+          NOAA_API_KEY:               ${{ secrets.NOAA_API_KEY }}
+        run: python3 main_pipeline.py
+
+      # ── Upload logs artifact ───────────────────────────────────────────────
+      - name: Upload pipeline logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-logs-${{ github.run_number }}
+          path: logs/
+          retention-days: 14
+
+      # ── Upload emergency export if present ────────────────────────────────
+      - name: Upload emergency export (if upload failed)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergency-export-${{ github.run_number }}
+          path: data/emergency_export/
+          if-no-files-found: ignore
+          retention-days: 30
