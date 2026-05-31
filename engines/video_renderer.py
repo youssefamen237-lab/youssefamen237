@@ -502,4 +502,73 @@ def _build_drawtext_chain(blueprint: dict, scene_assets: list[dict]) -> str:
         filters.append(
             f"drawtext=text='{safe_label}':{font_opt}"
             f"fontsize=64:fontcolor=white:x=(w-text_w)/2:y=h-160:"
-            f"box=1:boxcolor=0x8B0000@0.88:
+            f"box=1:boxcolor=0x8B0000@0.88:boxborderw=18:"
+            f"enable=between(t{bs},0.3{bs},3.8)"
+        )
+    cta_scene = next((s for s in scene_assets if s.get("cta_overlay")), None)
+    if cta_scene:
+        cta_s = float(cta_scene.get("start_time_sec", 120.0))
+        cta_e = cta_s + float(cta_scene.get("duration_sec", 3.5))
+        filters.append(
+            f"drawtext=text='{_escape_drawtext('SUBSCRIBE FOR DAILY DARK FILES')}':{font_opt}"
+            f"fontsize=50:fontcolor=0xFFD700:x=(w-text_w)/2:y=h-105:"
+            f"box=1:boxcolor=black@0.75:boxborderw=12:"
+            f"enable=between(t{bs},{cta_s:.2f}{bs},{cta_e:.2f})"
+        )
+    total_dur = blueprint.get("total_narration_sec")
+    if not total_dur and scene_assets:
+        last = scene_assets[-1]
+        total_dur = last.get("start_time_sec", 0.0) + last.get("duration_sec", 0.0)
+    if total_dur and float(total_dur) > 20:
+        outro_s = max(0.0, float(total_dur) - 18.0)
+        filters.append(
+            f"drawtext=text='{_escape_drawtext(chr(84)+chr(79)+chr(77)+chr(79)+chr(82)+chr(82)+chr(79)+chr(87)+chr(8217)+chr(83)+chr(32)+chr(70)+chr(73)+chr(76)+chr(69)+chr(32)+chr(73)+chr(83)+chr(32)+chr(68)+chr(65)+chr(82)+chr(75)+chr(69)+chr(82))}':{font_opt}"
+            f"fontsize=80:fontcolor=white:borderw=5:bordercolor=0x8B0000:"
+            f"x=(w-text_w)/2:y=(h-text_h)/2:"
+            f"enable=between(t{bs},{outro_s:.2f}{bs},32767)"
+        )
+    return ",".join(filters) if filters else ""
+
+
+def _escape_drawtext(text: str) -> str:
+    text = text.replace("\\", "\\\\")
+    text = text.replace("'",  "\u2019")
+    text = text.replace(":",  "\\:")
+    return text
+
+
+def _find_font() -> str:
+    for fp in _FONT_PATHS:
+        if Path(fp).exists():
+            return fp
+    for f in FONTS_DIR.glob("*.ttf"):
+        return str(f)
+    return _FONT_PATHS[0]
+
+
+# ─────────────────────────────────────────────
+# FFmpeg RUNNER + UTILITIES
+# ─────────────────────────────────────────────
+
+def _run_ffmpeg(args: list[str], description: str, timeout_sec: int = 120) -> tuple[bool, str]:
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, timeout=timeout_sec)
+        if result.returncode != 0:
+            return False, result.stderr[-400:]
+        return True, ""
+    except subprocess.TimeoutExpired:
+        msg = f"FFmpeg timeout ({timeout_sec}s): {description}"
+        log.warning(msg)
+        return False, msg
+    except Exception as exc:
+        log.warning(f"FFmpeg error ({description}): {exc}")
+        return False, str(exc)
+
+
+def _cleanup_files(paths: list[Path]) -> None:
+    for p in paths:
+        try:
+            if p.exists():
+                p.unlink()
+        except OSError:
+            pass
