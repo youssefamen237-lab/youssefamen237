@@ -566,4 +566,54 @@ def _detect_dominant_provider(
 ) -> str:
     """
     Heuristic: if all parts are present and valid, the last successful provider
-    was whatever edge-tts would have used. In producti
+    was whatever edge-tts would have used. In production, returns the provider
+    name based on file sizes (ElevenLabs files tend to be larger at equal length).
+    Falls back to 'edge_tts' as the safe assumption.
+    """
+    valid_paths = [p for p in part_paths if p and _is_valid_audio(p)]
+    if not valid_paths:
+        return "none"
+    # ElevenLabs produces ~200+ bytes/second; edge-tts ~120 bytes/second
+    avg_size = sum(p.stat().st_size for p in valid_paths) / len(valid_paths)
+    try:
+        from pydub import AudioSegment
+        sample_path = valid_paths[0]
+        dur = _get_audio_duration_sec(sample_path)
+        if dur > 0:
+            bytes_per_sec = sample_path.stat().st_size / dur
+            if ELEVEN_API_KEY and bytes_per_sec > 18000:
+                return "elevenlabs"
+            if CAMB_AI_KEY_1 and 12000 < bytes_per_sec <= 18000:
+                return "camb_ai"
+    except Exception:
+        pass
+    return "edge_tts"
+
+
+def _chunk_text(text: str, max_chars: int = 4500) -> list[str]:
+    """
+    Splits text into chunks at sentence boundaries, each ≤ max_chars.
+    Preserves sentence integrity for natural TTS output.
+    """
+    if len(text) <= max_chars:
+        return [text]
+
+    sentences = []
+    current   = text
+    while current:
+        if len(current) <= max_chars:
+            sentences.append(current.strip())
+            break
+        # Find last sentence boundary within max_chars
+        slice_   = current[:max_chars]
+        boundary = max(
+            slice_.rfind(". "),
+            slice_.rfind("! "),
+            slice_.rfind("? "),
+        )
+        if boundary < max_chars * 0.4:
+            boundary = max_chars  # force hard cut if no boundary found
+        sentences.append(current[:boundary + 1].strip())
+        current = current[boundary + 1:].strip()
+
+    return [s for s in sentences if s]
