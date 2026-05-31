@@ -1,42 +1,33 @@
-# Karma Vault Stories — Python Dependencies
-# All packages must be available on PyPI and compatible with Ubuntu GitHub Actions runner.
-# Pinned to minor versions for reproducible builds.
+# ── Core ──────────────────────────────────────────────────────────────────────
+numpy>=1.24.0
+Pillow>=10.0.0
+requests>=2.31.0
 
-# HTTP & API
-requests>=2.31.0,<3.0
-httpx>=0.27.0,<1.0
-aiohttp>=3.9.0,<4.0
+# ── Google / YouTube ──────────────────────────────────────────────────────────
+google-api-python-client>=2.100.0
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
 
-# Image processing
-Pillow>=10.3.0,<11.0
-opencv-python-headless>=4.10.0,<5.0
+# ── Audio ─────────────────────────────────────────────────────────────────────
+edge-tts>=6.1.9
+pydub>=0.25.1
+mutagen>=1.47.0
 
-# Audio processing
-pydub>=0.25.0
-edge-tts>=6.1.0
+# ── Video ─────────────────────────────────────────────────────────────────────
+# ffmpeg-python is optional; we call ffmpeg subprocess directly
 
-# Video / FFmpeg helpers
-imageio>=2.34.0
-imageio-ffmpeg>=0.5.0
+# ── Reddit / Search ───────────────────────────────────────────────────────────
+praw>=7.7.0
+feedparser>=6.0.10
 
-# AI / ML
-google-generativeai>=0.7.0,<1.0
-groq>=0.11.0,<1.0
-openai>=1.40.0,<2.0
-replicate>=0.31.0,<1.0
+# ── Phase B: Cloudflare R2 cache ─────────────────────────────────────────────
+boto3>=1.34.0
+botocore>=1.34.0
 
-# YouTube API
-google-api-python-client>=2.140.0,<3.0
-google-auth>=2.32.0,<3.0
-google-auth-oauthlib>=1.2.0,<2.0
-google-auth-httplib2>=0.2.0,<1.0
-
-# Data handling
-numpy>=1.26.0,<2.0
-pandas>=2.2.0,<3.0
-
-# Utilities
+# ── Phase B: HTTP / misc ──────────────────────────────────────────────────────
+httpx>=0.25.0
 python-dotenv>=1.0.0
-tenacity>=8.3.0
-tqdm>=4.66.0
-python-slugify>=8.0.0
+
+# ── Phase B: Type support ─────────────────────────────────────────────────────
+typing_extensions>=4.8.0
