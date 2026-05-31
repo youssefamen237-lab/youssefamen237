@@ -1,374 +1,295 @@
 """
 engines/image_generator.py
-Karma Vault Stories — AI Image Generation Fallback Engine
-Cascades through GetImg → Replicate → HuggingFace when all stock
-sources return insufficient results. Wraps every call in dark cinematic
-prompt engineering to ensure outputs match the channel's visual identity.
+Karma Vault Stories — AI Image Generation Engine (Phase B upgraded)
+Cascade: Leonardo AI → Stability AI XL → GetIMG → Replicate SDXL → HuggingFace
+Generates dark cinematic stills for scene backgrounds and thumbnail composites.
 """
 
-import time
+from __future__ import annotations
+
 import base64
 import json
-import random
+import time
 from pathlib import Path
 from typing import Optional
 
-from config.settings import (
-    GETIMG_API_KEY, REPLICATE_API_TOKEN, HF_API_TOKEN,
-    VIDEO_WIDTH, VIDEO_HEIGHT, SHORT_WIDTH, SHORT_HEIGHT,
-    API_REQUEST_TIMEOUT_SEC,
-)
-from config.constants import ContentPillar
 from utils.logger import get_logger
-from utils.api_client import http_post_json, http_get_json, http_get, with_retry
+from utils.api_client import http_get, http_get_json, http_post_json, download_image
+from utils.r2_cache import R2Cache, image_cache_key
 
 log = get_logger(__name__)
 
-# Hard negative prompt applied to every AI generation call
-_NEGATIVE_PROMPT = (
-    # Aesthetic quality
-    "cartoon, anime, illustration, drawing, painting, watercolor, sketch, 3d render, "
-    "cgi, digital art style, low quality, blurry, out of focus, jpeg artifacts, "
-    "oversaturated, overexposed, underexposed, grainy, noisy, pixelated, "
-    # Text and branding — STRICTLY FORBIDDEN
-    "text, letters, words, english text, any text, typography, font, caption, "
-    "subtitles, label, title, headline, quote, speech bubble, dialogue, "
-    "watermark, signature, logo, brand, url, website, social media handle, "
-    # Mockups and staged elements — STRICTLY FORBIDDEN
-    "mockup, product placement, advertisement, poster on wall, framed picture, "
-    "screen mockup, phone mockup, device mockup, background mockup, "
-    # Decorative and artificial elements — STRICTLY FORBIDDEN
-    "curtains, drapes, fabric backdrop, paper texture backdrop, "
-    "studio backdrop, colored background, gradient background, "
-    "decorative border, ornamental frame, vignette overlay, "
-    "artificial shadows, drop shadow, fake bokeh, lens flare overlay, "
-    # Content restrictions
-    "bright colors, cheerful, happy, optimistic, daylight sun, white background, "
-    "nsfw, nude, explicit, gore, disturbing realistic violence"
+# ── Negative prompt shared across all providers ────────────────────────────────
+_NEGATIVE = (
+    "text, watermark, letters, alphabet, words, captions, subtitles, "
+    "logo, banner, cartoon, anime, illustration, bright colors, cheerful, "
+    "nsfw, blurry, low quality, jpeg artifacts, people smiling, daylight"
 )
-
-# Dark cinematic style prefix injected into every prompt
-_STYLE_PREFIX = (
-    "dark cinematic documentary photography, dramatic chiaroscuro lighting, "
-    "high contrast, deep shadows, film noir aesthetic, photorealistic, "
-    "8k resolution, cinematic color grade: "
-)
-
-# Pillar-specific mood modifiers appended to prompts
-_PILLAR_MOOD_SUFFIX: dict[str, str] = {
-    ContentPillar.PARANORMAL.value:
-        "eerie paranormal atmosphere, supernatural dread, haunted location",
-    ContentPillar.HUMAN_BETRAYAL.value:
-        "noir mystery, human tension, psychological thriller atmosphere",
-    ContentPillar.MYSTERY_DISAPPEARANCE.value:
-        "cold case investigation, forensic darkness, missing person dread",
-    ContentPillar.DISTURBING_ACCIDENTS.value:
-        "tragedy aftermath, grim reality, dark incident documentation",
-    ContentPillar.HISTORICAL_DARK.value:
-        "historical darkness, archival sepia grunge, forgotten era menace",
-    ContentPillar.AI_HORROR.value:
-        "dystopian technology horror, cold machine aesthetic, digital dread",
-    ContentPillar.SECRET_DOUBLE_LIFE.value:
-        "hidden identity, noir shadow play, psychological suspense",
-    ContentPillar.INTERNET_CONFESSION.value:
-        "digital darkness, screen glow horror, anonymous confession atmosphere",
-    ContentPillar.URBAN_LEGENDS.value:
-        "urban decay, legend-haunted location, creepypasta atmosphere",
-    ContentPillar.TRUE_SHOCKING.value:
-        "dark crime scene adjacent, investigative documentary, grim truth",
-}
 
 
 # ─────────────────────────────────────────────
-# PUBLIC API
+# PUBLIC INTERFACE
 # ─────────────────────────────────────────────
 
 def generate_ai_image(
-    scene_prompt:  str,
-    output_path:   Path,
-    pillar:        str  = ContentPillar.TRUE_SHOCKING.value,
-    for_short:     bool = False,
-    horror_mode:   bool = False,
+    prompt:      str,
+    output_path: Path,
+    pillar:      str = "",
+    horror_mode: bool = False,
 ) -> bool:
     """
-    Generates a single AI image for the given scene prompt.
-    Tries GetImg → Replicate → HuggingFace in order.
-    Returns True on success, False if all providers fail.
+    Generates a dark cinematic image.
+    Tries providers in cascade order; returns True on first success.
+    Checks R2 cache before any API call.
     """
+    full_prompt = _enrich_prompt(prompt, pillar, horror_mode)
+    cache_key   = image_cache_key(full_prompt)
+    r2          = R2Cache.get()
+
+    # R2 cache hit
+    if r2.is_available() and r2.get_image(cache_key, output_path):
+        log.debug(f"Image cache hit: {cache_key[:20]}...")
+        return True
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    full_prompt = _build_full_prompt(scene_prompt, pillar, horror_mode)
-    width  = SHORT_WIDTH  if for_short else VIDEO_WIDTH
-    height = SHORT_HEIGHT if for_short else VIDEO_HEIGHT
-
-    # ── 1. GetImg ─────────────────────────────────────────────────
-    if GETIMG_API_KEY:
-        try:
-            if _generate_getimg(full_prompt, output_path, width, height):
-                log.debug(f"AI image via GetImg: {output_path.name}")
-                return True
-        except Exception as exc:
-            log.warning(f"GetImg failed: {exc}")
-
-    # ── 2. Replicate (SDXL / FLUX) ───────────────────────────────
-    if REPLICATE_API_TOKEN:
-        try:
-            if _generate_replicate(full_prompt, output_path, width, height):
-                log.debug(f"AI image via Replicate: {output_path.name}")
-                return True
-        except Exception as exc:
-            log.warning(f"Replicate failed: {exc}")
-
-    # ── 3. HuggingFace Inference API ─────────────────────────────
-    if HF_API_TOKEN:
-        try:
-            if _generate_huggingface(full_prompt, output_path):
-                log.debug(f"AI image via HuggingFace: {output_path.name}")
-                return True
-        except Exception as exc:
-            log.warning(f"HuggingFace failed: {exc}")
-
-    log.warning(f"All AI image providers failed for: {scene_prompt[:60]}")
-    return False
-
-
-def generate_ai_image_batch(
-    prompts:    list[str],
-    output_dir: Path,
-    pillar:     str  = ContentPillar.TRUE_SHOCKING.value,
-    prefix:     str  = "ai_img",
-) -> list[Path]:
-    """
-    Generates multiple AI images. Returns list of successful output paths.
-    Stops early if all providers are exhausted.
-    """
-    results: list[Path] = []
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for idx, prompt in enumerate(prompts):
-        out = output_dir / f"{prefix}_{idx:03d}.jpg"
-        if generate_ai_image(prompt, out, pillar=pillar):
-            results.append(out)
-        time.sleep(0.5)   # avoid hammering APIs
-    return results
-
-
-# ─────────────────────────────────────────────
-# PROMPT ENGINEERING
-# ─────────────────────────────────────────────
-
-def _build_full_prompt(
-    scene_prompt: str,
-    pillar:       str,
-    horror_mode:  bool,
-) -> str:
-    mood = _PILLAR_MOOD_SUFFIX.get(pillar, "dark cinematic documentary")
-    if horror_mode:
-        mood += ", blood red tint, extreme horror"
-    return f"{_STYLE_PREFIX}{scene_prompt.strip().rstrip('.')}. {mood}"
-
-
-# ─────────────────────────────────────────────
-# PROVIDER IMPLEMENTATIONS
-# ─────────────────────────────────────────────
-
-def _generate_getimg(
-    prompt:      str,
-    output_path: Path,
-    width:       int,
-    height:      int,
-) -> bool:
-    """
-    GetImg Stable Diffusion XL text-to-image.
-    Returns base64 JPEG; decoded and saved to output_path.
-    """
-    # GetImg requires dimensions divisible by 64
-    w = _snap_to_64(min(width, 1344))
-    h = _snap_to_64(min(height, 768))
-
-    resp = with_retry(
-        http_post_json,
-        "https://api.getimg.ai/v1/stable-diffusion-xl/text-to-image",
-        {
-            "prompt":          prompt[:1500],
-            "negative_prompt": _NEGATIVE_PROMPT,
-            "width":           w,
-            "height":          h,
-            "steps":           25,
-            "guidance":        7.5,
-            "output_format":   "jpeg",
-        },
-        headers={"Authorization": f"Bearer {GETIMG_API_KEY}"},
-        timeout=90,
+    ok = (
+        _generate_leonardo(full_prompt, output_path)
+        or _generate_stability(full_prompt, output_path)
+        or _generate_getimg(full_prompt, output_path)
+        or _generate_replicate(full_prompt, output_path)
+        or _generate_huggingface(full_prompt, output_path)
     )
-    b64 = resp.get("image")
-    if not b64:
+
+    if ok and output_path.exists():
+        if r2.is_available():
+            r2.put_image(cache_key, output_path)
+    return ok
+
+
+def _enrich_prompt(prompt: str, pillar: str, horror_mode: bool) -> str:
+    """Prefixes every image prompt with cinematic dark documentary style cues."""
+    style = "dark cinematic documentary, dramatic lighting, film grain, 4K"
+    if horror_mode:
+        style += ", horror atmosphere, deep shadows, unsettling"
+    pillar_suffix = {
+        "paranormal_haunted_jinn":      ", eerie supernatural, mist",
+        "human_betrayal_revenge":       ", intense noir, tension",
+        "mystery_disappearances":       ", suspense, cold tones",
+        "disturbing_accidents_records": ", clinical, stark",
+        "historical_dark_secrets":      ", aged textures, sepia accent",
+        "ai_original_horror":           ", cold blue glow, technological",
+        "secret_double_life":           ", venetian shadow, split tone",
+        "internet_confession":          ", screen glow, intimate",
+        "urban_legends_paranormal":     ", night fog, urban decay",
+        "true_shocking_crime":          ", crime scene, stark white flash",
+    }.get(pillar, "")
+    return f"{style}{pillar_suffix}. {prompt[:220]}"
+
+
+# ─────────────────────────────────────────────
+# LEONARDO AI (primary — best photorealism)
+# ─────────────────────────────────────────────
+
+def _generate_leonardo(prompt: str, out: Path) -> bool:
+    from config.settings import LEONARDO
+    if not LEONARDO:
         return False
-    with open(output_path, "wb") as f:
-        f.write(base64.b64decode(b64))
-    return output_path.stat().st_size > 5000
+    try:
+        # Step 1: create generation
+        resp = http_post_json(
+            "https://cloud.leonardo.ai/api/rest/v1/generations",
+            {
+                "prompt":               prompt[:500],
+                "negative_prompt":      _NEGATIVE,
+                "modelId":              "b24e16ff-06e3-43eb-8d33-4416c2d75876",  # Leonardo Diffusion XL
+                "width":                1280,
+                "height":               720,
+                "num_images":           1,
+                "guidance_scale":       7,
+                "scheduler":            "EULER_DISCRETE",
+                "photoReal":            True,
+                "photoRealVersion":     "v2",
+                "alchemy":              True,
+            },
+            headers={"authorization": f"Bearer {LEONARDO}"},
+            timeout=30,
+        )
+        gen_id = (resp.get("sdGenerationJob") or {}).get("generationId")
+        if not gen_id:
+            return False
+
+        # Step 2: poll for completion
+        for _ in range(30):
+            time.sleep(4)
+            poll = http_get_json(
+                f"https://cloud.leonardo.ai/api/rest/v1/generations/{gen_id}",
+                headers={"authorization": f"Bearer {LEONARDO}"},
+                timeout=15,
+            )
+            images = (
+                (poll.get("generations_by_pk") or {})
+                .get("generated_images", [])
+            )
+            if images:
+                url = images[0].get("url", "")
+                if url:
+                    return download_image(url, str(out), timeout=30)
+        return False
+    except Exception as exc:
+        log.debug(f"Leonardo error: {exc}")
+        return False
 
 
-def _generate_replicate(
-    prompt:      str,
-    output_path: Path,
-    width:       int,
-    height:      int,
-) -> bool:
-    """
-    Replicate SDXL with synchronous wait.
-    Falls back to FLUX Schnell if SDXL is unavailable.
-    """
-    w = _snap_to_64(min(width, 1280))
-    h = _snap_to_64(min(height, 720))
+# ─────────────────────────────────────────────
+# STABILITY AI (secondary — fast SDXL)
+# ─────────────────────────────────────────────
 
-    headers = {
-        "Authorization": f"Token {REPLICATE_API_TOKEN}",
-        "Content-Type":  "application/json",
-        "Prefer":        "wait=60",
-    }
+def _generate_stability(prompt: str, out: Path) -> bool:
+    from config.settings import STABILITY
+    if not STABILITY:
+        return False
+    try:
+        resp = http_post_json(
+            "https://api.stability.ai/v2beta/stable-image/generate/core",
+            {
+                "prompt":           prompt[:500],
+                "negative_prompt":  _NEGATIVE,
+                "aspect_ratio":     "16:9",
+                "output_format":    "jpeg",
+                "seed":             0,
+                "style_preset":     "cinematic",
+            },
+            headers={
+                "authorization": f"Bearer {STABILITY}",
+                "accept":        "application/json",
+            },
+            timeout=40,
+        )
+        b64 = resp.get("image") or resp.get("base64")
+        if b64:
+            out.write_bytes(base64.b64decode(b64))
+            return out.exists() and out.stat().st_size > 10_000
+        # Sometimes returns artifact URL
+        url = resp.get("finish_reasons", [{}])[0].get("uri", "")
+        if url:
+            return download_image(url, str(out), timeout=30)
+        return False
+    except Exception as exc:
+        log.debug(f"Stability error: {exc}")
+        return False
 
-    # Try SDXL first
-    for model_path, payload in [
-        (
-            "stability-ai/sdxl",
+
+# ─────────────────────────────────────────────
+# GETIMG (tertiary)
+# ─────────────────────────────────────────────
+
+def _generate_getimg(prompt: str, out: Path) -> bool:
+    from config.settings import GETIMG_API_KEY
+    key = GETIMG_API_KEY
+    if not key:
+        return False
+    try:
+        resp = http_post_json(
+            "https://api.getimg.ai/v1/stable-diffusion-xl/text-to-image",
+            {
+                "prompt":          prompt[:500],
+                "negative_prompt": _NEGATIVE,
+                "width":           1280,
+                "height":          720,
+                "steps":           25,
+                "output_format":   "jpeg",
+            },
+            headers={"authorization": f"Bearer {key}"},
+            timeout=40,
+        )
+        b64 = resp.get("image")
+        if b64:
+            out.write_bytes(base64.b64decode(b64))
+            return out.exists() and out.stat().st_size > 10_000
+        return False
+    except Exception as exc:
+        log.debug(f"GetIMG error: {exc}")
+        return False
+
+
+# ─────────────────────────────────────────────
+# REPLICATE SDXL (quaternary)
+# ─────────────────────────────────────────────
+
+def _generate_replicate(prompt: str, out: Path) -> bool:
+    from config.settings import REPLICATE_API_TOKEN
+    if not REPLICATE_API_TOKEN:
+        return False
+    try:
+        resp = http_post_json(
+            "https://api.replicate.com/v1/models/stability-ai/sdxl/predictions",
             {
                 "input": {
-                    "prompt":          prompt[:1500],
-                    "negative_prompt": _NEGATIVE_PROMPT,
-                    "width":           w,
-                    "height":          h,
-                    "num_outputs":     1,
+                    "prompt":          prompt[:500],
+                    "negative_prompt": _NEGATIVE,
+                    "width":           1280,
+                    "height":          720,
                     "num_inference_steps": 25,
                     "guidance_scale":  7.5,
-                }
+                },
             },
-        ),
-        (
-            "black-forest-labs/flux-schnell",
-            {
-                "input": {
-                    "prompt":          prompt[:1500],
-                    "width":           w,
-                    "height":          h,
-                    "num_outputs":     1,
-                    "num_inference_steps": 4,
-                    "go_fast":         True,
-                }
+            headers={
+                "Authorization": f"Token {REPLICATE_API_TOKEN}",
+                "Prefer":        "wait=60",
             },
-        ),
-    ]:
-        try:
-            resp = with_retry(
-                http_post_json,
-                f"https://api.replicate.com/v1/models/{model_path}/predictions",
-                payload,
-                headers=headers,
-                timeout=90,
-            )
-            # Replicate may need polling if not complete in wait window
-            pred_id  = resp.get("id")
-            output   = resp.get("output")
-            status   = resp.get("status", "")
-
-            if not output and pred_id and status not in ("failed", "canceled"):
-                output = _poll_replicate(pred_id)
-
-            if isinstance(output, list) and output:
-                img_url = output[0]
-            elif isinstance(output, str) and output.startswith("http"):
-                img_url = output
-            else:
-                continue
-
-            raw = with_retry(http_get, img_url, timeout=30)
-            with open(output_path, "wb") as f:
-                f.write(raw)
-            if output_path.stat().st_size > 5000:
-                return True
-        except Exception as exc:
-            log.debug(f"Replicate model {model_path} failed: {exc}")
-            continue
-
-    return False
-
-
-def _poll_replicate(prediction_id: str, max_wait_sec: int = 90) -> Optional[list]:
-    """Polls Replicate prediction until SUCCESS or timeout."""
-    headers  = {"Authorization": f"Token {REPLICATE_API_TOKEN}"}
-    url      = f"https://api.replicate.com/v1/predictions/{prediction_id}"
-    deadline = time.time() + max_wait_sec
-
-    while time.time() < deadline:
-        time.sleep(3)
-        try:
-            resp   = with_retry(http_get_json, url, headers=headers, timeout=15)
-            status = resp.get("status", "")
-            if status == "succeeded":
-                return resp.get("output")
-            if status in ("failed", "canceled"):
-                return None
-        except Exception:
-            break
-    return None
-
-
-def _generate_huggingface(
-    prompt:      str,
-    output_path: Path,
-) -> bool:
-    """
-    HuggingFace Inference API — SDXL base model.
-    Returns raw JPEG bytes.
-    """
-    try:
-        raw = with_retry(
-            http_post_json,
-            "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
-            {"inputs": prompt[:1000]},
-            headers={"Authorization": f"Bearer {HF_API_TOKEN}"},
             timeout=90,
         )
-        # HF sometimes returns {"error": "..."} as JSON
-        if isinstance(raw, dict):
-            log.warning(f"HuggingFace returned JSON error: {raw}")
+        output = resp.get("output", [])
+        if isinstance(output, list) and output:
+            return download_image(output[0], str(out), timeout=30)
+        pred_id = resp.get("id")
+        if not pred_id:
             return False
-    except Exception:
-        # HF inference API returns raw bytes, not JSON — try direct GET
-        try:
-            import urllib.request, urllib.error
-            import urllib.parse as up
-            body = json.dumps({"inputs": prompt[:1000]}).encode()
-            req  = urllib.request.Request(
-                "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
-                data=body,
-                headers={
-                    "Authorization":  f"Bearer {HF_API_TOKEN}",
-                    "Content-Type":   "application/json",
-                },
-                method="POST",
+        for _ in range(20):
+            time.sleep(5)
+            poll = http_get_json(
+                f"https://api.replicate.com/v1/predictions/{pred_id}",
+                headers={"Authorization": f"Token {REPLICATE_API_TOKEN}"},
+                timeout=15,
             )
-            with urllib.request.urlopen(req, timeout=90) as resp:
-                content_type = resp.headers.get("Content-Type", "")
-                if "image" in content_type:
-                    raw = resp.read()
-                    with open(output_path, "wb") as f:
-                        f.write(raw)
-                    return output_path.stat().st_size > 5000
-        except Exception as exc:
-            log.warning(f"HuggingFace raw request failed: {exc}")
+            if poll.get("status") == "succeeded":
+                urls = poll.get("output", [])
+                if urls:
+                    return download_image(urls[0], str(out), timeout=30)
+            if poll.get("status") in ("failed", "canceled"):
+                return False
+        return False
+    except Exception as exc:
+        log.debug(f"Replicate SDXL error: {exc}")
         return False
 
-    if isinstance(raw, (bytes, bytearray)):
-        with open(output_path, "wb") as f:
-            f.write(raw)
-        return output_path.stat().st_size > 5000
-    return False
-
 
 # ─────────────────────────────────────────────
-# UTILITIES
+# HUGGINGFACE (final fallback — free)
 # ─────────────────────────────────────────────
 
-def _snap_to_64(value: int) -> int:
-    """Rounds down to nearest multiple of 64 (required by most diffusion models)."""
-    return max(64, (value // 64) * 64)
+def _generate_huggingface(prompt: str, out: Path) -> bool:
+    from config.settings import HF_API_TOKEN
+    if not HF_API_TOKEN:
+        return False
+    try:
+        raw = http_post_json(
+            "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
+            {"inputs": prompt[:400]},
+            headers={"Authorization": f"Bearer {HF_API_TOKEN}"},
+            timeout=60,
+        )
+        if isinstance(raw, dict):
+            b64 = raw.get("image") or raw.get("generated_image")
+            if b64:
+                out.write_bytes(base64.b64decode(b64))
+                return out.exists() and out.stat().st_size > 10_000
+        # HF can return raw bytes as image
+        if isinstance(raw, bytes) and len(raw) > 10_000:
+            out.write_bytes(raw)
+            return True
+        return False
+    except Exception as exc:
+        log.debug(f"HuggingFace error: {exc}")
+        return False
