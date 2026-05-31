@@ -397,8 +397,26 @@ def _log_phase7_summary(ctx: DailyRunContext, run_log: PipelineRunLogger) -> Non
     story     = ctx.selected_story
     dur       = blueprint.get("estimated_duration_sec", 0)
     log.info("")
+    # Phase B status
+    t2v_clips   = sum(1 for s in (ctx.scene_assets or []) if s.get("asset_type") == "video_clip")
+    aai_synced  = hasattr(ctx, "word_timestamps") and bool(ctx.word_timestamps)
+    r2_enabled  = False
+    try:
+        from utils.r2_cache import R2Cache
+        r2_enabled = R2Cache.get().is_available()
+    except Exception:
+        pass
     log.info("═" * 62)
     log.info("  KARMA VAULT STORIES — PIPELINE COMPLETE")
+    # Phase B status
+    t2v_clips   = sum(1 for s in (ctx.scene_assets or []) if s.get("asset_type") == "video_clip")
+    aai_synced  = hasattr(ctx, "word_timestamps") and bool(ctx.word_timestamps)
+    r2_enabled  = False
+    try:
+        from utils.r2_cache import R2Cache
+        r2_enabled = R2Cache.get().is_available()
+    except Exception:
+        pass
     log.info("═" * 62)
     log.info(f"  Run ID    : {ctx.run_id}")
     log.info(f"  Story     : {story.title[:68] if story else 'N/A'}")
@@ -410,7 +428,18 @@ def _log_phase7_summary(ctx: DailyRunContext, run_log: PipelineRunLogger) -> Non
     log.info(f"  Video ID  : {ctx.youtube_video_id or 'not uploaded'}")
     log.info(f"  Short ID  : {ctx.youtube_short_id or 'not uploaded'}")
     log.info(f"  Status    : {ctx.upload_status}")
+    log.info(f"  T2V clips : {sum(1 for s in (ctx.scene_assets or []) if s.get('asset_type')=='video_clip')}")
+    log.info(f"  AAI sync  : {hasattr(ctx,'word_timestamps') and bool(getattr(ctx,'word_timestamps',None))}")
     log.info(f"  Stages    : {ctx.stages_completed}")
+    # Phase B status
+    t2v_clips   = sum(1 for s in (ctx.scene_assets or []) if s.get("asset_type") == "video_clip")
+    aai_synced  = hasattr(ctx, "word_timestamps") and bool(ctx.word_timestamps)
+    r2_enabled  = False
+    try:
+        from utils.r2_cache import R2Cache
+        r2_enabled = R2Cache.get().is_available()
+    except Exception:
+        pass
     log.info("═" * 62)
     run_log.record("youtube_video_id",  ctx.youtube_video_id)
     run_log.record("youtube_short_id",  ctx.youtube_short_id)
