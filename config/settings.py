@@ -24,6 +24,7 @@ SFX_DIR = AUDIO_DIR / "sfx"
 LOGS_DIR = ROOT_DIR / "logs"
 WORKSPACE_DIR = Path(os.environ.get("GITHUB_WORKSPACE", str(ROOT_DIR)))
 
+# Ensure all runtime directories exist
 for _d in [
     DATA_DIR, STORY_BANK_DIR, ANALYTICS_DIR, HEURISTICS_DIR,
     EMERGENCY_EXPORT_DIR, ASSETS_DIR, FONTS_DIR, AUDIO_DIR,
@@ -39,6 +40,7 @@ GROQ_API_KEY        = os.environ.get("GROQ_API_KEY", "")
 OPENROUTER_KEY      = os.environ.get("OPENROUTER_KEY", "")
 OPENAI_API_KEY      = os.environ.get("OPENAI_API_KEY", "")
 
+# Writing model fallback chain (primary → secondary → tertiary)
 WRITING_MODEL_CHAIN = [
     {
         "provider": "gemini",
@@ -76,6 +78,7 @@ CAMB_AI_KEY_1               = os.environ.get("CAMB_AI_KEY_1", "")
 DEEPGRAM_API_KEY            = os.environ.get("DEEPGRAM_API_KEY", "")
 ASSEMBLYAI                  = os.environ.get("ASSEMBLYAI", "")
 
+# TTS fallback chain (primary → secondary → tertiary)
 TTS_PROVIDER_CHAIN = [
     {
         "provider": "elevenlabs",
@@ -121,81 +124,77 @@ INTERNET_ARCHIVE_SECRET_KEY = os.environ.get("INTERNET_ARCHIVE_SECRET_KEY", "")
 NASA_API_KEY                = os.environ.get("NASA_API_KEY", "")
 REMOVE_BG_API               = os.environ.get("REMOVE_BG_API", "")
 
+# Visual source fallback chain (stock first, AI generation as fallback)
 VISUAL_SOURCE_CHAIN = [
-    # ── Keyed stock providers (rate-limited but high quality) ──────
     {
-        "provider":    "pexels",
+        "provider": "pexels",
         "api_key_env": "PEXELS_API_KEY",
-        "key":         PEXELS_API_KEY,
-        "base_url":    "https://api.pexels.com/v1",
-        "type":        "stock",
+        "key": PEXELS_API_KEY,
+        "base_url": "https://api.pexels.com/v1",
+        "type": "stock",
     },
     {
-        "provider":    "pixabay",
+        "provider": "pixabay",
         "api_key_env": "PIXABAY_API_KEY",
-        "key":         PIXABAY_API_KEY,
-        "base_url":    "https://pixabay.com/api",
-        "type":        "stock",
+        "key": PIXABAY_API_KEY,
+        "base_url": "https://pixabay.com/api",
+        "type": "stock",
     },
     {
-        "provider":    "unsplash",
+        "provider": "unsplash",
         "api_key_env": "UNSPLASH_ACCESS_KEY",
-        "key":         UNSPLASH_ACCESS_KEY,
-        "base_url":    "https://api.unsplash.com",
-        "type":        "stock",
+        "key": UNSPLASH_ACCESS_KEY,
+        "base_url": "https://api.unsplash.com",
+        "type": "stock",
     },
     {
-        "provider":    "coverr",
+        "provider": "coverr",
         "api_key_env": "COVERR_API_KEY",
-        "key":         COVERR_API_KEY,
-        "base_url":    "https://api.coverr.co",
-        "type":        "video",
+        "key": COVERR_API_KEY,
+        "base_url": "https://api.coverr.co",
+        "type": "video",
     },
     {
-        "provider":    "internet_archive",
+        "provider": "internet_archive",
         "api_key_env": "INTERNET_ARCHIVE_ACCESS_KEY",
-        "key":         INTERNET_ARCHIVE_ACCESS_KEY,
-        "base_url":    "https://archive.org",
-        "type":        "stock",
-    },
-    # ── Zero-API-key free providers (unlimited, always available) ──
-    # Positioned BEFORE AI generation so they are tried first when
-    # keyed stock providers are exhausted or rate-limited.
-    {
-        "provider":    "wikimedia",
-        "api_key_env": None,
-        "key":         "no_key_required",   # sentinel — always active
-        "base_url":    "https://commons.wikimedia.org",
-        "type":        "stock",
+        "key": INTERNET_ARCHIVE_ACCESS_KEY,
+        "base_url": "https://archive.org",
+        "type": "stock",
     },
     {
-        "provider":    "openverse",
-        "api_key_env": None,
-        "key":         "no_key_required",   # sentinel — always active
-        "base_url":    "https://api.openverse.org",
-        "type":        "stock",
-    },
-    # ── AI generation providers (last resort, uses API credits) ───
-    {
-        "provider":    "getimg",
+        "provider": "getimg",
         "api_key_env": "GETIMG_API_KEY",
-        "key":         GETIMG_API_KEY,
-        "base_url":    "https://api.getimg.ai/v1",
-        "type":        "ai_generation",
+        "key": GETIMG_API_KEY,
+        "base_url": "https://api.getimg.ai/v1",
+        "type": "ai_generation",
     },
     {
-        "provider":    "replicate",
+        "provider": "replicate",
         "api_key_env": "REPLICATE_API_TOKEN",
-        "key":         REPLICATE_API_TOKEN,
-        "base_url":    "https://api.replicate.com/v1",
-        "type":        "ai_generation",
+        "key": REPLICATE_API_TOKEN,
+        "base_url": "https://api.replicate.com/v1",
+        "type": "ai_generation",
     },
     {
-        "provider":    "huggingface",
+        "provider": "huggingface",
         "api_key_env": "HF_API_TOKEN",
-        "key":         HF_API_TOKEN,
-        "base_url":    "https://api-inference.huggingface.co",
-        "type":        "ai_generation",
+        "key": HF_API_TOKEN,
+        "base_url": "https://api-inference.huggingface.co",
+        "type": "ai_generation",
+    },
+    {
+        "provider":     "wikimedia",
+        "api_key_env":  None,
+        "key":          "no_key_required",
+        "base_url":     "https://commons.wikimedia.org",
+        "type":         "stock",
+    },
+    {
+        "provider":     "openverse",
+        "api_key_env":  None,
+        "key":          "no_key_required",
+        "base_url":     "https://api.openverse.org",
+        "type":         "stock",
     },
 ]
 
@@ -244,25 +243,26 @@ YT_CHANNEL_ID   = os.environ.get("YT_CHANNEL_ID", "")
 
 YOUTUBE_CREDENTIAL_PACKS = [
     {
-        "pack_id":       1,
+        "pack_id": 1,
         "client_id":     os.environ.get("YT_CLIENT_ID_1", ""),
         "client_secret": os.environ.get("YT_CLIENT_SECRET_1", ""),
         "refresh_token": os.environ.get("YT_REFRESH_TOKEN_1", ""),
     },
     {
-        "pack_id":       2,
+        "pack_id": 2,
         "client_id":     os.environ.get("YT_CLIENT_ID_2", ""),
         "client_secret": os.environ.get("YT_CLIENT_SECRET_2", ""),
         "refresh_token": os.environ.get("YT_REFRESH_TOKEN_2", ""),
     },
     {
-        "pack_id":       3,
+        "pack_id": 3,
         "client_id":     os.environ.get("YT_CLIENT_ID_3", ""),
         "client_secret": os.environ.get("YT_CLIENT_SECRET_3", ""),
         "refresh_token": os.environ.get("YT_REFRESH_TOKEN_3", ""),
     },
 ]
 
+# Filter to only packs with all three credentials present
 ACTIVE_YT_PACKS = [
     p for p in YOUTUBE_CREDENTIAL_PACKS
     if p["client_id"] and p["client_secret"] and p["refresh_token"]
@@ -272,16 +272,17 @@ ACTIVE_YT_PACKS = [
 # AUDIO / SFX SECRETS
 # ─────────────────────────────────────────────
 FREESOUND_CREDENTIALS = {
-    "api_key":   FREESOUND_API,
+    "api_key": FREESOUND_API,
     "client_id": FREESOUND_ID,
-    "base_url":  "https://freesound.org/apiv2",
+    "base_url": "https://freesound.org/apiv2",
 }
 
 # ─────────────────────────────────────────────
 # RUNTIME BEHAVIOR TUNING
 # ─────────────────────────────────────────────
+# GitHub Actions runner has ~7GB RAM, 2-core CPU, 6hr job limit
 MAX_IMAGES_PER_SCENE        = 3
-MAX_VISUAL_ASSETS_LONG      = 55
+MAX_VISUAL_ASSETS_LONG      = 55        # 35–60 per dossier spec
 MIN_VISUAL_ASSETS_LONG      = 35
 SCENE_DURATION_MIN_SEC      = 3
 SCENE_DURATION_MAX_SEC      = 6
@@ -296,6 +297,7 @@ API_RETRY_BACKOFF_SEC       = 2
 MAX_STORY_CANDIDATES        = 40
 MIN_STORY_CANDIDATES        = 20
 
+# Video rendering specs
 VIDEO_WIDTH                 = 1920
 VIDEO_HEIGHT                = 1080
 SHORT_WIDTH                 = 1080
@@ -305,6 +307,7 @@ VIDEO_BITRATE               = "4000k"
 AUDIO_BITRATE               = "192k"
 AUDIO_SAMPLE_RATE           = 44100
 
+# FFmpeg GitHub Actions optimized settings
 FFMPEG_THREADS              = 2
 FFMPEG_PRESET               = "faster"
 FFMPEG_CRF                  = 23
@@ -313,15 +316,84 @@ FFMPEG_CRF                  = 23
 # VALIDATION HELPER
 # ─────────────────────────────────────────────
 def validate_critical_secrets() -> dict:
-    return {
+    """
+    Returns a report of which critical secret groups are available.
+    Does NOT raise — pipeline must handle partial availability gracefully.
+    """
+    report = {
         "writing_available": any(p["key"] for p in WRITING_MODEL_CHAIN),
-        "tts_available":     bool(ELEVEN_API_KEY or CAMB_AI_KEY_1) or True,
+        "tts_available": bool(ELEVEN_API_KEY or CAMB_AI_KEY_1) or True,  # edge_tts always available
         "visuals_available": any(p["key"] for p in VISUAL_SOURCE_CHAIN),
-        "search_available":  any(p["key"] for p in SEARCH_PROVIDER_CHAIN),
+        "search_available": any(p["key"] for p in SEARCH_PROVIDER_CHAIN),
         "youtube_available": bool(ACTIVE_YT_PACKS),
-        "active_yt_packs":   len(ACTIVE_YT_PACKS),
-        "writing_primary":   next((p["provider"] for p in WRITING_MODEL_CHAIN if p["key"]), "none"),
-        "tts_primary":       next((p["provider"] for p in TTS_PROVIDER_CHAIN if p.get("key")), "edge_tts"),
-        "visual_primary":    next((p["provider"] for p in VISUAL_SOURCE_CHAIN if p["key"]), "wikimedia"),
-        "search_primary":    next((p["provider"] for p in SEARCH_PROVIDER_CHAIN if p["key"]), "none"),
+        "active_yt_packs": len(ACTIVE_YT_PACKS),
+        "writing_primary": next((p["provider"] for p in WRITING_MODEL_CHAIN if p["key"]), "none"),
+        "tts_primary": next((p["provider"] for p in TTS_PROVIDER_CHAIN if p.get("key")), "edge_tts"),
+        "visual_primary": next((p["provider"] for p in VISUAL_SOURCE_CHAIN if p["key"]), "none"),
+        "search_primary": next((p["provider"] for p in SEARCH_PROVIDER_CHAIN if p["key"]), "none"),
     }
+    return report
+
+
+# ═══════════════════════════════════════════════════════
+# PHASE B — TEXT-TO-VIDEO & ADVANCED AI SECRETS
+# ═══════════════════════════════════════════════════════
+
+# Text-to-Video
+RUNWAY_API              = os.environ.get("RUNWAY_API", "")
+PIKA_LABS               = os.environ.get("PIKA_LABS", "")
+MODELS_LAB              = os.environ.get("MODELS_LAB", "")
+MINIMAX                 = os.environ.get("MINIMAX", "")
+SEGMIND                 = os.environ.get("SEGMIND", "")
+
+# Premium Image Generation
+LEONARDO                = os.environ.get("LEONARDO", "")
+STABILITY               = os.environ.get("STABILITY", "")
+DEEP_AI                 = os.environ.get("DEEP_AI", "")
+DEZGO                   = os.environ.get("DEZGO", "")
+EDEN_AI                 = os.environ.get("EDEN_AI", "")
+TOGETHER_AI             = os.environ.get("TOGETHER_AI", "")
+
+# Cloudflare R2 Cache
+S3_API_CLOUDFLARE_R2     = os.environ.get("S3_API_CLOUDFLARE_R2", "")
+ACCOUNT_ID_CLOUDFLARE_R2 = os.environ.get("ACCOUNT_ID_CLOUDFLARE_R2", "")
+CLOUDFLARE_TOKEN         = os.environ.get("CLOUDFLARE_TOKEN", "")
+CLOUDFLARE_API           = os.environ.get("CLOUDFLARE_API", "")
+
+# Subtitle Sync & Transcription
+DEEPGRAM_API_KEY        = os.environ.get("DEEPGRAM_API_KEY", "")
+# ASSEMBLYAI already declared above
+
+# Observability & Analytics
+HELICONE                = os.environ.get("HELICONE", "")
+LANG_SMITH              = os.environ.get("LANG_SMITH", "")
+POSTHOG_ID              = os.environ.get("POSTHOG_ID", "")
+POSTHOG_PROJECT_TOKEN   = os.environ.get("POSTHOG_PROJECT_TOKEN", "")
+SUPABASE                = os.environ.get("SUPABASE", "")
+REDIS_CACHE             = os.environ.get("REDIS_CACHE", "")
+
+# Data & Tools
+SUPADATA_API            = os.environ.get("SUPADATA_API", "")
+FIRECRAWL               = os.environ.get("FIRECRAWL", "")
+BANNERBEAR              = os.environ.get("BANNERBEAR", "")
+APITEMPLATE             = os.environ.get("APITEMPLATE", "")
+AI_HORDE                = os.environ.get("AI_HORDE", "")
+HEY_GEN                 = os.environ.get("HEY_GEN", "")
+ASTRIA                  = os.environ.get("ASTRIA", "")
+GOOGLE_SEARCH_RESULTS_SCRAPER = os.environ.get("GOOGLE_SEARCH_RESULTS_SCRAPER", "")
+YOUTUBE_TRANSCRIPT_API  = os.environ.get("YOUTUBE_TRANSCRIPT_API", "")
+NOAA_API_KEY            = os.environ.get("NOAA_API_KEY", "")
+REPLICATE_MODELS        = os.environ.get("REPLICATE_MODELS", "")
+
+# ── Phase B Feature Flags ─────────────────────────────────────────────────────
+ENABLE_T2V_CLIPS        = bool(
+    os.environ.get("RUNWAY_API")
+    or os.environ.get("PIKA_LABS")
+    or os.environ.get("MODELS_LAB")
+)
+ENABLE_R2_CACHE         = bool(
+    os.environ.get("S3_API_CLOUDFLARE_R2")
+    and os.environ.get("ACCOUNT_ID_CLOUDFLARE_R2")
+)
+ENABLE_ASSEMBLYAI_SYNC  = bool(os.environ.get("ASSEMBLYAI"))
+T2V_CLIPS_PER_VIDEO     = 12   # max T2V clips generated per daily video
