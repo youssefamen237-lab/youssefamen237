@@ -126,10 +126,10 @@ def run_scene_builder(ctx: DailyRunContext) -> DailyRunContext:
     country   = (ctx.selected_story.country
                  if ctx.selected_story else "Unknown")
 
-    # ── Step 1: Build image asset pool ───────────────────────────
-    log.info("Downloading and grading visual assets...")
-    image_pool = _build_image_pool(parts, pillar, ctx.run_id)
-    log.info(f"Image pool: {len(image_pool)} processed images")
+    # ── Step 1: Build image + video asset pools ──────────────────
+    log.info("Downloading visual assets (images + Pexels dark stock video)...")
+    image_pool, video_pool = _build_image_pool(parts, pillar, country, ctx.run_id)
+    log.info(f"Asset pools: {len(image_pool)} images, {len(video_pool)} stock video clips")
 
     # ── Step 2: Generate documentary cards ───────────────────────
     log.info("Generating documentary cards...")
@@ -139,7 +139,7 @@ def run_scene_builder(ctx: DailyRunContext) -> DailyRunContext:
     # ── Step 3: Assemble scene timeline ──────────────────────────
     log.info("Assembling scene timeline...")
     scene_assets = _build_scene_timeline(
-        parts, image_pool, card_assets, blueprint, pillar
+        parts, image_pool, card_assets, blueprint, pillar, video_pool
     )
     log.info(f"Scene timeline: {len(scene_assets)} total visual events")
 
@@ -181,15 +181,18 @@ def run_scene_builder(ctx: DailyRunContext) -> DailyRunContext:
 # ─────────────────────────────────────────────
 
 def _build_image_pool(
-    parts:  list[dict],
-    pillar: str,
-    run_id: str,
-) -> list[Path]:
+    parts:   list[dict],
+    pillar:  str,
+    country: str,
+    run_id:  str,
+) -> tuple[list[Path], list[Path]]:
     """
     Downloads and grades images for each blueprint part.
-    Returns a flat list of graded image paths.
+    Also downloads Pexels stock videos as fallback for key scenes.
+    Returns (image_pool, video_pool).
     """
-    pool: list[Path] = []
+    pool:       list[Path] = []
+    video_pool: list[Path] = []
     pillar_queries = list(_PILLAR_STOCK_QUERIES.get(pillar, _GENERIC_DARK_QUERIES))
     random.shuffle(pillar_queries)
     query_cursor = 0
@@ -248,7 +251,31 @@ def _build_image_pool(
         pool.extend(graded_part)
         log.info(f"  Part '{part_id}': {len(graded_part)} images in pool")
 
-    return pool
+    # ── Pexels stock video pool for key visual moments ───────────
+    try:
+        from utils.api_client import fetch_pexels_videos, get_pexels_video_queries_for_pillar
+        video_queries = get_pexels_video_queries_for_pillar(pillar)
+        random.shuffle(video_queries)
+        for q in video_queries[:4]:
+            results = fetch_pexels_videos(query=q, count=2)
+            for r in results:
+                url = r.get("url", "")
+                if not url:
+                    continue
+                vid_name  = f"pexels_vid_{len(video_pool):03d}.mp4"
+                vid_path  = image_path(run_id, vid_name)
+                vid_path.parent.mkdir(parents=True, exist_ok=True)
+                if download_image(url, str(vid_path), timeout=60):
+                    if vid_path.exists() and vid_path.stat().st_size > 100_000:
+                        video_pool.append(vid_path)
+                        log.info(f"  Pexels video downloaded: {vid_name} ({vid_path.stat().st_size//1024}KB)")
+            if len(video_pool) >= 6:
+                break
+            time.sleep(0.5)
+    except Exception as pex_exc:
+        log.warning(f"Pexels video pool fetch failed (non-fatal): {pex_exc}")
+
+    return pool, video_pool
 
 
 def _fetch_and_download_images(
@@ -635,6 +662,7 @@ def _build_scene_timeline(
     card_assets: dict[str, Path],
     blueprint:   dict,
     pillar:      str,
+    video_pool:  list[Path] | None = None,
 ) -> list[dict]:
     """
     Assembles the complete scene timeline.
@@ -703,10 +731,16 @@ def _build_scene_timeline(
             cut_dur = max(2.5, cut_dur)
 
             # Get image from pool (cycle)
-            if image_pool:
-                img_path = image_pool[pool_idx % len(image_pool)]
+            # Use Pexels stock video clip for peak horror/climax scenes if available
+            if (video_pool and part_id in ("climax", "escalation", "hook")
+                    and pool_idx < len(video_pool)):
+                img_path  = video_pool[pool_idx % len(video_pool)]
+                asset_type = "video_clip"   # renderer uses -stream_loop
                 pool_idx += 1
+            elif image_pool:
+                img_path  = image_pool[pool_idx % len(image_pool)]
                 asset_type = AssetCategory.STOCK_PHOTO.value
+                pool_idx += 1
             else:
                 img_path = card_assets.get("cctv_overlay_intro",
                            next(iter(card_assets.values()), None))
