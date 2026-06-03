@@ -276,7 +276,87 @@ def _generate_single_fallback(
             r2.put_clip(clip_cache_key(prompt), out)
         return out
 
-    log.warning(f"  Clip {idx:04d}: all T2V providers failed.")
+    # ── Pexels stock video — final fallback before giving up ────────
+    pexels_clip = _pexels_video_fallback(scene, pillar, out, idx)
+    if pexels_clip:
+        log.info(f"  Clip {idx:04d}: Pexels stock video ({pexels_clip.stat().st_size // 1024}KB)")
+        return pexels_clip
+
+    log.warning(f"  Clip {idx:04d}: all T2V + Pexels providers failed — static image will be used.")
+    return None
+
+
+# ─────────────────────────────────────────────
+# PEXELS STOCK VIDEO FALLBACK
+# ─────────────────────────────────────────────
+
+def _pexels_video_fallback(
+    scene:  dict,
+    pillar: str,
+    out:    Path,
+    idx:    int,
+) -> Optional[Path]:
+    """
+    Downloads a dark cinematic stock video from Pexels as a T2V fallback.
+    Uses pillar-specific queries to ensure thematic relevance.
+    Trims to the required scene duration using FFmpeg -t flag.
+    """
+    try:
+        from utils.api_client import fetch_pexels_videos, get_pexels_video_queries_for_pillar
+        from utils.api_client import download_image
+
+        queries = get_pexels_video_queries_for_pillar(pillar)
+        # Mix in scene-specific terms for better relevance
+        part_id = scene.get("part_id", "")
+        if part_id in ("climax", "escalation"):
+            queries = queries[:2] + [
+                "dark dramatic intense scene",
+                "horror atmosphere dark shadows",
+            ]
+        elif part_id == "hook":
+            queries = ["dark atmospheric dramatic opening"] + queries[:2]
+
+        for query in queries[:4]:
+            results = fetch_pexels_videos(query=query, count=3)
+            for result in results:
+                url      = result.get("url", "")
+                duration = int(result.get("duration", 0))
+                if not url or duration < 3:
+                    continue
+
+                raw_path = out.parent / f"_pexels_raw_{idx:04d}.mp4"
+                ok = download_image(url, str(raw_path), timeout=60)
+                if not ok or not raw_path.exists() or raw_path.stat().st_size < 100_000:
+                    raw_path.unlink(missing_ok=True)
+                    continue
+
+                # Apply dark cinematic grading via FFmpeg
+                import subprocess
+                result_cmd = subprocess.run([
+                    "ffmpeg", "-y",
+                    "-i", str(raw_path),
+                    "-vf", (
+                        "scale=1920:1080:force_original_aspect_ratio=decrease,"
+                        "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=black,"
+                        "eq=contrast=1.25:brightness=-0.08:saturation=0.6,"
+                        "vignette=PI/4,"
+                        "format=yuv420p"
+                    ),
+                    "-c:v", "libx264", "-preset", "faster", "-crf", "23",
+                    "-an",
+                    str(out),
+                ], capture_output=True, timeout=120)
+
+                raw_path.unlink(missing_ok=True)
+
+                if result_cmd.returncode == 0 and out.exists() and out.stat().st_size > 50_000:
+                    return out
+                out.unlink(missing_ok=True)
+
+    except Exception as exc:
+        from utils.logger import get_logger
+        get_logger(__name__).debug(f"Pexels video fallback failed (scene {idx}): {exc}")
+
     return None
 
 
@@ -536,4 +616,3 @@ def _get_reference_b64(
         log.debug(f"Reference image gen failed (scene {idx}): {exc}")
 
     return None
-      
