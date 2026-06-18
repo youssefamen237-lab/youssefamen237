@@ -1,0 +1,49 @@
+name: Analytics & Learning
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull YouTube Analytics and update Learning Memory
+        env:
+          SUPABASE: ${{ secrets.SUPABASE }}
+          REDIS_CACHE: ${{ secrets.REDIS_CACHE }}
+          YT_CLIENT_ID_4: ${{ secrets.YT_CLIENT_ID_4 }}
+          YT_CLIENT_SECRET_4: ${{ secrets.YT_CLIENT_SECRET_4 }}
+          YT_REFRESH_TOKEN_4: ${{ secrets.YT_REFRESH_TOKEN_4 }}
+        run: |
+          python << 'PYEOF'
+          import json
+          from youtube.management.analytics_puller import get_analytics_puller
+          from analytics.performance_analyzer import get_performance_analyzer
+
+          pull_summary = get_analytics_puller().run()
+          print("Analytics pull:")
+          print(json.dumps(pull_summary, indent=2))
+
+          analysis_summary = get_performance_analyzer().run()
+          print("Performance analysis:")
+          print(json.dumps(analysis_summary, indent=2))
+
+          if pull_summary.get("errors", 0) > 0:
+              print(f"::warning::{pull_summary['errors']} video(s) failed analytics retrieval.")
+          PYEOF

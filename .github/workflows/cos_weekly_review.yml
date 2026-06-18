@@ -1,0 +1,43 @@
+name: COS Weekly Review
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run COS weekly review
+        env:
+          SUPABASE: ${{ secrets.SUPABASE }}
+        run: |
+          python << 'PYEOF'
+          import json
+          from channel_os.cos import get_cos
+
+          decision = get_cos().run_weekly_review()
+          print(json.dumps(decision, indent=2, default=str))
+
+          for change in decision["changes"]:
+              status = "applied" if change["applied"] else "rejected (locked)"
+              print(f"::notice::[{status}] {change['rule']}: {change['reason']}")
+
+          if not decision["changes"]:
+              print("::notice::COS made no changes this week — insufficient data or already optimal.")
+          PYEOF

@@ -1,0 +1,45 @@
+name: Storage Cleanup
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run storage cleanup
+        env:
+          SUPABASE: ${{ secrets.SUPABASE }}
+          ACCOUNT_ID_CLOUDFLARE_R2: ${{ secrets.ACCOUNT_ID_CLOUDFLARE_R2 }}
+          S3_API_CLOUDFLARE_R2: ${{ secrets.S3_API_CLOUDFLARE_R2 }}
+          CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_API: ${{ secrets.CLOUDFLARE_API }}
+          REDIS_CACHE: ${{ secrets.REDIS_CACHE }}
+        run: |
+          python << 'PYEOF'
+          import json
+          from storage.cleanup_manager import CleanupManager
+
+          report = CleanupManager().run_full_cleanup(dry_run=False)
+          print(json.dumps(report, default=str, indent=2))
+
+          pct = report.get("storage_health", {}).get("free_tier_used_pct", 0)
+          if isinstance(pct, (int, float)) and pct > 85:
+              print(f"::warning::R2 storage at {pct}% of free-tier ceiling.")
+          PYEOF

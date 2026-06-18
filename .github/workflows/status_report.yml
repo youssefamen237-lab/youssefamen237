@@ -1,0 +1,63 @@
+name: Status Report
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Update monetization status
+        env:
+          SUPABASE: ${{ secrets.SUPABASE }}
+          REDIS_CACHE: ${{ secrets.REDIS_CACHE }}
+          YT_CLIENT_ID_4: ${{ secrets.YT_CLIENT_ID_4 }}
+          YT_CLIENT_SECRET_4: ${{ secrets.YT_CLIENT_SECRET_4 }}
+          YT_REFRESH_TOKEN_4: ${{ secrets.YT_REFRESH_TOKEN_4 }}
+        run: |
+          python << 'PYEOF'
+          import json
+          from channel_os.monetization_tracker import get_monetization_tracker
+
+          result = get_monetization_tracker().run()
+          print(json.dumps(result, indent=2, default=str))
+          PYEOF
+
+      - name: Build dashboard
+        env:
+          SUPABASE: ${{ secrets.SUPABASE }}
+        run: python -m reporting.daily_dashboard STATUS.md
+
+      - name: Post to step summary
+        run: cat STATUS.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit STATUS.md
+        run: |
+          git config user.name "channel-os-bot"
+          git config user.email "channel-os-bot@users.noreply.github.com"
+          git add STATUS.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: update channel status report [skip ci]"
+            git push
+          fi

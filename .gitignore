@@ -1,0 +1,50 @@
+# ── Python ───────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+.eggs/
+.Python
+build/
+dist/
+
+# ── Virtual environments ────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Environment / secrets ───────────────────────────────────────────────
+.env
+.env.*
+*.env
+
+# ── Locally-generated media (production runs use temp dirs, never the repo) ─
+*.mp4
+*.mov
+*.mp3
+*.wav
+*.srt
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+
+# ── Logs ─────────────────────────────────────────────────────────────────
+*.log
+
+# ── Testing ──────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── OS / IDE ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,82 @@
+name: Queue Health Check
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  health_check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check system health
+        env:
+          SUPABASE: ${{ secrets.SUPABASE }}
+          REDIS_CACHE: ${{ secrets.REDIS_CACHE }}
+        run: |
+          python << 'PYEOF'
+          import json, sys
+          from storage.supabase_client import get_db
+          from storage.redis_client import get_redis
+
+          db = get_db()
+          redis = get_redis()
+
+          critical = []
+          warnings = []
+
+          if not redis.ping():
+              critical.append("Redis (Upstash) is not reachable.")
+          elif not redis.is_system_healthy():
+              critical.append(
+                  "No heartbeat from production/publishing workflows in the last 6 hours."
+              )
+
+          health = db.get_queue_health()
+          print(json.dumps(health, default=str, indent=2))
+
+          shorts_ready = int(health.get("shorts_ready", 0) or 0)
+          longs_ready  = int(health.get("longs_ready", 0) or 0)
+          failed_24h   = int(health.get("failed_24h", 0) or 0)
+
+          try:
+              buffer_rule = db.get_rule("content_buffer_targets") or {}
+          except Exception:
+              buffer_rule = {}
+
+          min_shorts = int(buffer_rule.get("emergency_pause_below_shorts", 5))
+          min_longs  = int(buffer_rule.get("emergency_pause_below_longs", 2))
+
+          if shorts_ready < min_shorts:
+              critical.append(f"Shorts buffer critically low: {shorts_ready} < {min_shorts}")
+
+          if longs_ready < min_longs:
+              warnings.append(f"Long-form buffer low: {longs_ready} < {min_longs}")
+
+          if failed_24h >= 5:
+              critical.append(f"High failure count in last 24h: {failed_24h}")
+
+          for w in warnings:
+              print(f"::warning::{w}")
+          for c in critical:
+              print(f"::error::{c}")
+
+          if critical:
+              sys.exit(1)
+
+          print("System healthy.")
+          PYEOF

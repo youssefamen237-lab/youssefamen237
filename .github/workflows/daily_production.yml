@@ -1,0 +1,99 @@
+name: Daily Production
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run production batch
+        env:
+          # ── LLM ──────────────────────────────────────────────────────────
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
+          TOGETHER_AI: ${{ secrets.TOGETHER_AI }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # ── TTS ──────────────────────────────────────────────────────────
+          ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+          ELEVEN_API_KEY_2: ${{ secrets.ELEVEN_API_KEY_2 }}
+          ELEVEN_API_KEY_3: ${{ secrets.ELEVEN_API_KEY_3 }}
+          ELEVENLABS_VOICE_ID_FEMALE: ${{ secrets.ELEVENLABS_VOICE_ID_FEMALE }}
+          ELEVENLABS_VOICE_ID_FEMALE_2_CASSIDY: ${{ secrets.ELEVENLABS_VOICE_ID_FEMALE_2_CASSIDY }}
+          ELEVENLABS_VOICE_ID_FEMALE_3_ALLISON: ${{ secrets.ELEVENLABS_VOICE_ID_FEMALE_3_ALLISON }}
+          ELEVENLABS_VOICE_ID_MALE: ${{ secrets.ELEVENLABS_VOICE_ID_MALE }}
+          ELEVENLABS_VOICE_ID_MALE_2_MARK: ${{ secrets.ELEVENLABS_VOICE_ID_MALE_2_MARK }}
+          ELEVENLABS_VOICE_ID_MALE_3_YOUNG_JAMAL: ${{ secrets.ELEVENLABS_VOICE_ID_MALE_3_YOUNG_JAMAL }}
+          # ── Footage ──────────────────────────────────────────────────────
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          COVERR_API_ID: ${{ secrets.COVERR_API_ID }}
+          COVERR_API_KEY: ${{ secrets.COVERR_API_KEY }}
+          INTERNET_ARCHIVE_ACCESS_KEY: ${{ secrets.INTERNET_ARCHIVE_ACCESS_KEY }}
+          INTERNET_ARCHIVE_SECRET_KEY: ${{ secrets.INTERNET_ARCHIVE_SECRET_KEY }}
+          VECTEEZY_ID: ${{ secrets.VECTEEZY_ID }}
+          VECTEEZY_SECRET_KEY: ${{ secrets.VECTEEZY_SECRET_KEY }}
+          # ── Still Images ─────────────────────────────────────────────────
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          FREEPIK_API_KEY: ${{ secrets.FREEPIK_API_KEY }}
+          # ── AI Images ────────────────────────────────────────────────────
+          GETIMG_API_KEY: ${{ secrets.GETIMG_API_KEY }}
+          GETIMG_AI: ${{ secrets.GETIMG_AI }}
+          STABILITY: ${{ secrets.STABILITY }}
+          DEZGO: ${{ secrets.DEZGO }}
+          AI_HORDE: ${{ secrets.AI_HORDE }}
+          # ── Research ─────────────────────────────────────────────────────
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          SERPAPI: ${{ secrets.SERPAPI }}
+          ZENSERP: ${{ secrets.ZENSERP }}
+          # ── Storage / Infra ──────────────────────────────────────────────
+          SUPABASE: ${{ secrets.SUPABASE }}
+          ACCOUNT_ID_CLOUDFLARE_R2: ${{ secrets.ACCOUNT_ID_CLOUDFLARE_R2 }}
+          S3_API_CLOUDFLARE_R2: ${{ secrets.S3_API_CLOUDFLARE_R2 }}
+          CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_API: ${{ secrets.CLOUDFLARE_API }}
+          REDIS_CACHE: ${{ secrets.REDIS_CACHE }}
+          # ── Music ────────────────────────────────────────────────────────
+          FREESOUND_API: ${{ secrets.FREESOUND_API }}
+          FREESOUND_ID: ${{ secrets.FREESOUND_ID }}
+        run: |
+          python << 'PYEOF'
+          import json, sys
+          from dataclasses import asdict
+          from pipelines.batch_runner import get_batch_runner
+
+          summary = get_batch_runner().run_production_batch()
+          print(json.dumps(asdict(summary), default=str, indent=2))
+
+          if summary.halted_reason:
+              print(f"::error::Production batch halted: {summary.halted_reason}")
+              sys.exit(1)
+
+          if summary.shorts_attempted > 0 and summary.shorts_approved == 0:
+              print("::warning::No shorts were approved this run.")
+
+          if summary.long_attempted and summary.long_result == "failed":
+              print("::warning::Long-form production failed this run.")
+          PYEOF
