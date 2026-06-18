@@ -71,23 +71,64 @@ class SupabaseClient:
     # ── Initialisation ────────────────────────────────────────────────────────
 
     def _bootstrap(self) -> None:
-        raw = os.getenv("SUPABASE", "").strip()
-        if not raw:
-            raise SupabaseClientError(
-                "SUPABASE environment variable is not set.\n"
-                'Expected JSON: {"url": "https://xxx.supabase.co", "key": "service_role_key"}'
-            )
-        try:
-            creds: Dict[str, str] = json.loads(raw)
-            url: str = creds["url"]
-            key: str = creds["key"]
-        except (json.JSONDecodeError, KeyError) as exc:
-            raise SupabaseClientError(
-                f"Cannot parse SUPABASE secret.  "
-                f'Must be JSON with "url" and "key" fields.  Error: {exc}'
-            )
+        url, key = self._resolve_credentials()
         self._client = create_client(url, key)
         logger.info("supabase_client_ready", host=url.split("//")[-1][:20] + "…")
+
+    @staticmethod
+    def _resolve_credentials() -> tuple:
+        """
+        Resolve Supabase URL + service-role key from env vars.
+        Supported formats (tried in order):
+
+        1. JSON string (recommended):
+               SUPABASE={"url":"https://xxx.supabase.co","key":"eyJ..."}
+        2. Pipe-separated:
+               SUPABASE=https://xxx.supabase.co|eyJ...
+        3. Two separate variables:
+               SUPABASE_URL=https://xxx.supabase.co
+               SUPABASE_KEY=eyJ...
+        """
+        raw = os.getenv("SUPABASE", "").strip()
+
+        # Format 1 — JSON
+        if raw and raw.lstrip().startswith("{"):
+            try:
+                creds: Dict[str, str] = json.loads(raw)
+                url = creds.get("url") or creds.get("SUPABASE_URL") or ""
+                key = creds.get("key") or creds.get("SUPABASE_KEY") or creds.get("service_role") or ""
+                if url and key:
+                    return url.strip(), key.strip()
+            except json.JSONDecodeError:
+                pass
+
+        # Format 2 — pipe-separated  https://xxx.supabase.co|eyJ...
+        if raw and "|" in raw:
+            parts = raw.split("|", 1)
+            if len(parts) == 2 and parts[0].startswith("http"):
+                return parts[0].strip(), parts[1].strip()
+
+        # Format 3 — separate SUPABASE_URL + SUPABASE_KEY env vars
+        url_env = (
+            os.getenv("SUPABASE_URL", "")
+            or os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
+        ).strip()
+        key_env = (
+            os.getenv("SUPABASE_KEY", "")
+            or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+            or os.getenv("SUPABASE_ANON_KEY", "")
+        ).strip()
+        if url_env and key_env:
+            return url_env, key_env
+
+        # Nothing worked — give a precise actionable error
+        raise SupabaseClientError(
+            "Cannot resolve Supabase credentials.  Set the SUPABASE GitHub Secret to:\n"
+            '  {"url": "https://YOUR_PROJECT_REF.supabase.co", "key": "YOUR_SERVICE_ROLE_KEY"}\n'
+            "Find both values in: Supabase dashboard → Project Settings → API.\n"
+            "Use the service_role key (not the anon key).\n"
+            f"Current SUPABASE value length: {len(raw)} chars."
+        )
 
     # ── Core executor with retry ───────────────────────────────────────────────
 
