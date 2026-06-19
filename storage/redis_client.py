@@ -153,12 +153,7 @@ class RedisClient:
     # ── Initialisation ────────────────────────────────────────────────────────
 
     def _bootstrap(self) -> None:
-        url = os.getenv("REDIS_CACHE", "").strip()
-        if not url:
-            raise ValueError(
-                "REDIS_CACHE environment variable is not set.\n"
-                "Expected Upstash URL: rediss://default:<password>@<host>.upstash.io:<port>"
-            )
+        url = self._resolve_redis_url()
         self._redis = redis.from_url(
             url,
             decode_responses=True,
@@ -167,10 +162,82 @@ class RedisClient:
             retry_on_timeout=True,
             health_check_interval=30,
         )
-        # Verify connection
         self._redis.ping()
         host = url.split("@")[-1].split(":")[0] if "@" in url else "unknown"
         logger.info("redis_client_ready", host=host[:20] + "…")
+
+    @staticmethod
+    def _resolve_redis_url() -> str:
+        """
+        Resolve a valid redis:// or rediss:// URL from REDIS_CACHE.
+
+        Supported formats (tried in order):
+
+        1. Full URL already valid:
+               REDIS_CACHE=rediss://default:PASSWORD@host.upstash.io:6379
+
+        2. Upstash REST URL accidentally pasted instead of Redis URL:
+               REDIS_CACHE=https://host.upstash.io  (auto-converted)
+
+        3. Host + password as JSON:
+               REDIS_CACHE={"host":"host.upstash.io","password":"xxx","port":6379}
+
+        4. Pipe-separated host|password:
+               REDIS_CACHE=host.upstash.io|PASSWORD
+        """
+        raw = os.getenv("REDIS_CACHE", "").strip()
+        if not raw:
+            raise ValueError(
+                "REDIS_CACHE environment variable is not set.\n"
+                "Set it to your Upstash Redis URL — found in:\n"
+                "  Upstash console → your database → Connect → Redis URL\n"
+                "Format: rediss://default:PASSWORD@HOST.upstash.io:6379"
+            )
+
+        # Format 1 — already a valid redis URL
+        if raw.startswith(("redis://", "rediss://", "unix://")):
+            return raw
+
+        # Format 2 — Upstash HTTPS REST URL accidentally used instead of Redis URL
+        # e.g. https://YOUR-ENDPOINT.upstash.io
+        if raw.startswith("https://") and "upstash.io" in raw:
+            raise ValueError(
+                "REDIS_CACHE looks like an Upstash REST URL (https://...), "
+                "but a Redis connection URL is required.\n"
+                "In the Upstash console → your database → Connect tab → "
+                "copy the value labelled 'Redis URL' (starts with rediss://)."
+            )
+
+        # Format 3 — JSON {"host":..., "password":..., "port":...}
+        if raw.startswith("{"):
+            try:
+                import json as _json
+                d = _json.loads(raw)
+                host = d.get("host") or d.get("endpoint") or ""
+                password = d.get("password") or d.get("token") or ""
+                port = int(d.get("port", 6379))
+                if host and password:
+                    return f"rediss://default:{password}@{host}:{port}"
+            except Exception:
+                pass
+
+        # Format 4 — pipe-separated  host.upstash.io|PASSWORD
+        if "|" in raw:
+            parts = raw.split("|", 1)
+            if len(parts) == 2:
+                host, password = parts[0].strip(), parts[1].strip()
+                port = 6379
+                if ":" in host:
+                    host, port_str = host.rsplit(":", 1)
+                    port = int(port_str)
+                return f"rediss://default:{password}@{host}:{port}"
+
+        raise ValueError(
+            f"Cannot parse REDIS_CACHE value (length {len(raw)}).\n"
+            "Set it to your Upstash Redis connection URL:\n"
+            "  Upstash console → your database → Connect → Redis URL\n"
+            "Format: rediss://default:PASSWORD@HOST.upstash.io:6379"
+        )
 
     @property
     def r(self) -> redis.Redis:
