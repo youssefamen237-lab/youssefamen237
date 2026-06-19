@@ -165,6 +165,13 @@ class R2Client:
             config=Config(
                 signature_version="s3v4",
                 retries={"max_attempts": 3, "mode": "adaptive"},
+                # Cloudflare R2 only supports path-style addressing
+                # (<endpoint>/<bucket>), not virtual-hosted-style
+                # (<bucket>.<endpoint>). botocore's "auto" default can pick
+                # virtual-hosted-style for custom endpoints, which R2 rejects
+                # with a bare "400 Bad Request" on HeadBucket / PutObject /
+                # GetObject. Forcing path style fixes this unconditionally.
+                s3={"addressing_style": "path"},
             ),
         )
 
@@ -173,7 +180,8 @@ class R2Client:
             self._s3.head_bucket(Bucket=self._bucket)
             logger.info("r2_client_ready", bucket=self._bucket, endpoint=endpoint)
         except ClientError as exc:
-            error_code = exc.response["Error"]["Code"]
+            error_code = exc.response.get("Error", {}).get("Code", "")
+            status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", "")
             if error_code == "404":
                 # Bucket does not yet exist — create it
                 self._s3.create_bucket(Bucket=self._bucket)
@@ -182,6 +190,21 @@ class R2Client:
                 raise ValueError(
                     f"R2 credentials rejected by Cloudflare (HTTP {error_code}). "
                     "Check S3_API_CLOUDFLARE_R2 and CLOUDFLARE_TOKEN secrets."
+                ) from exc
+            elif status == 400 or error_code in ("400", ""):
+                raise ValueError(
+                    "R2 returned 400 Bad Request on HeadBucket. This is almost "
+                    "always caused by one of:\n"
+                    f"  1. ACCOUNT_ID_CLOUDFLARE_R2 is wrong or malformed "
+                    f"(current endpoint: {endpoint}). It must be ONLY the "
+                    "32-character hex Account ID from the Cloudflare dashboard "
+                    "sidebar — not a URL, not an API token.\n"
+                    f"  2. Bucket name is invalid (current: '{self._bucket}'). "
+                    "Must be lowercase, no underscores, 3-63 chars.\n"
+                    "  3. S3_API_CLOUDFLARE_R2 / CLOUDFLARE_TOKEN are not a "
+                    "matching R2 API Token Access Key ID / Secret Access Key "
+                    "pair (create one at R2 → Manage R2 API Tokens, not a "
+                    "general Cloudflare API token)."
                 ) from exc
             else:
                 raise
