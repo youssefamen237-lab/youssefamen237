@@ -27,7 +27,7 @@ ffmpeg-python==0.2.0
 elevenlabs==1.11.0
 
 # ─── Edge-TTS (Free Fallback) ─────────────────────────────────
-edge-tts==6.1.12
+edge-tts>=6.1.19,<7.0.0
 
 # ─── Google AI (Gemini) ───────────────────────────────────────
 google-generativeai==0.8.3
