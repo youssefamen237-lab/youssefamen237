@@ -26,12 +26,25 @@ Alignment format
   alignment schema used by the ElevenLabs providers so the subtitle
   engine sees a uniform data structure regardless of which TTS was used.
 
+Stability note
+────────────────
+  edge-tts is an UNOFFICIAL reverse-engineered client for the same
+  backend that powers "Read Aloud" in Microsoft Edge. Microsoft rotates
+  the WSS "TrustedClientToken" handshake periodically, which breaks
+  older pinned versions of the edge-tts PyPI package with an HTTP 403
+  ("Invalid response status") until the package is updated to a release
+  that uses the current token. requirements.txt pins a flexible version
+  range (not an exact pin) specifically so `pip install` always picks up
+  the latest compatible release and self-heals from this class of
+  breakage without requiring a code change here.
+
 No required GitHub Secrets.
 """
 
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
@@ -54,6 +67,17 @@ _MALE_VOICES: List[str] = [
     "en-US-ChristopherNeural",
     "en-GB-RyanNeural",
 ]
+
+# A 403 on the WSS handshake means the pinned edge-tts package version is
+# using a stale TrustedClientToken — retrying within the same process with
+# the same package version will fail identically every time.
+_STALE_TOKEN_PATTERNS = [
+    r"\b403\b", r"\binvalid response status\b", r"\btrustedclienttoken\b",
+]
+
+
+def _matches_any(patterns, text: str) -> bool:
+    return any(re.search(p, text) for p in patterns)
 
 
 class EdgeTTSProvider(BaseProvider):
@@ -94,7 +118,9 @@ class EdgeTTSProvider(BaseProvider):
         gender: str = kwargs.get("voice_gender", "female").lower()
 
         if not text:
-            return ProviderResult.failure(self.provider_name, "Empty text received.")
+            return ProviderResult.failure(
+                self.provider_name, "Empty text received.", retriable=False
+            )
 
         # Resolve edge-tts voice name
         voice = self._resolve_voice(requested_voice, gender)
@@ -113,6 +139,26 @@ class EdgeTTSProvider(BaseProvider):
             finally:
                 loop.close()
         except Exception as exc:
+            err_lower = str(exc).lower()
+            if _matches_any(_STALE_TOKEN_PATTERNS, err_lower):
+                logger.error(
+                    "edge_tts_stale_trusted_client_token",
+                    error=str(exc),
+                    action_required=(
+                        "The installed edge-tts package version is using an "
+                        "outdated WSS TrustedClientToken that Microsoft has "
+                        "since rotated. Run: pip install --upgrade edge-tts "
+                        "and confirm requirements.txt pins a recent, flexible "
+                        "version range (e.g. edge-tts>=6.1.19,<7.0.0), not an "
+                        "exact stale version."
+                    ),
+                )
+                return ProviderResult.failure(
+                    self.provider_name,
+                    f"edge-tts synthesis error (stale TrustedClientToken — "
+                    f"package upgrade required): {exc}",
+                    retriable=False,
+                )
             return ProviderResult.failure(
                 self.provider_name, f"edge-tts synthesis error: {exc}"
             )
