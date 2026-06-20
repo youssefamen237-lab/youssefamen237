@@ -26,6 +26,25 @@ ProviderResult.data structure
   "format":      "mp3_44100_128",
 }
 
+Error classification
+──────────────────────
+ElevenLabs failures fall into two very different buckets, and conflating
+them wastes real time in a 5-shorts/day production loop:
+
+  PERMANENT (retriable=False, key blocked for the rest of this run)
+    • HTTP 402 "payment_required" / "paid_plan_required" — the configured
+      voice_id is a Voice Library (shared/community) voice, which ElevenLabs
+      restricts to paid-plan API access. This is an ACCOUNT-LEVEL
+      restriction: retrying — even with a different key — will fail
+      identically for every Library voice on every free-tier account.
+      See scripts/list_elevenlabs_voices.py to identify which configured
+      voice_id secrets are Library voices vs. account-accessible
+      (premade/cloned) voices.
+    • HTTP 401 "invalid_api_key" — the key itself is wrong/revoked.
+
+  TRANSIENT (retriable=True, default — normal backoff retry applies)
+    • HTTP 429 rate-limit, 5xx server errors, network timeouts.
+
 Required GitHub Secrets (Key 1 only)
 ──────────────────────────────────────
   ELEVEN_API_KEY
@@ -41,6 +60,7 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 from typing import Any, Dict, Optional
 
 import structlog
@@ -56,6 +76,26 @@ _MONTHLY_CHAR_LIMIT = 100_000
 
 _TTS_MODEL = "eleven_multilingual_v2"
 _OUTPUT_FORMAT = "mp3_44100_128"
+
+# ── Error classification patterns (word-boundary regex, not bare substring
+#    containment — a bare `"rate" in text` check is a known false-positive
+#    trap, see cascade/llm/gemini_provider.py for the exact bug this avoids) ──
+
+_PAYMENT_REQUIRED_PATTERNS = [
+    r"\b402\b", r"\bpayment_required\b", r"\bpaid_plan_required\b",
+    r"\bfree users cannot use library voices\b", r"\bupgrade your subscription\b",
+]
+_AUTH_PATTERNS = [
+    r"\b401\b", r"\binvalid_api_key\b", r"\bunauthorized\b",
+]
+_QUOTA_PATTERNS = [
+    r"\bquota\b", r"\b429\b", r"\brate[ _-]?limit\b", r"\bbilling\b",
+    r"\btoo many requests\b",
+]
+
+
+def _matches_any(patterns, text: str) -> bool:
+    return any(re.search(p, text) for p in patterns)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -77,12 +117,22 @@ class ElevenLabsBaseProvider(BaseProvider):
 
     def __init__(self) -> None:
         self._client: Optional[Any] = None
+        self._permanently_blocked: bool = False
 
     # ── Availability ──────────────────────────────────────────────────────────
 
     def is_available(self) -> bool:
         if not self.env_present(self._key_env):
             return False
+
+        # Once this key has hit a deterministic, account-level failure
+        # (402 payment-required, 401 invalid key) in this process, every
+        # subsequent call with the same voice_id will fail identically.
+        # Skip it immediately rather than re-attempting and re-failing on
+        # every video for the rest of the run.
+        if self._permanently_blocked:
+            return False
+
         # Soft quota check via Redis (non-blocking — if Redis fails we proceed)
         try:
             from storage.redis_client import get_redis
@@ -122,9 +172,13 @@ class ElevenLabsBaseProvider(BaseProvider):
         model_id: str = kwargs.get("model_id", _TTS_MODEL)
 
         if not text:
-            return ProviderResult.failure(self.provider_name, "Empty text received.")
+            return ProviderResult.failure(
+                self.provider_name, "Empty text received.", retriable=False
+            )
         if not voice_id:
-            return ProviderResult.failure(self.provider_name, "No voice_id provided.")
+            return ProviderResult.failure(
+                self.provider_name, "No voice_id provided.", retriable=False
+            )
 
         char_count = len(text)
 
@@ -136,13 +190,67 @@ class ElevenLabsBaseProvider(BaseProvider):
                 char_count=char_count,
             )
         except Exception as exc:
-            err_str = str(exc)
-            # Quota exceeded — mark key as exhausted in Redis
-            if any(kw in err_str.lower() for kw in ("quota", "429", "rate", "billing")):
-                self._mark_quota_exhausted()
-            return ProviderResult.failure(
-                self.provider_name, f"ElevenLabs API error (key {self._key_index}): {exc}"
+            return self._classify_and_fail(exc, voice_id)
+
+    def _classify_and_fail(self, exc: Exception, voice_id: str) -> ProviderResult:
+        """
+        Inspect the exception and return an appropriately-classified
+        ProviderResult. PERMANENT failures (402/401) block this key for the
+        rest of the run and skip the remaining retry attempts; TRANSIENT
+        failures (429/5xx/network) retry normally.
+        """
+        err_str = str(exc)
+        err_lower = err_str.lower()
+
+        if _matches_any(_PAYMENT_REQUIRED_PATTERNS, err_lower):
+            self._permanently_blocked = True
+            self._mark_key_unavailable()
+            logger.error(
+                "elevenlabs_voice_requires_paid_plan",
+                key_index=self._key_index,
+                voice_id=voice_id,
+                action_required=(
+                    "This voice_id is from the ElevenLabs Voice Library "
+                    "(shared/community voice), which requires a paid plan to "
+                    "access via the API. Free-tier accounts can only use "
+                    "premade default voices or voices you've cloned yourself. "
+                    "Run scripts/list_elevenlabs_voices.py with this account's "
+                    "API key to list which configured voice_id secrets are "
+                    "actually accessible, then update the corresponding "
+                    "ELEVENLABS_VOICE_ID_* GitHub Secret."
+                ),
             )
+            return ProviderResult.failure(
+                self.provider_name,
+                f"ElevenLabs API error (key {self._key_index}): {err_str}",
+                retriable=False,
+            )
+
+        if _matches_any(_AUTH_PATTERNS, err_lower):
+            self._permanently_blocked = True
+            logger.error(
+                "elevenlabs_key_invalid",
+                key_index=self._key_index,
+                action_required=f"Check the {self._key_env} GitHub Secret value.",
+            )
+            return ProviderResult.failure(
+                self.provider_name,
+                f"ElevenLabs API error (key {self._key_index}): {err_str}",
+                retriable=False,
+            )
+
+        if _matches_any(_QUOTA_PATTERNS, err_lower):
+            self._mark_key_unavailable()
+            return ProviderResult.failure(
+                self.provider_name,
+                f"ElevenLabs API error (key {self._key_index}): {err_str}",
+                retriable=False,   # quota won't refill within this run either
+            )
+
+        # Genuinely transient (network blip, 5xx, unexpected SDK error)
+        return ProviderResult.failure(
+            self.provider_name, f"ElevenLabs API error (key {self._key_index}): {err_str}"
+        )
 
     def _call_with_timestamps(
         self,
@@ -153,7 +261,9 @@ class ElevenLabsBaseProvider(BaseProvider):
     ) -> ProviderResult:
         """
         Call convert_with_timestamps() to get audio + character-level alignment.
-        Falls back to plain convert() if the timestamps endpoint fails.
+        Falls back to plain convert() if the timestamps endpoint fails for a
+        reason OTHER than payment/auth (those are deterministic and would
+        fail identically on the plain endpoint too — no point trying twice).
         """
         client = self._get_client()
 
@@ -183,6 +293,13 @@ class ElevenLabsBaseProvider(BaseProvider):
             )
 
         except Exception as ts_exc:
+            ts_err_lower = str(ts_exc).lower()
+            if _matches_any(_PAYMENT_REQUIRED_PATTERNS, ts_err_lower) or \
+               _matches_any(_AUTH_PATTERNS, ts_err_lower):
+                # Deterministic account-level failure — re-raise immediately,
+                # the plain convert() endpoint below would fail identically.
+                raise
+
             logger.warning(
                 "elevenlabs_timestamps_failed_fallback_to_plain",
                 key_index=self._key_index,
@@ -281,8 +398,10 @@ class ElevenLabsBaseProvider(BaseProvider):
             metadata=meta,
         )
 
-    def _mark_quota_exhausted(self) -> None:
-        """Force-fill the Redis quota counter so is_available() returns False."""
+    def _mark_key_unavailable(self) -> None:
+        """Force-fill the Redis quota counter so is_available() returns False
+        for this key on every subsequent call across the rest of this run
+        (and any other process sharing the same Redis instance)."""
         try:
             from storage.redis_client import get_redis
             get_redis().add_tts_chars_used(self._key_index, _MONTHLY_CHAR_LIMIT)
