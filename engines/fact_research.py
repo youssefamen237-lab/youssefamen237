@@ -2,7 +2,7 @@
 engines/fact_research.py
 """
 from __future__ import annotations
-import os
+import os, re
 from typing import Dict, List, Optional
 import requests, structlog
 from cascade.llm.llm_cascade import get_llm
@@ -22,6 +22,70 @@ _EXTRACT_SYSTEM = (
     "Only state facts that are directly supported by the provided source text. "
     "Do not fabricate, exaggerate, or embellish."
 )
+
+# ─────────────────────────────────────────────────────────────────────────────
+# fact_type normalization
+# ─────────────────────────────────────────────────────────────────────────────
+# The `facts` table enforces CONSTRAINT chk_facts_type — only these 14 values
+# are accepted at the database level (see data/schemas/supabase_schema.sql).
+# LLMs do not reliably follow enum constraints stated only in a prompt (e.g.
+# "environmental impact" was observed in production despite the prompt
+# listing valid options), so every fact_type is normalized server-side
+# before insert, regardless of what the LLM returned. This guarantees the
+# bulk_insert_facts() call can never fail on this constraint again.
+
+_ALLOWED_FACT_TYPES = frozenset({
+    "size", "speed", "intelligence", "danger", "hunting", "survival",
+    "family", "communication", "mystery", "record", "comparison",
+    "biology", "behavior", "habitat",
+})
+
+# Ordered keyword → canonical type map. Checked in order; first match wins.
+# Order matters where keywords could plausibly overlap (e.g. "hunting" is
+# checked before the broader "danger" bucket).
+_FACT_TYPE_KEYWORD_MAP: List[tuple] = [
+    ("hunting",       ("hunt", "prey", "predator", "stalk", "ambush")),
+    ("danger",        ("danger", "venom", "deadly", "lethal", "toxic", "threat", "attack", "kill", "poison")),
+    ("survival",      ("surviv", "adapt", "endure", "resilien", "extreme condition", "drought", "freez")),
+    ("communication",("communicat", "sound", "call", "signal", "vocal", "language", "song")),
+    ("intelligence",  ("intellig", "smart", "cognit", "brain", "problem-solv", "tool use", "learn")),
+    ("family",        ("famil", "social", "group", "pack", "pod", "herd", "colony", "offspring", "parent", "mate")),
+    ("speed",         ("speed", "fast", "velocity", "swift", "mph", "km/h", "rapid")),
+    ("size",          ("size", "weight", "length", "height", "mass", "largest", "smallest", "tiny", "giant", "massive", "huge")),
+    ("record",        ("record", "deepest", "highest", "oldest", "rarest", "extreme", "most ", "first ever", "only known")),
+    ("comparison",    ("compar", "versus", " vs ", "than any", "unlike", "more than", "less than")),
+    ("mystery",       ("mystery", "unknown", "unexplain", "puzzl", "still studying", "not fully understood")),
+    ("habitat",       ("habitat", "environment", "ecosystem", "climate", "region", "biome", "terrain", "rainforest", "ocean floor", "altitude")),
+    ("behavior",      ("behav", "habit", "routine", "pattern of", "instinct")),
+    ("biology",       ("biolog", "anatom", "organ", "physiolog", "metaboli", "cell", "gene", "species", "evolv")),
+]
+
+
+def _normalize_fact_type(raw: Optional[str], fact_text: str = "") -> str:
+    """
+    Map an arbitrary LLM-provided fact_type string to one of the 14 values
+    accepted by chk_facts_type. Falls back to keyword-matching against the
+    fact text itself if the type label doesn't map cleanly, and only
+    defaults to 'biology' as an absolute last resort.
+    """
+    candidate = (raw or "").strip().lower().replace("-", " ").replace("_", " ")
+
+    if candidate in _ALLOWED_FACT_TYPES:
+        return candidate
+
+    # Try keyword matching against the (possibly free-text) type label first
+    for canonical, keywords in _FACT_TYPE_KEYWORD_MAP:
+        if any(kw in candidate for kw in keywords):
+            return canonical
+
+    # Type label didn't match anything — try the fact text itself
+    text_lower = (fact_text or "").lower()
+    if text_lower:
+        for canonical, keywords in _FACT_TYPE_KEYWORD_MAP:
+            if any(kw in text_lower for kw in keywords):
+                return canonical
+
+    return "biology"
 
 
 class FactResearch:
@@ -153,7 +217,9 @@ Return JSON:
     ]
 }}
 
-Rules: only include facts directly supported by the text above. Prioritise surprising facts."""
+Rules: only include facts directly supported by the text above. Prioritise surprising facts.
+fact_type MUST be exactly one of these 14 values — no other word or phrase is valid:
+size, speed, intelligence, danger, hunting, survival, family, communication, mystery, record, comparison, biology, behavior, habitat"""
         try:
             data = self._llm.generate_json(prompt=prompt, system_prompt=_EXTRACT_SYSTEM, max_tokens=1600)
             return [f for f in data.get("facts", []) if f.get("fact_text")]
@@ -175,14 +241,22 @@ Return JSON: {{"facts":[{{"fact_text":"...","fact_type":"biology","curiosity_lev
     def _persist(self, topic_id: str, facts: List[Dict]) -> None:
         rows = []
         for f in facts:
-            if not f.get("fact_text"):
+            fact_text = f.get("fact_text")
+            if not fact_text:
                 continue
             src_name = f.get("source_name", "general_knowledge")
             src = self._db.get_source_by_name(src_name)
+            raw_type = f.get("fact_type", "biology")
+            normalized_type = _normalize_fact_type(raw_type, fact_text)
+            if normalized_type != str(raw_type or "").strip().lower():
+                logger.debug(
+                    "fact_type_normalized",
+                    raw=raw_type, normalized=normalized_type, fact=str(fact_text)[:60],
+                )
             rows.append({
                 "topic_id":        topic_id,
-                "fact_text":       str(f["fact_text"]),
-                "fact_type":       str(f.get("fact_type", "biology")),
+                "fact_text":       str(fact_text),
+                "fact_type":       normalized_type,
                 "curiosity_level": int(f.get("curiosity_level", 50)),
                 "visual_potential":60,
                 "evergreen_score": 90,
