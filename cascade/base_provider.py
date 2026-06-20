@@ -41,20 +41,36 @@ class ProviderResult:
     error         Human-readable description of the failure when success=False.
     metadata      Optional structured context: token counts, file size, duration,
                   model name, source URL, licence, etc.
+    retriable     Only meaningful when success=False.  True (default) means the
+                  failure might succeed on a fresh attempt (network blip,
+                  transient 5xx, momentary rate limit) and CascadeManager should
+                  retry with backoff per max_retries_per_provider.  False means
+                  the failure is deterministic for this process run (e.g. HTTP
+                  402 payment-required, an invalid/retired model name, a
+                  malformed request) — retrying with the same inputs will
+                  fail identically every time, so CascadeManager skips the
+                  remaining retry attempts and moves directly to the next
+                  provider, saving real wall-clock time in production runs.
     """
     success: bool
     data: Any
     provider_used: str
     error: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    retriable: bool = True
 
     def __bool__(self) -> bool:  # allows `if result:` shorthand
         return self.success
 
     @classmethod
-    def failure(cls, provider_name: str, error: str) -> "ProviderResult":
+    def failure(
+        cls, provider_name: str, error: str, retriable: bool = True
+    ) -> "ProviderResult":
         """Convenience constructor for a clean failure result."""
-        return cls(success=False, data=None, provider_used=provider_name, error=error)
+        return cls(
+            success=False, data=None, provider_used=provider_name,
+            error=error, retriable=retriable,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
