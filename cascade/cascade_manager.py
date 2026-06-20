@@ -87,6 +87,26 @@ class CircuitBreaker:
                 will_reset_in_seconds=self._timeout,
             )
 
+    def force_open(self, provider_name: str) -> None:
+        """
+        Immediately open the circuit for a provider that just returned a
+        deterministic, non-retriable failure (e.g. HTTP 402 payment-required,
+        invalid credentials). Unlike record_failure(), this does not wait for
+        failure_threshold separate calls — a single confirmed permanent
+        failure is enough to skip this provider for the remainder of the
+        reset_timeout window, sparing every subsequent video in this run
+        from repeating a failure that cannot possibly succeed.
+        """
+        if provider_name not in self._first_failure_at:
+            self._first_failure_at[provider_name] = time.time()
+        self._failures[provider_name] = self._threshold
+        logger.warning(
+            "circuit_breaker_force_opened",
+            provider=provider_name,
+            reason="non_retriable_failure",
+            will_reset_in_seconds=self._timeout,
+        )
+
     def record_success(self, provider_name: str) -> None:
         """Clear the failure record on a successful response."""
         if provider_name in self._failures:
@@ -221,6 +241,8 @@ class CascadeManager:
 
             # Provider failed all retries
             self.breaker.record_failure(pname)
+            if not result.retriable:
+                self.breaker.force_open(pname)
             self._attempt_log.append(
                 {"provider": pname, "outcome": "failed", "error": result.error}
             )
@@ -307,7 +329,20 @@ class CascadeManager:
                 max_retries=self.max_retries,
                 wait_seconds=wait_seconds,
                 error=result.error,
+                retriable=result.retriable,
             )
+
+            # Deterministic failure (e.g. HTTP 402, retired model, malformed
+            # request) — retrying with identical inputs will fail identically.
+            # Stop immediately instead of burning the remaining backoff cycles.
+            if not result.retriable:
+                logger.info(
+                    "cascade_non_retriable_failure_skip_remaining_attempts",
+                    provider=provider.provider_name,
+                    attempt=attempt,
+                    max_retries=self.max_retries,
+                )
+                break
 
             if attempt < self.max_retries:
                 time.sleep(wait_seconds)
