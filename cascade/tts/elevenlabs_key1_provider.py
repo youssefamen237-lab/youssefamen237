@@ -249,20 +249,31 @@ class ElevenLabsBaseProvider(BaseProvider):
 
         if _matches_any(_PAYMENT_REQUIRED_PATTERNS, err_lower):
             self._permanently_blocked = True
-            self._mark_key_unavailable()
+            # IMPORTANT: do NOT call _mark_key_unavailable() here. That writes
+            # to the Redis monthly character-quota counter, which persists
+            # until end-of-month — appropriate for genuine quota exhaustion,
+            # but wrong here: a 402 means THIS resolved voice_id isn't
+            # accessible to this key, not that the key's character budget is
+            # spent. Conflating the two previously caused multi-week false
+            # lockouts of all 3 keys after a single transient resolver miss.
+            # Scope of the block here is intentionally limited to:
+            #   - _permanently_blocked (in-process only, resets next run)
+            #   - retriable=False (force-opens the in-process circuit
+            #     breaker for the remaining ~5 min of THIS run only)
+            self._invalidate_voice_cache()
             logger.error(
                 "elevenlabs_voice_requires_paid_plan",
                 key_index=self._key_index,
                 voice_id=voice_id,
                 action_required=(
-                    "This voice_id is from the ElevenLabs Voice Library "
-                    "(shared/community voice), which requires a paid plan to "
-                    "access via the API. Free-tier accounts can only use "
-                    "premade default voices or voices you've cloned yourself. "
-                    "Run scripts/list_elevenlabs_voices.py with this account's "
-                    "API key to list which configured voice_id secrets are "
-                    "actually accessible, then update the corresponding "
-                    "ELEVENLABS_VOICE_ID_* GitHub Secret."
+                    "The dynamic voice resolver selected this voice_id but "
+                    "ElevenLabs still rejected it as a paid-plan-only Voice "
+                    "Library voice. This key's accessible-voices cache has "
+                    "been invalidated and will be re-fetched fresh on the "
+                    "next call. If this persists, run the "
+                    "'Diagnose ElevenLabs Voices' GitHub Actions workflow to "
+                    "verify this account has at least the default premade "
+                    "voices available."
                 ),
             )
             return ProviderResult.failure(
@@ -442,6 +453,16 @@ class ElevenLabsBaseProvider(BaseProvider):
             provider_used=self.provider_name,
             metadata=meta,
         )
+
+    def _invalidate_voice_cache(self) -> None:
+        """Force the voice resolver to re-fetch this key's accessible
+        voices on its next call, rather than trusting a possibly-stale
+        cached list that just produced an unexpected 402."""
+        try:
+            from cascade.tts.elevenlabs_voice_resolver import get_voice_resolver
+            get_voice_resolver().invalidate_cache(self._key_env)
+        except Exception:
+            pass
 
     def _mark_key_unavailable(self) -> None:
         """Force-fill the Redis quota counter so is_available() returns False
