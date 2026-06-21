@@ -11,8 +11,11 @@ Responsibilities
   2. Key ordering        Dynamically order the three ElevenLabs providers by
                          remaining quota (most quota first) so the key with the
                          most headroom is always tried first.
-  3. Cascade routing     Build and execute the CascadeManager with all four
-                         providers: ElevenLabs Key 1 → Key 2 → Key 3 → edge-tts.
+  3. Cascade routing     Build and execute the CascadeManager with all five
+                         providers: ElevenLabs Key 1 → Key 2 → Key 3 →
+                         edge-tts (free) → OpenAI TTS (small-cost, stable
+                         final fallback — see openai_tts_provider.py for
+                         why this final tier exists).
   4. Post-success hooks  Update Redis voice rotation state and record the
                          last-publish timestamp after a successful synthesis.
 
@@ -45,6 +48,7 @@ from cascade.tts.edge_tts_provider import EdgeTTSProvider
 from cascade.tts.elevenlabs_key1_provider import ElevenLabsKey1Provider
 from cascade.tts.elevenlabs_key2_provider import ElevenLabsKey2Provider
 from cascade.tts.elevenlabs_key3_provider import ElevenLabsKey3Provider
+from cascade.tts.openai_tts_provider import OpenAITTSProvider
 
 logger = structlog.get_logger(__name__)
 
@@ -110,6 +114,7 @@ class TTSCascade:
         self._key2 = ElevenLabsKey2Provider()
         self._key3 = ElevenLabsKey3Provider()
         self._edge = EdgeTTSProvider()
+        self._openai = OpenAITTSProvider()
 
     # ═════════════════════════════════════════════════════════════════════════
     # Public API
@@ -298,7 +303,12 @@ class TTSCascade:
 
         # EdgeTTSProvider needs the edge voice, not an ElevenLabs ID.
         # The provider resolves the edge voice internally from voice_gender kwarg.
-        return ordered_el + [self._edge]
+        # OpenAITTSProvider similarly resolves its own voice from voice_gender
+        # and ignores the ElevenLabs voice_id kwarg entirely. It is always
+        # last: free options (3 ElevenLabs keys, then edge-tts) are
+        # exhausted first; this small-cost-but-stable tier only activates
+        # when every free option has failed in the same run.
+        return ordered_el + [self._edge, self._openai]
 
     # ═════════════════════════════════════════════════════════════════════════
     # Post-success hooks
@@ -343,6 +353,7 @@ class TTSCascade:
             "female_voices_configured": len(female_ids),
             "male_voices_configured": len(male_ids),
             "edge_tts_available": self._edge.is_available(),
+            "openai_tts_available": self._openai.is_available(),
             "quota": quota,
             "voice_rotation": voice_state,
             "circuit_status": _SHARED_BREAKER.get_status(),
