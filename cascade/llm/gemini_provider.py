@@ -68,6 +68,18 @@ _MODEL_NOT_FOUND_PATTERNS = [
     r"\b404\b", r"\bnot found\b", r"\bis not supported for\b",
     r"\bmodel not found\b",
 ]
+# "limit: 0" in a 429 response means this API key's Google Cloud project has
+# ZERO free-tier quota provisioned for this model — not a temporary
+# per-minute exhaustion. No amount of waiting or retrying will ever
+# succeed; this is a permanent, account-level configuration problem
+# (commonly caused by a billing account being linked to the project
+# without the free tier being separately enabled, or the project/region
+# not being eligible for the Gemini free tier at all). Detected separately
+# from ordinary quota exhaustion so we can force_open the circuit
+# immediately instead of waiting for 3 separate strikes across 3 videos.
+_ZERO_QUOTA_PATTERNS = [
+    r"\blimit:\s*0\b", r"\blimit\s*=\s*0\b",
+]
 
 
 def _matches_any(patterns: List[str], text: str) -> bool:
@@ -171,6 +183,7 @@ class GeminiProvider(BaseProvider):
 
         candidate_models = [_MODEL_NAME, _FALLBACK_MODEL]
         saw_model_not_found = False
+        saw_zero_quota = False
         last_error_text = ""
 
         attempt_index = 0
@@ -248,9 +261,12 @@ class GeminiProvider(BaseProvider):
                     continue
 
                 if _matches_any(_QUOTA_PATTERNS, err_str):
+                    if _matches_any(_ZERO_QUOTA_PATTERNS, err_str):
+                        saw_zero_quota = True
                     logger.warning(
                         "gemini_quota_error_trying_fallback",
                         model=model_name,
+                        zero_quota=_matches_any(_ZERO_QUOTA_PATTERNS, err_str),
                         error=str(model_exc),
                     )
                     continue
@@ -315,10 +331,42 @@ class GeminiProvider(BaseProvider):
                 retriable=False,
             )
 
+        if saw_zero_quota:
+            logger.error(
+                "gemini_permanent_zero_quota",
+                action_required=(
+                    "This Gemini API key's Google Cloud project has a "
+                    "free-tier quota limit of ZERO for this model — this is "
+                    "a permanent project-level configuration issue, not a "
+                    "temporary rate limit, and will never succeed no matter "
+                    "how long it waits. Common causes: a billing account is "
+                    "linked to the project without the Generative Language "
+                    "API free tier being separately enabled, or the "
+                    "project/region is not eligible for the free tier. Fix: "
+                    "generate a fresh GEMINI_API_KEY from a clean Google AI "
+                    "Studio project (https://aistudio.google.com/apikey) "
+                    "with no billing account attached, or enable the free "
+                    "tier explicitly in Google Cloud Console for this "
+                    "project, then update the GEMINI_API_KEY GitHub Secret."
+                ),
+            )
+
+        # Both hardcoded models exhausted their quota. The inner loop above
+        # already represents the complete attempt for this call — retrying
+        # the SAME two models again via the outer cascade's 1-2s backoff is
+        # pointless (Google's own retry_delay hints in the 429 response are
+        # 7-14s, far longer than our backoff anyway). retriable=False stops
+        # the outer cascade from wasting that time and force-opens the
+        # circuit immediately, which is also correct here: whether this is
+        # a permanent zero-quota project or an ordinary per-minute window,
+        # the 300s circuit reset window is long enough for a real per-minute
+        # quota to naturally clear, so Gemini will be retried automatically
+        # on the next production run regardless of which case this was.
         return ProviderResult.failure(
             self.provider_name,
             f"Both Gemini models ({_MODEL_NAME} + {_FALLBACK_MODEL}) "
             f"returned empty or quota-exceeded responses. Last error: {last_error_text}",
+            retriable=False,
         )
 
     # ── Dynamic model discovery (self-healing fallback) ──────────────────────
