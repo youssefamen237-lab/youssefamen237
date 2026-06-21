@@ -163,21 +163,41 @@ class ElevenLabsBaseProvider(BaseProvider):
         """
         kwargs expected
         ───────────────
-        text        str  — narration text to synthesise
-        voice_id    str  — ElevenLabs voice ID (already resolved by coordinator)
-        model_id    str  — default "eleven_multilingual_v2"
+        text          str  — narration text to synthesise
+        voice_id      str  — preferred ElevenLabs voice ID (rotation choice).
+                             Treated as a PREFERENCE, not a hard requirement:
+                             if this specific key cannot access it (e.g. it's
+                             a Voice Library voice and this account is free
+                             tier), it is transparently replaced with the
+                             best gender-matching voice this key CAN access.
+                             See elevenlabs_voice_resolver.py.
+        voice_gender  str  — "female" or "male", used both for edge-tts
+                             fallback selection and for resolver gender
+                             matching when a substitution is needed.
+        model_id      str  — default "eleven_multilingual_v2"
         """
         text: str = kwargs.get("text", "").strip()
-        voice_id: str = kwargs.get("voice_id", "")
+        preferred_voice_id: str = kwargs.get("voice_id", "")
+        gender: str = kwargs.get("voice_gender", "female").lower()
         model_id: str = kwargs.get("model_id", _TTS_MODEL)
 
         if not text:
             return ProviderResult.failure(
                 self.provider_name, "Empty text received.", retriable=False
             )
-        if not voice_id:
+        if not preferred_voice_id:
             return ProviderResult.failure(
                 self.provider_name, "No voice_id provided.", retriable=False
+            )
+
+        voice_id = self._resolve_accessible_voice_id(preferred_voice_id, gender)
+        if not voice_id:
+            return ProviderResult.failure(
+                self.provider_name,
+                f"No accessible voice_id available for key {self._key_index} "
+                f"(configured voice_id '{preferred_voice_id}' is not accessible "
+                f"to this key and no substitute could be resolved).",
+                retriable=False,
             )
 
         char_count = len(text)
@@ -191,6 +211,31 @@ class ElevenLabsBaseProvider(BaseProvider):
             )
         except Exception as exc:
             return self._classify_and_fail(exc, voice_id)
+
+    def _resolve_accessible_voice_id(self, preferred_voice_id: str, gender: str) -> str:
+        """
+        Returns the voice_id this key should actually use. Falls back to
+        preferred_voice_id unchanged if dynamic resolution is unavailable
+        for any reason (Redis down, network error, etc.) — this method can
+        only improve voice selection, never make it worse than before this
+        resolver existed.
+        """
+        try:
+            from cascade.tts.elevenlabs_voice_resolver import get_voice_resolver
+            api_key = os.environ.get(self._key_env, "")
+            resolved = get_voice_resolver().resolve_best_voice_id(
+                key_env=self._key_env,
+                api_key=api_key,
+                gender=gender,
+                configured_voice_id=preferred_voice_id,
+            )
+            return resolved or preferred_voice_id
+        except Exception as exc:
+            logger.debug(
+                "elevenlabs_voice_resolution_skipped",
+                key_index=self._key_index, error=str(exc)[:100],
+            )
+            return preferred_voice_id
 
     def _classify_and_fail(self, exc: Exception, voice_id: str) -> ProviderResult:
         """
