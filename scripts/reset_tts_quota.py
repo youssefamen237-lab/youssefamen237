@@ -29,6 +29,18 @@ from __future__ import annotations
 import argparse
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
+
+# Running this file directly (`python scripts/reset_tts_quota.py`) sets
+# sys.path[0] to this script's own directory (scripts/), NOT the repo
+# root — so `storage.redis_client` is never importable no matter what the
+# current working directory is. Explicitly add the repo root (this
+# script's parent directory) to sys.path so internal imports resolve
+# correctly regardless of how this script is invoked: directly, via
+# `python -m`, via a GitHub Actions `run:` step, or from any cwd.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 
 def main() -> int:
