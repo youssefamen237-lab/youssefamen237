@@ -74,15 +74,20 @@ def main() -> int:
 
     cleared = 0
     for key_index in key_indices:
-        rkey = RK.tts_quota(key_index, month=month)
         before = redis.get_tts_chars_used(key_index)
-        deleted = redis.delete(rkey)
+        # Use set_tts_chars_used (absolute SET, not INCRBY) so this is
+        # idempotent and race-condition-free: if _mark_key_unavailable() fires
+        # concurrently in a production run, it now also uses SET 100_000 —
+        # the reset's SET 0 wins atomically regardless of ordering, and no
+        # leftover INCRBY accumulation can resurrect the block.
+        redis.set_tts_chars_used(key_index, 0)
         after = redis.get_tts_chars_used(key_index)
-        status = "CLEARED" if deleted else "already empty"
+        status = "CLEARED" if before > 0 else "was already 0"
         print(f"  key_index={key_index}  before={before:>7} chars  ->  after={after:>7} chars  [{status}]")
-        cleared += deleted
+        if before > 0:
+            cleared += 1
 
-    print(f"\n{cleared}/{len(key_indices)} counter(s) actually contained data and were cleared.")
+    print(f"\n{cleared}/{len(key_indices)} counter(s) had data and were cleared.")
     print("Re-run the Daily Production workflow now — affected keys are immediately usable again.")
     return 0
 
