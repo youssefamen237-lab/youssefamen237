@@ -465,12 +465,20 @@ class ElevenLabsBaseProvider(BaseProvider):
             pass
 
     def _mark_key_unavailable(self) -> None:
-        """Force-fill the Redis quota counter so is_available() returns False
-        for this key on every subsequent call across the rest of this run
-        (and any other process sharing the same Redis instance)."""
+        """
+        Block this key for the rest of the calendar month by setting its
+        monthly usage counter to the configured limit.
+
+        Uses set_tts_chars_used() (idempotent absolute SET) rather than
+        add_tts_chars_used() (INCRBY) so that calling this method multiple
+        times — e.g. once per video in a 5-video batch — always results in
+        exactly _MONTHLY_CHAR_LIMIT in Redis, never a multiple of it. This
+        makes the reset script's set_tts_chars_used(key, 0) a reliable,
+        race-condition-free way to unblock the key at any time.
+        """
         try:
             from storage.redis_client import get_redis
-            get_redis().add_tts_chars_used(self._key_index, _MONTHLY_CHAR_LIMIT)
+            get_redis().set_tts_chars_used(self._key_index, _MONTHLY_CHAR_LIMIT)
         except Exception:
             pass
 
