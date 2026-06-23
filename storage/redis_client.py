@@ -256,6 +256,33 @@ class RedisClient:
         val = self.r.get(RK.tts_quota(key_index))
         return int(val) if val else 0
 
+    def set_tts_chars_used(self, key_index: int, char_count: int) -> None:
+        """
+        Idempotent absolute SET of a TTS key's monthly usage counter.
+
+        Unlike add_tts_chars_used() which uses INCRBY (accumulating), this
+        uses SET — making it safe to call multiple times with the same value
+        without accumulating.  Used by two callers:
+
+          • _mark_key_unavailable(): SET to _MONTHLY_CHAR_LIMIT to block the
+            key for the rest of the month.  Idempotent: calling this 3× (once
+            per failed video in a batch) still results in exactly
+            _MONTHLY_CHAR_LIMIT, never 3 × _MONTHLY_CHAR_LIMIT.
+
+          • reset_tts_quota.py: SET to 0 to immediately unblock the key.
+            Idempotent: running the reset script multiple times in rapid
+            succession (or concurrently with a production run) still results
+            in exactly 0, not a race-condition artefact.
+
+        The expiry is always set to the last second of the current calendar
+        month so the key auto-cleans even if the reset script is never run.
+        """
+        rkey = RK.tts_quota(key_index)
+        pipe = self.r.pipeline(transaction=True)
+        pipe.set(rkey, char_count)
+        pipe.expireat(rkey, self._end_of_month_unix())
+        pipe.execute()
+
     def add_tts_chars_used(self, key_index: int, char_count: int) -> int:
         """Atomically add char_count to a TTS key's monthly usage. Returns new total."""
         rkey = RK.tts_quota(key_index)
