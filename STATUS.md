@@ -1,6 +1,6 @@
 # Channel War Room
 
-_Last updated: 2026-06-22 11:10 UTC_
+_Last updated: 2026-06-23 08:40 UTC_
 
 ## Content Buffer & Queue Health
 
@@ -8,11 +8,11 @@ _Last updated: 2026-06-22 11:10 UTC_
 |---|---|
 | Shorts ready | 0 |
 | Long-form ready | 0 |
-| In production | 13 |
+| In production | 15 |
 | Failed (24h) | 0 |
 | Rejected (24h) | 0 |
 | Topics available | 355 |
-| Facts ready | 129 |
+| Facts ready | 149 |
 
 ## Performance (Last 7 / 30 Days)
 
@@ -42,5 +42,7 @@ _No data available yet._
 
 ## Latest Channel Operating System Decision
 
-_No COS review has run yet._
+**Run at:** 2026-06-22T12:14:55.846340+00:00
+
+**Summary:** No changes — insufficient data, locked rules, or already optimal.
 
