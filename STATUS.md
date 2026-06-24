@@ -1,6 +1,6 @@
 # Channel War Room
 
-_Last updated: 2026-06-23 08:40 UTC_
+_Last updated: 2026-06-24 08:37 UTC_
 
 ## Content Buffer & Queue Health
 
@@ -10,9 +10,9 @@ _Last updated: 2026-06-23 08:40 UTC_
 | Long-form ready | 0 |
 | In production | 15 |
 | Failed (24h) | 0 |
-| Rejected (24h) | 0 |
+| Rejected (24h) | 1 |
 | Topics available | 355 |
-| Facts ready | 149 |
+| Facts ready | 159 |
 
 ## Performance (Last 7 / 30 Days)
 
