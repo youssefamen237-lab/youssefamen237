@@ -140,6 +140,17 @@ class Publisher:
 
         if topic_id:
             self._db.mark_topic_published(topic_id, video_type)
+            # Set the full post-publish cooldown in Redis NOW that the video is
+            # confirmed uploaded.  topic_selector.select_next() no longer sets
+            # this — it only sets a short 4-hour in-flight lock to prevent
+            # within-run duplicates.  Setting it here means failed runs never
+            # permanently lock out topics (the 4-hour lock expires automatically).
+            try:
+                if topic:
+                    cooldown_days = int(topic.get("cooldown_days", 30))
+                    self._redis.set_topic_cooldown(topic_id, cooldown_days)
+            except Exception as exc:
+                logger.warning("post_publish_cooldown_failed", topic_id=str(topic_id)[:8], error=str(exc)[:80])
 
         try:
             self._redis.record_last_publish(video_type)
