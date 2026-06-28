@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 import structlog
 from storage.supabase_client import get_db
-from storage.redis_client import get_redis
+from storage.redis_client import get_redis, RK
 
 logger = structlog.get_logger(__name__)
 
@@ -15,6 +15,19 @@ _DEFAULT_WEIGHTS: Dict[str, int] = {
     "ocean": 30, "animals": 25, "space": 20,
     "nature": 15, "birds": 7,  "insects": 3,
 }
+
+# How long a topic is locked out after being SELECTED (not published).
+# This prevents the same topic being picked twice within a single batch run
+# (e.g., two concurrent workflow dispatches overlapping).  It is intentionally
+# short because it exists only to protect against within-run collisions — the
+# permanent post-publish cooldown (cooldown_days, typically 30 d) is set by
+# engines/publisher.py once the video is actually confirmed uploaded.
+# If the run FAILS, this short lock expires automatically and the topic is
+# immediately eligible for the next run, unlike the old behaviour where the
+# full 30-day cooldown was set at selection time even if the video was never
+# made.
+_IN_FLIGHT_COOLDOWN_HOURS = 4
+_IN_FLIGHT_COOLDOWN_SECONDS = _IN_FLIGHT_COOLDOWN_HOURS * 3600
 
 
 @dataclass
@@ -28,6 +41,7 @@ class TopicSelection:
     computed_value:     int               = 0
     curiosity_score:    int               = 50
     visual_availability: int              = 50
+    cooldown_days:      int               = 30
 
 
 class TopicSelector:
@@ -44,7 +58,6 @@ class TopicSelector:
     ) -> TopicSelection:
         exclude_ids = list(exclude_ids or [])
 
-        # Also exclude topics on Redis cooldown (belt-and-suspenders with DB cooldown)
         weights  = self._load_weights()
         attempts = 0
         max_attempts = 6
@@ -55,14 +68,21 @@ class TopicSelector:
             topic    = self._db.get_next_topic(category=category, exclude_ids=exclude_ids)
 
             if topic:
-                # Double-check Redis cooldown
+                # Skip if another process already picked this topic in the
+                # last _IN_FLIGHT_COOLDOWN_HOURS hours.
                 if self._redis.is_topic_on_cooldown(topic["topic_id"]):
                     exclude_ids.append(topic["topic_id"])
                     continue
 
-                # Set Redis cooldown
-                cooldown = int(topic.get("cooldown_days", 30))
-                self._redis.set_topic_cooldown(topic["topic_id"], cooldown)
+                # Set a SHORT in-flight lock only (not the full cooldown).
+                # The real post-publish cooldown is set by publisher.py.
+                self._redis.r.setex(
+                    RK.topic_cooldown(topic["topic_id"]),
+                    _IN_FLIGHT_COOLDOWN_SECONDS,
+                    "1",
+                )
+
+                cooldown_days = int(topic.get("cooldown_days", 30))
 
                 logger.info(
                     "topic_selected",
@@ -80,6 +100,7 @@ class TopicSelector:
                     computed_value=int(topic.get("computed_value") or 0),
                     curiosity_score=int(topic.get("curiosity_score", 50)),
                     visual_availability=int(topic.get("visual_availability", 50)),
+                    cooldown_days=cooldown_days,
                 )
 
             # No topic in this category — try another
@@ -93,7 +114,8 @@ class TopicSelector:
 
         raise RuntimeError(
             "No eligible topics found in any category. "
-            "Seed the topic bank via data/seeds/seed_topics.py."
+            "Run 'Actions → Clear Topic Cooldowns' to reset Redis cooldowns, "
+            "or seed the topic bank via data/seeds/seed_topics.py."
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────────
