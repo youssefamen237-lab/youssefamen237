@@ -1,0 +1,27 @@
+name: Clear Topic Cooldowns
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  clear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Clear topic cooldowns
+        env:
+          REDIS_CACHE: ${{ secrets.REDIS_CACHE }}
+        run: python scripts/clear_topic_cooldowns.py
