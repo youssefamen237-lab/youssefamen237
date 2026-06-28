@@ -49,6 +49,11 @@ class ProductionBatchSummary:
     buffer_after:     Dict[str, int] = field(default_factory=dict)
     consecutive_failures: int = 0
     halted_reason:    Optional[str] = None
+    # Per-failure diagnostic detail — always shown in the Actions log JSON so
+    # engineers never have to scroll through thousands of log lines to find
+    # the root cause of a halted batch.  Each entry is
+    # {"attempt": N, "error": "<message>"}.
+    failure_details:  List[Dict] = field(default_factory=list)
 
 
 @dataclass
@@ -92,6 +97,11 @@ class BatchRunner:
             if result is None or not result.success:
                 summary.shorts_failed += 1
                 consecutive_failures += 1
+                error_msg = getattr(result, "error", None) or "unknown error"
+                summary.failure_details.append({
+                    "attempt": summary.shorts_attempted,
+                    "error": str(error_msg)[:400],
+                })
             elif result.status == "approved":
                 summary.shorts_approved += 1
                 consecutive_failures = 0
@@ -244,8 +254,12 @@ class BatchRunner:
         try:
             return fn()
         except Exception as exc:
-            logger.error("pipeline_run_exception", context=context, error=str(exc)[:200])
-            return None
+            logger.error("pipeline_run_exception", context=context, error=str(exc)[:400])
+            # Return a synthetic failed PipelineResult so the batch loop can
+            # capture the error message in failure_details without needing a
+            # second return path.
+            from pipelines.short_pipeline import PipelineResult as PR
+            return PR(success=False, status="failed", error=str(exc)[:400])
 
     def _load_rule(self, category_fallback: str, rule_name: str, default: Dict) -> Dict:
         try:
