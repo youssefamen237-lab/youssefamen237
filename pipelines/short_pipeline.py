@@ -47,6 +47,7 @@ class PipelineResult:
     status:        Optional[str] = None   # "approved" | "rejected" | "duplicate_retry" | "failed"
     quality_score: Optional[int] = None
     reason:        Optional[str] = None
+    error:         Optional[str] = None   # set on failure; surfaces in batch summary failure_details
 
 
 class ShortPipeline:
