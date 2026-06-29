@@ -97,7 +97,11 @@ class BatchRunner:
             if result is None or not result.success:
                 summary.shorts_failed += 1
                 consecutive_failures += 1
-                error_msg = getattr(result, "error", None) or "unknown error"
+                error_msg = (
+                    getattr(result, "error", None)
+                    or getattr(result, "reason", None)
+                    or "unknown error"
+                )
                 summary.failure_details.append({
                     "attempt": summary.shorts_attempted,
                     "error": str(error_msg)[:400],
