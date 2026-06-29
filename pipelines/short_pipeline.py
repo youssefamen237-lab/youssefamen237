@@ -90,7 +90,7 @@ class ShortPipeline:
             try:
                 topic = self._topic_sel.select_next(video_type="short", exclude_ids=excluded_topics)
             except RuntimeError as exc:
-                return PipelineResult(False, status="failed", reason=str(exc))
+                return PipelineResult(False, status="failed", reason=str(exc), error=str(exc)[:400])
 
             policy = self._policy.check_topic(topic.topic_name, topic.category)
             if not policy.allowed:
@@ -125,7 +125,7 @@ class ShortPipeline:
         except Exception as exc:
             logger.error("short_pipeline_exception", queue_id=queue_id[:8], error=str(exc)[:300])
             self._db.log_job_error(queue_id, "pipeline", str(exc)[:500])
-            return PipelineResult(False, queue_id=queue_id, status="failed", reason=str(exc)[:300])
+            return PipelineResult(False, queue_id=queue_id, status="failed", reason=str(exc)[:300], error=str(exc)[:400])
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
 
