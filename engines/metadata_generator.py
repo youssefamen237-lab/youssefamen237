@@ -59,11 +59,14 @@ class MetadataGenerator:
         hashtags    = self._select_hashtags(topic_name, category)
         tags        = [h.lstrip("#") for h in hashtags]
 
-        # Register title to avoid near-duplicates in next runs
-        try:
-            self._redis.register_title(title, ttl_days=60)
-        except Exception:
-            pass
+        # NOTE: Title is NOT registered here.
+        # Registration happens exclusively in protection/duplicate_guard.register(),
+        # which short_pipeline.py calls at line 267 ONLY after all quality gates
+        # pass and the video is confirmed approved. Registering here (before the
+        # pipeline's check_title() call at line 222) caused a self-poisoning loop:
+        # every topic's title was written to Redis by generate(), then immediately
+        # detected as a duplicate by check_title(), exhausting all 5 retry attempts
+        # on every single video and producing 100% "Exhausted topic attempts" failures.
 
         logger.info("metadata_generated", topic=topic_name, title=title[:60])
         return MetadataResult(
