@@ -3,12 +3,20 @@ protection/visual_verifier.py
 
 Confirms that fetched media actually depicts the requested topic
 (e.g. a clip labelled "lion" genuinely shows a lion, not a tiger or
-an empty savanna).  Uses Gemini 1.5 Flash multimodal vision directly —
+an empty savanna).  Uses Gemini multimodal vision directly —
 this is independent of the text-only LLM cascade.
 
 Failure modes degrade gracefully: if Gemini Vision is unavailable or
 errors out, the verifier returns a neutral pass (confidence=50,
 is_match=True) so the pipeline is never blocked by this check alone.
+
+Model selection
+───────────────
+Uses gemini-2.0-flash (current) with gemini-2.0-flash-lite as
+fallback. gemini-1.5-flash was retired in 2025 and returns 404;
+the old hardcoded reference caused 5 vision_call_failed log entries
+per video, which added log noise and failed to provide the content
+verification the architecture requires.
 """
 from __future__ import annotations
 import json, os, subprocess, tempfile
@@ -20,7 +28,17 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 _MIN_MATCH_CONFIDENCE = 55
-_VISION_MODEL = "gemini-1.5-flash"
+
+# Primary and fallback vision models. Both are tried before giving up.
+# If both return 404 ("not found" / "not supported"), is_available()
+# will still return True — the verifier degrades gracefully to a neutral
+# pass rather than blocking the pipeline.
+_VISION_MODEL         = "gemini-2.0-flash"
+_VISION_FALLBACK      = "gemini-2.0-flash-lite"
+
+# Error patterns that indicate a stale model name rather than a
+# transient API failure — we try the fallback model on these.
+_MODEL_NOT_FOUND_LOWER = ("404", "not found", "not supported", "is not found")
 
 
 @dataclass
@@ -60,7 +78,7 @@ class VisualVerifier:
         try:
             return self._call_vision(image_bytes, topic_name, category)
         except Exception as exc:
-            logger.debug("vision_call_failed", error=str(exc)[:80])
+            logger.warning("vision_call_failed", error=str(exc)[:120])
             return VerificationResult(True, 50, "unknown", "vision_call_failed")
 
     def verify_batch(
@@ -152,31 +170,60 @@ class VisualVerifier:
             f'Return ONLY JSON: {{"detected_subject":"...","is_match":true/false,"confidence":0-100}}'
         )
 
-        model = genai.GenerativeModel(_VISION_MODEL)
-        response = model.generate_content(
-            [prompt, {"mime_type": "image/jpeg", "data": image_bytes}],
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-                max_output_tokens=150,
-                temperature=0.2,
-            ),
+        gen_cfg = genai.GenerationConfig(
+            response_mime_type="application/json",
+            max_output_tokens=150,
+            temperature=0.2,
         )
 
-        if not response.candidates:
-            return VerificationResult(True, 50, "unknown", "vision_no_candidates")
+        last_exc: Optional[Exception] = None
+        for model_name in (_VISION_MODEL, _VISION_FALLBACK):
+            try:
+                model    = genai.GenerativeModel(model_name)
+                response = model.generate_content(
+                    [prompt, {"mime_type": "image/jpeg", "data": image_bytes}],
+                    generation_config=gen_cfg,
+                )
 
-        raw = response.text.strip()
-        if raw.startswith("```"):
-            raw = raw.strip("`")
-            if raw.lower().startswith("json"):
-                raw = raw[4:].strip()
+                if not response.candidates:
+                    return VerificationResult(True, 50, "unknown", "vision_no_candidates")
 
-        data = json.loads(raw)
-        confidence = int(data.get("confidence", 50))
-        is_match   = bool(data.get("is_match", confidence >= _MIN_MATCH_CONFIDENCE))
-        subject    = str(data.get("detected_subject", "unknown"))
+                raw = response.text.strip()
+                if raw.startswith("```"):
+                    raw = raw.strip("`")
+                    if raw.lower().startswith("json"):
+                        raw = raw[4:].strip()
 
-        return VerificationResult(is_match, confidence, subject, "vision_checked")
+                data       = json.loads(raw)
+                confidence = int(data.get("confidence", 50))
+                is_match   = bool(data.get("is_match", confidence >= _MIN_MATCH_CONFIDENCE))
+                subject    = str(data.get("detected_subject", "unknown"))
+                return VerificationResult(is_match, confidence, subject, "vision_checked")
+
+            except Exception as exc:
+                last_exc = exc
+                err_lower = str(exc).lower()
+                if any(p in err_lower for p in _MODEL_NOT_FOUND_LOWER):
+                    logger.warning(
+                        "vision_model_not_found_trying_fallback",
+                        model=model_name, error=str(exc)[:120],
+                    )
+                    continue
+                # Non-model-not-found error — re-raise so caller can degrade gracefully
+                raise
+
+        # Both models returned "not found" — degrade gracefully
+        logger.warning(
+            "vision_all_models_unavailable",
+            tried=[_VISION_MODEL, _VISION_FALLBACK],
+            last_error=str(last_exc)[:120],
+            action_required=(
+                "Both Gemini vision models returned model-not-found. "
+                "The visual verifier is passing all checks by default. "
+                "Generate a fresh GEMINI_API_KEY from https://aistudio.google.com/apikey"
+            ),
+        )
+        return VerificationResult(True, 50, "unknown", "vision_all_models_unavailable")
 
 
 _instance: Optional[VisualVerifier] = None
