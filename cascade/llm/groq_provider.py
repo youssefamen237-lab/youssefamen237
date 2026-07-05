@@ -1,7 +1,7 @@
 """
 cascade/llm/groq_provider.py
 
-LLM Provider: Groq  (Llama 3.3 70B Versatile)
+LLM Provider: Groq  (Llama 3.3 70B Versatile, with live fallbacks)
 Priority: 2nd — extremely fast inference, generous free tier
 
 Capabilities
@@ -9,6 +9,17 @@ Capabilities
   • Text generation
   • JSON mode (response_format={"type":"json_object"})
   • Very high throughput (tokens/s)
+
+Model selection
+────────────────
+Groq periodically retires model IDs (llama-3.1-70b-versatile was
+decommissioned in 2025; llama3-70b-8192 before that). Decommissioned
+models return HTTP 400 with code="model_decommissioned" or
+"invalid_request_error". This error is now detected and treated as
+"try next model" rather than "return failure", which was the old
+behaviour that prematurely exhausted the retry budget, opened the
+circuit breaker after 3 fast failures, and locked out Groq for the
+rest of the batch even while llama-3.3-70b-versatile was healthy.
 
 Required GitHub Secret
 ──────────────────────
@@ -27,17 +38,31 @@ from cascade.base_provider import BaseProvider, ProviderResult
 
 logger = structlog.get_logger(__name__)
 
-# Model priority within this provider (try in order on quota/rate errors)
+# Current active Groq models, tried in priority order.
+# llama-3.1-70b-versatile and llama3-70b-8192 were removed because
+# Groq decommissioned them; they returned 400 model_decommissioned
+# on every call, causing the cascade to waste retry budget and
+# open the circuit breaker on a non-transient error.
 _MODELS: List[str] = [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-70b-versatile",
-    "llama3-70b-8192",
+    "llama-3.3-70b-versatile",   # primary: best quality, active
+    "llama-3.1-8b-instant",      # fast fallback, active
+    "gemma2-9b-it",               # Google Gemma fallback, active on Groq
 ]
+
+# Error patterns that mean "this model is permanently gone — try the next
+# one in the list" rather than "return failure for this whole provider".
+_DECOMMISSIONED_PATTERNS = (
+    "model_decommissioned", "invalid_request_error",
+    "is no longer supported", "has been decommissioned",
+)
+
+# Rate-limit / quota patterns — also skip to next model
+_RATE_PATTERNS = ("rate_limit", "429", "quota", "too many", "tokens per")
 
 
 class GroqProvider(BaseProvider):
     """
-    Groq cloud LLM provider using Llama 3.3 70B.
+    Groq cloud LLM provider using Llama 3.3 70B with live model fallbacks.
     Client is created lazily to avoid import errors when the secret is absent.
     """
 
@@ -80,12 +105,12 @@ class GroqProvider(BaseProvider):
         temperature: float = float(kwargs.get("temperature", 0.7))
 
         if not prompt.strip():
-            return ProviderResult.failure(self.provider_name, "Empty prompt received.")
+            return ProviderResult.failure(
+                self.provider_name, "Empty prompt received.", retriable=False
+            )
 
         is_json = response_format == "json"
-
         messages = self._build_messages(prompt, system_prompt, is_json)
-
         client = self._get_client()
 
         for model in _MODELS:
@@ -127,21 +152,31 @@ class GroqProvider(BaseProvider):
                         success=True, data=data,
                         provider_used=self.provider_name, metadata=meta,
                     )
-                else:
-                    return ProviderResult(
-                        success=True, data=raw_text.strip(),
-                        provider_used=self.provider_name, metadata=meta,
-                    )
+                return ProviderResult(
+                    success=True, data=raw_text.strip(),
+                    provider_used=self.provider_name, metadata=meta,
+                )
 
             except Exception as exc:
-                err_str = str(exc).lower()
-                if any(kw in err_str for kw in ("rate_limit", "429", "quota", "too many")):
+                err_lower = str(exc).lower()
+
+                if any(p in err_lower for p in _DECOMMISSIONED_PATTERNS):
+                    # Permanently unavailable model — skip to next without counting
+                    # this as a provider-level failure (no circuit-breaker credit burned).
                     logger.warning(
-                        "groq_rate_limit_trying_next_model",
-                        model=model,
-                        error=str(exc),
+                        "groq_model_decommissioned_trying_next",
+                        model=model, error=str(exc)[:120],
                     )
                     continue
+
+                if any(p in err_lower for p in _RATE_PATTERNS):
+                    logger.warning(
+                        "groq_rate_limit_trying_next_model",
+                        model=model, error=str(exc)[:120],
+                    )
+                    continue
+
+                # Unrecognised / non-transient error — fail fast, let cascade try next provider
                 return ProviderResult.failure(
                     self.provider_name, f"Groq error ({model}): {exc}"
                 )
@@ -162,7 +197,7 @@ class GroqProvider(BaseProvider):
             if is_json
             else "You are a helpful, concise assistant."
         )
-        messages = [
+        return [
             {
                 "role": "system",
                 "content": (system_prompt or default_system)
@@ -170,4 +205,3 @@ class GroqProvider(BaseProvider):
             },
             {"role": "user", "content": prompt},
         ]
-        return messages
