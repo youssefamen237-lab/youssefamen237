@@ -134,18 +134,38 @@ class TogetherProvider(BaseProvider):
                     )
 
             except Exception as exc:
-                err_str = str(exc).lower()
-                if any(kw in err_str for kw in ("rate", "429", "quota", "capacity", "overload", "busy")):
+                err_lower = str(exc).lower()
+
+                # HTTP 402 credit_limit — account has no billing credits.
+                # All 3 models will fail identically; stop immediately and
+                # force-open the circuit so no video in this batch wastes
+                # time on Together AI. This is a billing fix, not a code fix.
+                if "credit_limit" in err_lower or (
+                    "402" in err_lower and "credit" in err_lower
+                ):
+                    logger.error(
+                        "together_credit_limit_exhausted",
+                        action_required=(
+                            "Together AI account has no credits. "
+                            "Add credits at https://api.together.ai/settings/billing"
+                        ),
+                    )
+                    return ProviderResult.failure(
+                        self.provider_name,
+                        f"Together AI credit limit exceeded: {exc}",
+                        retriable=False,
+                    )
+
+                if any(kw in err_lower for kw in ("rate", "429", "quota", "capacity", "overload", "busy")):
                     logger.warning(
                         "together_rate_error_next_model",
-                        model=model,
-                        error=str(exc),
+                        model=model, error=str(exc)[:120],
                     )
                     continue
+
                 logger.warning(
                     "together_model_error_next_model",
-                    model=model,
-                    error=str(exc),
+                    model=model, error=str(exc)[:120],
                 )
                 continue
 
