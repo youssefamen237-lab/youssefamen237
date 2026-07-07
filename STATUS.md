@@ -1,16 +1,16 @@
 # Channel War Room
 
-_Last updated: 2026-07-06 09:14 UTC_
+_Last updated: 2026-07-07 08:47 UTC_
 
 ## Content Buffer & Queue Health
 
 | Metric | Value |
 |---|---|
-| Shorts ready | 0 |
+| Shorts ready | 7 |
 | Long-form ready | 0 |
 | In production | 44 |
-| Failed (24h) | 0 |
-| Rejected (24h) | 2 |
+| Failed (24h) | 1 |
+| Rejected (24h) | 3 |
 | Topics available | 355 |
 | Facts ready | 189 |
 
@@ -18,9 +18,9 @@ _Last updated: 2026-07-06 09:14 UTC_
 
 | Metric | Value |
 |---|---|
-| Published today | 0 |
-| Published (7d) | 0 |
-| Total published (lifetime) | 0 |
+| Published today | 2 |
+| Published (7d) | 2 |
+| Total published (lifetime) | 2 |
 | Views (7d) | 0 |
 | Avg retention (7d) | 0% |
 | Avg CTR (7d) | 0% |
@@ -30,7 +30,10 @@ _Last updated: 2026-07-06 09:14 UTC_
 
 ## Category Performance (Last 30 Days)
 
-_No data available yet._
+| Category | Videos | Avg Views | Avg Retention | Avg CTR | Revenue |
+|---|---|---|---|---|---|
+| birds | 0 | 0 | 0.0% | 0.0% | $0.0 |
+| space | 0 | 0 | 0.0% | 0.0% | $0.0 |
 
 ## Monetization Progress
 
@@ -42,7 +45,7 @@ _No data available yet._
 
 ## Latest Channel Operating System Decision
 
-**Run at:** 2026-06-29T11:10:49.892996+00:00
+**Run at:** 2026-07-06T10:48:21.118896+00:00
 
 **Summary:** No changes — insufficient data, locked rules, or already optimal.
 
