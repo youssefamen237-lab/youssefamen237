@@ -1,26 +1,26 @@
 # Channel War Room
 
-_Last updated: 2026-07-07 08:47 UTC_
+_Last updated: 2026-07-08 07:43 UTC_
 
 ## Content Buffer & Queue Health
 
 | Metric | Value |
 |---|---|
-| Shorts ready | 7 |
+| Shorts ready | 9 |
 | Long-form ready | 0 |
 | In production | 44 |
-| Failed (24h) | 1 |
-| Rejected (24h) | 3 |
+| Failed (24h) | 6 |
+| Rejected (24h) | 5 |
 | Topics available | 355 |
-| Facts ready | 189 |
+| Facts ready | 199 |
 
 ## Performance (Last 7 / 30 Days)
 
 | Metric | Value |
 |---|---|
 | Published today | 2 |
-| Published (7d) | 2 |
-| Total published (lifetime) | 2 |
+| Published (7d) | 4 |
+| Total published (lifetime) | 4 |
 | Views (7d) | 0 |
 | Avg retention (7d) | 0% |
 | Avg CTR (7d) | 0% |
@@ -33,6 +33,8 @@ _Last updated: 2026-07-07 08:47 UTC_
 | Category | Videos | Avg Views | Avg Retention | Avg CTR | Revenue |
 |---|---|---|---|---|---|
 | birds | 0 | 0 | 0.0% | 0.0% | $0.0 |
+| insects | 0 | 0 | 0.0% | 0.0% | $0.0 |
+| ocean | 0 | 0 | 0.0% | 0.0% | $0.0 |
 | space | 0 | 0 | 0.0% | 0.0% | $0.0 |
 
 ## Monetization Progress
