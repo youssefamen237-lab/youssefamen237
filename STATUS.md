@@ -1,15 +1,15 @@
 # Channel War Room
 
-_Last updated: 2026-07-09 08:50 UTC_
+_Last updated: 2026-07-10 08:46 UTC_
 
 ## Content Buffer & Queue Health
 
 | Metric | Value |
 |---|---|
-| Shorts ready | 3 |
+| Shorts ready | 0 |
 | Long-form ready | 0 |
-| In production | 47 |
-| Failed (24h) | 6 |
+| In production | 50 |
+| Failed (24h) | 3 |
 | Rejected (24h) | 1 |
 | Topics available | 355 |
 | Facts ready | 199 |
@@ -18,7 +18,7 @@ _Last updated: 2026-07-09 08:50 UTC_
 
 | Metric | Value |
 |---|---|
-| Published today | 2 |
+| Published today | 0 |
 | Published (7d) | 6 |
 | Total published (lifetime) | 6 |
 | Views (7d) | 0 |
@@ -42,8 +42,8 @@ _Last updated: 2026-07-09 08:50 UTC_
 
 | Metric | Value |
 |---|---|
-| Subscribers | 29 / 1000 (need 971 more) |
-| Watch hours (365d) | 146.07 / 4000 (need 3853.93 more) |
+| Subscribers | 30 / 1000 (need 970 more) |
+| Watch hours (365d) | 146.1 / 4000 (need 3853.9 more) |
 | Eligible for standard monetization | ❌ Not yet |
 
 ## Latest Channel Operating System Decision
