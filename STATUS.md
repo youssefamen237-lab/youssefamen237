@@ -1,6 +1,6 @@
 # Channel War Room
 
-_Last updated: 2026-07-13 08:29 UTC_
+_Last updated: 2026-07-14 07:23 UTC_
 
 ## Content Buffer & Queue Health
 
@@ -8,7 +8,7 @@ _Last updated: 2026-07-13 08:29 UTC_
 |---|---|
 | Shorts ready | 0 |
 | Long-form ready | 0 |
-| In production | 60 |
+| In production | 63 |
 | Failed (24h) | 0 |
 | Rejected (24h) | 1 |
 | Topics available | 355 |
@@ -48,7 +48,7 @@ _Last updated: 2026-07-13 08:29 UTC_
 
 ## Latest Channel Operating System Decision
 
-**Run at:** 2026-07-06T10:48:21.118896+00:00
+**Run at:** 2026-07-13T09:37:12.809081+00:00
 
 **Summary:** No changes — insufficient data, locked rules, or already optimal.
 
